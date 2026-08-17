@@ -11,6 +11,8 @@ Responsive React and TypeScript mock frontend for the BinSight Malaysian citizen
 
 The entered National ID and OTP are never written to local storage. A generated demonstration user ID and login state are persisted so the user remains signed in.
 
+Waste-report images are compressed in the browser and saved with the local demonstration report. They remain visible after submission and reload. Use fictional images only.
+
 ## Run locally
 
 From the project folder, double-click `Start-BinSight.cmd`. It starts the localhost server and opens the site in a browser. Dependencies must already be installed.
@@ -38,3 +40,7 @@ Playwright covers the full login-to-payout and issue-reporting journeys at deskt
 ## Prototype controls
 
 Open `Account` and expand `Demo controls` to choose the next station-detected item, force an accepted or rejected result, and simulate one failed payment. `Reset demo data` restores the original sessions, reports, methods, notifications and settings.
+
+## Stored data
+
+The citizen store uses `binsight-demo-v1` with internal schema version 3. Startup migrations preserve older records and create a pre-migration backup for version 1 or 2 data. See `../docs/DATA_PRESERVATION.md` before changing the schema or adding the admin store.

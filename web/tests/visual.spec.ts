@@ -40,6 +40,17 @@ test('captures responsive visual QA surfaces', async ({ page }, testInfo) => {
   await page.locator('.local-server-panel').scrollIntoViewIfNeeded()
   await page.locator('.local-server-panel').screenshot({ path: 'test-results/visual/server-control-desktop.png' })
 
+  await page.goto('/report')
+  await page.getByLabel('Category').selectOption('Overflowing public bin')
+  await page.getByLabel('Issue location').fill('Visual review location, Petaling Jaya')
+  await page.getByLabel('Description').fill('Visual review report with a locally stored image attachment for layout verification.')
+  await page.locator('input[type="file"]').setInputFiles('public/images/binsight-smart-station.webp')
+  await expect(page.getByAltText('Preview of binsight-smart-station.webp')).toBeVisible()
+  await page.getByRole('button', { name: /submit report/i }).click()
+  await expect(page.getByAltText('Report attachment binsight-smart-station.webp')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+  await page.screenshot({ path: 'test-results/visual/report-attachment-desktop.png' })
+
   await page.setViewportSize({ width: 768, height: 1024 })
   await page.goto('/')
   await expectNoHorizontalOverflow(page)

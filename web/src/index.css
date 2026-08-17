@@ -549,6 +549,11 @@ input[type='checkbox'], input[type='radio'] { width: 18px; min-height: 18px; acc
 .detail-block > p { font-size: 16px; }
 .attachment-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .attachment-chips span { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; background: #e9eeec; font-size: 11px; }
+.report-attachment-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.report-attachment-gallery figure { min-width: 0; margin: 0; border: 1px solid var(--steel); background: white; }
+.report-attachment-gallery img { width: 100%; aspect-ratio: 4 / 3; display: block; object-fit: cover; background: #e9eeec; }
+.report-attachment-gallery figcaption { min-height: 38px; display: flex; align-items: center; gap: 7px; padding: 8px 10px; overflow: hidden; color: var(--muted); font-size: 11px; }
+.report-attachment-gallery figcaption svg { width: 15px; height: 15px; color: var(--blue); }
 .service-update { display: flex; gap: 14px; padding: 16px; border-left: 4px solid var(--blue); background: var(--blue-soft); }
 .service-update p { margin: 3px 0 0; }
 .demo-advance { display: flex; align-items: center; gap: 12px; padding: 15px; border: 1px dashed var(--steel-dark); background: #eef1f0; }
@@ -718,6 +723,8 @@ input[type='checkbox'], input[type='radio'] { width: 18px; min-height: 18px; acc
 .support-options small { color: var(--muted); }
 
 .offline-banner { position: fixed; z-index: 200; left: 50%; top: 10px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 9px 13px; background: var(--amber); color: #2f240e; box-shadow: var(--shadow); font-weight: 600; font-size: 12px; }
+.storage-banner { position: fixed; z-index: 201; left: 50%; top: 10px; width: min(720px, calc(100% - 24px)); transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border: 1px solid #df999d; background: var(--red-soft); color: #7b252a; box-shadow: var(--shadow); font-weight: 600; font-size: 12px; text-align: center; }
+.offline-banner + .storage-banner { top: 58px; }
 .not-found { min-height: 100vh; display: grid; place-items: center; align-content: center; padding: 30px; text-align: center; }
 .not-found > span { color: var(--blue); font-family: var(--mono); font-size: 11px; }
 .not-found h1 { max-width: 600px; margin-top: 14px; }
@@ -874,6 +881,7 @@ input[type='checkbox'], input[type='radio'] { width: 18px; min-height: 18px; acc
   .report-status-track small { margin-top: -16px; }
   .report-detail-grid { grid-template-columns: 1fr; }
   .report-detail-grid > div { border-right: 0; }
+  .report-attachment-gallery { grid-template-columns: 1fr; }
   .demo-advance { align-items: flex-start; flex-wrap: wrap; }
   .demo-advance > span { width: calc(100% - 36px); }
   .demo-advance .button { width: 100%; }

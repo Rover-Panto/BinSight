@@ -8,6 +8,8 @@ The proposal, supporting research, document-generation scripts, and responsive c
 
 ## Repository contents
 
+- `docs/`: project state, admin integration, and data-preservation contracts
+- `BinSight_UI_Design_Language.txt`: citizen and admin interface rules
 - `outputs/`: current proposal documents and review material
 - `scripts/`: proposal and document-generation scripts
 - `work/binsight_assets/`: project-owned visual assets
@@ -21,4 +23,4 @@ The interface covers National ID and mock OTP login, beverage returns at RM0.20 
 
 All identities, payouts, service reports, and contact details in the prototype will be simulated.
 
-See `web/README.md` for local development, test, and demonstration instructions.
+Start with `docs/PROJECT_STATE.md` before changing routes or stored data. See `CONTRIBUTING.md` for collaboration rules and `web/README.md` for local development, test, and demonstration instructions.

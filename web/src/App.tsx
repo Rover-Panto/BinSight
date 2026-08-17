@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { WifiOff } from 'lucide-react'
+import { DatabaseBackup, WifiOff } from 'lucide-react'
 import { AppShell } from './components/AppShell'
 import { LoginPage, VerifyPage } from './pages/AuthPages'
 import { AccountPage, HistoryPage, HomePage, NotificationsPage, PayoutMethodsPage } from './pages/HomeAccountPages'
@@ -30,6 +30,19 @@ function OfflineBanner() {
   return <div className="offline-banner" role="status"><WifiOff /> Offline mode · saved demonstration data remains available</div>
 }
 
+function StorageBanner() {
+  const { storageStatus } = useStore()
+  if (storageStatus === 'ready') return null
+  const message = storageStatus === 'future-version'
+    ? 'Saved data uses a newer schema. This version has not overwritten it.'
+    : storageStatus === 'read-failed'
+      ? 'Saved data could not be read. The original browser record remains untouched.'
+      : storageStatus === 'backup-failed'
+        ? 'A migration backup could not be created. The original browser record remains untouched.'
+      : 'Browser storage is full or unavailable. New changes may not survive a reload.'
+  return <div className="storage-banner" role="alert"><DatabaseBackup /> {message}</div>
+}
+
 function NotFoundPage() {
   return <div className="not-found"><span>404 / ROUTE</span><h1>This service page is unavailable.</h1><p>The address may have changed or the demonstration route does not exist.</p><a className="button primary" href="/">Return home</a></div>
 }
@@ -38,6 +51,7 @@ export default function App() {
   return (
     <>
       <OfflineBanner />
+      <StorageBanner />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/verify" element={<VerifyPage />} />

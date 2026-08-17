@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
@@ -42,5 +42,39 @@ describe('BinSight frontend', () => {
     expect(await screen.findByRole('heading', { name: /barcode could not be read/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /add another item/i })).toBeInTheDocument()
     expect(screen.getAllByText('RM0.00').length).toBeGreaterThan(0)
+  })
+
+  it('migrates version 2 records without losing reports and keeps a backup', async () => {
+    const legacy = structuredClone(createDefaultData()) as unknown as {
+      version: number
+      auth: { authenticated: boolean; userId: string | null }
+      reports: Array<Record<string, unknown>>
+    }
+    legacy.version = 2
+    legacy.auth = { authenticated: false, userId: 'preserved-user' }
+    legacy.reports.forEach((report) => delete report.attachments)
+    const legacyJson = JSON.stringify(legacy)
+    localStorage.setItem('binsight-demo-v1', legacyJson)
+
+    renderApp('/login')
+
+    await waitFor(() => {
+      const migrated = JSON.parse(localStorage.getItem('binsight-demo-v1') ?? '{}')
+      expect(migrated.version).toBe(3)
+      expect(migrated.auth.userId).toBe('preserved-user')
+      expect(migrated.reports).toHaveLength(2)
+      expect(migrated.reports[0].attachments).toEqual([])
+    })
+    expect(localStorage.getItem('binsight-demo-backup-v2')).toBe(legacyJson)
+  })
+
+  it('does not overwrite data from a newer schema', async () => {
+    const futureJson = JSON.stringify({ version: 99, marker: 'preserve-me' })
+    localStorage.setItem('binsight-demo-v1', futureJson)
+
+    renderApp('/login')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/newer schema/i)
+    expect(localStorage.getItem('binsight-demo-v1')).toBe(futureJson)
   })
 })

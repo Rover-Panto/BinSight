@@ -42,3 +42,28 @@ test('resident submits and tracks a waste issue', async ({ page }) => {
   await expect(page.getByText('Illegal dumping or litter')).toBeVisible()
   await expect(page.getByText('Jalan Universiti bus stop, Petaling Jaya')).toBeVisible()
 })
+
+test('report images remain viewable after submission and reload', async ({ page }) => {
+  await login(page)
+  await page.goto('/report')
+  await page.getByLabel('Category').selectOption('Overflowing public bin')
+  await page.getByLabel('Issue location').fill('Community park entrance, Petaling Jaya')
+  await page.getByLabel('Description').fill('The public bin is overflowing beside the park entrance and loose packaging is reaching the footpath.')
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'overflow-evidence.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZK0sAAAAASUVORK5CYII=', 'base64'),
+  })
+
+  const preview = page.getByAltText('Preview of overflow-evidence.png')
+  await expect(preview).toBeVisible()
+  await expect.poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
+
+  await page.getByRole('button', { name: /submit report/i }).click()
+  const savedImage = page.getByAltText('Report attachment overflow-evidence.png')
+  await expect(savedImage).toBeVisible()
+  await page.reload()
+  await expect(savedImage).toBeVisible()
+  await expect.poll(() => savedImage.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
+})

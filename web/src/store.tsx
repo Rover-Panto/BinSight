@@ -15,37 +15,61 @@ import {
   type ItemType,
   type MethodType,
   type PayoutMethod,
+  type ReportAttachment,
   type WasteReport,
 } from './model'
 
 const STORAGE_KEY = 'binsight-demo-v1'
+type StoredReport = Omit<WasteReport, 'attachments'> & { attachments?: ReportAttachment[] }
+type StoredAppData = Omit<AppData, 'version' | 'settings' | 'reports'> & {
+  version: number
+  settings: Partial<AppSettings> & { reminders?: boolean }
+  reports: StoredReport[]
+}
+export type StorageStatus = 'ready' | 'future-version' | 'read-failed' | 'backup-failed' | 'write-failed'
+interface LoadResult {
+  data: AppData
+  storageStatus: StorageStatus
+}
 
-const loadData = (): AppData => {
+const loadData = (): LoadResult => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return createDefaultData()
-    const parsed = JSON.parse(stored) as Omit<AppData, 'version' | 'settings'> & {
-      version: number
-      settings: Partial<AppSettings> & { reminders?: boolean }
+    if (!stored) return { data: createDefaultData(), storageStatus: 'ready' }
+    const parsed = JSON.parse(stored) as StoredAppData
+    if (![1, 2, 3].includes(parsed.version)) {
+      return { data: createDefaultData(), storageStatus: 'future-version' }
     }
-    if (parsed.version === 2) return parsed as AppData
-    if (parsed.version === 1) {
-      const defaults = createDefaultData()
-      return {
+
+    if (parsed.version < 3 && !localStorage.getItem(`binsight-demo-backup-v${parsed.version}`)) {
+      try {
+        localStorage.setItem(`binsight-demo-backup-v${parsed.version}`, stored)
+      } catch {
+        return { data: createDefaultData(), storageStatus: 'backup-failed' }
+      }
+    }
+
+    const defaults = createDefaultData()
+    return {
+      storageStatus: 'ready',
+      data: {
         ...defaults,
         ...parsed,
-        version: 2,
+        version: 3,
+        reports: parsed.reports.map((report) => ({
+          ...report,
+          attachments: report.attachments ?? [],
+        })),
         settings: {
           ...defaults.settings,
           ...parsed.settings,
-          nearbyBinAlerts: parsed.settings.reminders ?? true,
+          nearbyBinAlerts: parsed.settings.nearbyBinAlerts ?? parsed.settings.reminders ?? true,
           nextItemType: parsed.settings.nextItemType ?? 'Can',
         },
-      }
+      },
     }
-    return createDefaultData()
   } catch {
-    return createDefaultData()
+    return { data: createDefaultData(), storageStatus: 'read-failed' }
   }
 }
 
@@ -56,10 +80,12 @@ interface NewReport {
   observedAt: string
   hazardous: boolean
   imageNames: string[]
+  attachments: ReportAttachment[]
 }
 
 interface StoreValue {
   data: AppData
+  storageStatus: StorageStatus
   login: () => void
   logout: () => void
   createReturn: () => string
@@ -83,14 +109,23 @@ interface StoreValue {
 const StoreContext = createContext<StoreValue | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<AppData>(loadData)
+  const [initial] = useState(loadData)
+  const [data, setData] = useState<AppData>(initial.data)
+  const [storageStatus, setStorageStatus] = useState<StorageStatus>(initial.storageStatus)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  }, [data])
+    if (storageStatus === 'future-version' || storageStatus === 'read-failed' || storageStatus === 'backup-failed') return
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      if (storageStatus === 'write-failed') setStorageStatus('ready')
+    } catch {
+      setStorageStatus('write-failed')
+    }
+  }, [data, storageStatus])
 
   const value = useMemo<StoreValue>(() => ({
     data,
+    storageStatus,
     login: () =>
       setData((current) => ({
         ...current,
@@ -293,7 +328,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...createDefaultData(),
         auth: current.auth,
       })),
-  }), [data])
+  }), [data, storageStatus])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

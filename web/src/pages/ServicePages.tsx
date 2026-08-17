@@ -27,13 +27,51 @@ import {
   Truck,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, Field, InlineNotice, PageHeading, SectionHeading, StatusBadge } from '../components/UI'
-import { classifyDisposal, disposalCategories, formatDateTime, reportCategories, reportStatuses, serviceLocations } from '../model'
+import { classifyDisposal, disposalCategories, formatDateTime, reportCategories, reportStatuses, serviceLocations, type ReportAttachment } from '../model'
 import { useStore } from '../store'
 
 const statusTone = (status: string) => status === 'Resolved' ? 'success' : status === 'Assigned' ? 'warning' : 'info'
+const supportedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const maxStoredImageLength = 900_000
+
+const readImageFile = (file: Blob) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Image could not be read.'))
+  reader.onerror = () => reject(new Error('Image could not be read.'))
+  reader.readAsDataURL(file)
+})
+
+const loadImage = (source: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+  const image = new Image()
+  image.onload = () => resolve(image)
+  image.onerror = () => reject(new Error('Image format could not be opened.'))
+  image.src = source
+})
+
+const renderStoredImage = (image: HTMLImageElement, maxDimension: number, quality: number) => {
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Image processing is unavailable in this browser.')
+  context.drawImage(image, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/webp', quality)
+}
+
+const prepareReportAttachment = async (file: File): Promise<ReportAttachment> => {
+  if (!supportedImageTypes.has(file.type)) throw new Error(`${file.name} is not a JPG, PNG or WEBP image.`)
+  const source = await readImageFile(file)
+  const image = await loadImage(source)
+  let dataUrl = renderStoredImage(image, 1400, 0.78)
+  if (dataUrl.length > maxStoredImageLength) dataUrl = renderStoredImage(image, 1000, 0.6)
+  if (dataUrl.length > maxStoredImageLength) throw new Error(`${file.name} is too large to store safely in this prototype.`)
+  const mimeType = dataUrl.slice(5, dataUrl.indexOf(';'))
+  return { id: crypto.randomUUID(), name: file.name, mimeType, dataUrl }
+}
 
 export function ReportIssuePage() {
   const { createReport } = useStore()
@@ -43,26 +81,28 @@ export function ReportIssuePage() {
   const [description, setDescription] = useState('')
   const [observedAt, setObservedAt] = useState(() => new Date().toISOString().slice(0, 16))
   const [hazardous, setHazardous] = useState(false)
-  const [files, setFiles] = useState<Array<{ name: string; url: string }>>([])
+  const [files, setFiles] = useState<ReportAttachment[]>([])
+  const [processingImages, setProcessingImages] = useState(false)
+  const [imageError, setImageError] = useState('')
   const [locationStatus, setLocationStatus] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  useEffect(() => () => files.forEach((file) => URL.revokeObjectURL(file.url)), [files])
-
-  const addFiles = (list: FileList | null) => {
+  const addFiles = async (list: FileList | null) => {
     if (!list) return
     const remaining = 3 - files.length
-    const next = Array.from(list).slice(0, remaining).map((file) => ({ name: file.name, url: URL.createObjectURL(file) }))
-    setFiles((current) => [...current, ...next])
+    const selected = Array.from(list).slice(0, remaining)
+    if (!selected.length) return
+    setProcessingImages(true)
+    setImageError('')
+    const results = await Promise.allSettled(selected.map(prepareReportAttachment))
+    const prepared = results.filter((result): result is PromiseFulfilledResult<ReportAttachment> => result.status === 'fulfilled').map((result) => result.value)
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (failure) setImageError(failure.reason instanceof Error ? failure.reason.message : 'One image could not be prepared.')
+    if (prepared.length) setFiles((current) => [...current, ...prepared].slice(0, 3))
+    setProcessingImages(false)
   }
 
-  const removeFile = (name: string) => {
-    setFiles((current) => {
-      const target = current.find((file) => file.name === name)
-      if (target) URL.revokeObjectURL(target.url)
-      return current.filter((file) => file.name !== name)
-    })
-  }
+  const removeFile = (id: string) => setFiles((current) => current.filter((file) => file.id !== id))
 
   const locate = () => {
     setLocationStatus('Locating…')
@@ -88,7 +128,7 @@ export function ReportIssuePage() {
     if (description.trim().length < 20) nextErrors.description = 'Add at least 20 characters so the issue can be assessed.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
-    const id = createReport({ category, location, description, observedAt: new Date(observedAt).toISOString(), hazardous, imageNames: files.map((file) => file.name) })
+    const id = createReport({ category, location, description, observedAt: new Date(observedAt).toISOString(), hazardous, imageNames: files.map((file) => file.name), attachments: files })
     navigate(`/reports/${id}`, { state: { submitted: true } })
   }
 
@@ -116,10 +156,10 @@ export function ReportIssuePage() {
           </Field>
 
           <section className="form-section"><span className="form-step">03</span><div><h2>Evidence and description</h2><p>Add photos only when it is safe.</p></div></section>
-          <Field label="Photos" hint={`${files.length}/3 images selected. Images are previewed locally and are not uploaded.`}>
-            <label className="file-drop"><ImagePlus /><span><strong>Add up to three photos</strong><small>JPG, PNG or WEBP demonstration files</small></span><input type="file" accept="image/*" multiple onChange={(event) => addFiles(event.target.files)} disabled={files.length >= 3} /></label>
+          <Field label="Photos" hint={`${files.length}/3 images selected. Compressed copies are kept with this local report.`} error={imageError}>
+            <label className="file-drop"><ImagePlus /><span><strong>{processingImages ? 'Preparing images...' : 'Add up to three photos'}</strong><small>JPG, PNG or WEBP demonstration files</small></span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => void addFiles(event.target.files)} disabled={files.length >= 3 || processingImages} /></label>
           </Field>
-          {files.length > 0 && <div className="image-preview-list">{files.map((file) => <figure key={file.name}><img src={file.url} alt={`Preview of ${file.name}`} /><figcaption>{file.name}</figcaption><button type="button" onClick={() => removeFile(file.name)} aria-label={`Remove ${file.name}`}><X /></button></figure>)}</div>}
+          {files.length > 0 && <div className="image-preview-list">{files.map((file) => <figure key={file.id}><img src={file.dataUrl} alt={`Preview of ${file.name}`} /><figcaption>{file.name}</figcaption><button type="button" onClick={() => removeFile(file.id)} aria-label={`Remove ${file.name}`}><X /></button></figure>)}</div>}
           <Field label="Description" hint={`${description.length}/500 characters`} error={errors.description}>
             <textarea value={description} onChange={(event) => { setDescription(event.target.value.slice(0, 500)); setErrors((current) => ({ ...current, description: '' })) }} placeholder="Describe what happened, where the waste is located and whether access is blocked." rows={6} />
           </Field>
@@ -168,7 +208,7 @@ export function ReportDetailPage() {
       <section className="report-detail-grid">
         <div><small>Location</small><strong>{report.location}</strong></div><div><small>Observed</small><strong>{formatDateTime(report.observedAt)}</strong></div><div><small>Submitted</small><strong>{formatDateTime(report.createdAt)}</strong></div><div><small>Safety flag</small><strong>{report.hazardous ? 'Potential hazard' : 'No hazard reported'}</strong></div>
       </section>
-      <section className="detail-block"><SectionHeading title="Resident description" /><p>{report.description}</p>{report.imageNames.length > 0 && <div className="attachment-chips">{report.imageNames.map((name) => <span key={name}><Camera /> {name}</span>)}</div>}</section>
+      <section className="detail-block"><SectionHeading title="Resident description" /><p>{report.description}</p>{report.attachments.length > 0 ? <div className="report-attachment-gallery">{report.attachments.map((attachment) => <figure key={attachment.id}><img src={attachment.dataUrl} alt={`Report attachment ${attachment.name}`} /><figcaption><Camera /> {attachment.name}</figcaption></figure>)}</div> : report.imageNames.length > 0 && <div className="attachment-chips">{report.imageNames.map((name) => <span key={name}><Camera /> {name}</span>)}</div>}</section>
       <section className="detail-block"><SectionHeading title="Service update" /><div className="service-update"><Truck /><div><strong>{report.status === 'Resolved' ? 'Work marked complete' : report.status === 'Assigned' ? 'Assigned to collection operations' : 'Report is being reviewed'}</strong><p>{report.status === 'Resolved' ? 'This demonstration report has reached its final state.' : 'Updates will appear here and in Notifications as the report progresses.'}</p></div></div></section>
       {report.status !== 'Resolved' && <div className="demo-advance"><FlaskConical /><span><strong>Presentation control</strong><small>Advance this mock report to demonstrate tracking.</small></span><button className="button secondary" type="button" onClick={() => advanceReport(report.id)}>Advance status <ArrowRight /></button></div>}
       {report.status === 'Resolved' && <section className="resolution-actions"><div><h2>Was this issue resolved?</h2><p>Rate the simulated service response or reopen the report.</p></div><div className="star-rating" aria-label="Rate service">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className={(report.rating ?? 0) >= value ? 'active' : ''} onClick={() => { rateReport(report.id, value); setRated(true) }} aria-label={`${value} stars`}><Star /></button>)}</div>{rated && <StatusBadge tone="success">Rating saved</StatusBadge>}<button className="button secondary" type="button" onClick={() => reopenReport(report.id)}>Reopen report</button></section>}

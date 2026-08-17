@@ -31,6 +31,13 @@ export interface PayoutMethod {
   isDefault: boolean
 }
 
+export interface ReportAttachment {
+  id: string
+  name: string
+  mimeType: string
+  dataUrl: string
+}
+
 export interface WasteReport {
   id: string
   category: string
@@ -39,6 +46,7 @@ export interface WasteReport {
   observedAt: string
   hazardous: boolean
   imageNames: string[]
+  attachments: ReportAttachment[]
   status: ReportStatus
   createdAt: string
   rating?: number
@@ -63,7 +71,7 @@ export interface AppSettings {
 }
 
 export interface AppData {
-  version: 2
+  version: 3
   auth: {
     authenticated: boolean
     userId: string | null
@@ -106,7 +114,7 @@ const hoursAgo = (hours: number) =>
   new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString()
 
 export const createDefaultData = (): AppData => ({
-  version: 2,
+  version: 3,
   auth: { authenticated: false, userId: null },
   returns: [
     {
@@ -167,6 +175,7 @@ export const createDefaultData = (): AppData => ({
       observedAt: hoursAgo(28),
       hazardous: false,
       imageNames: ['overflow-location.jpg'],
+      attachments: [],
       status: 'Assigned',
       createdAt: hoursAgo(27.5),
     },
@@ -178,6 +187,7 @@ export const createDefaultData = (): AppData => ({
       observedAt: hoursAgo(170),
       hazardous: false,
       imageNames: [],
+      attachments: [],
       status: 'Resolved',
       createdAt: hoursAgo(169),
       rating: 4,

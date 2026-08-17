@@ -1,0 +1,267 @@
+BINSIGHT UI DESIGN LANGUAGE
+Reusable implementation brief for Codex
+
+PURPOSE
+
+Use this design language to build a modern civic or operational website that feels industrial, sustainable, trustworthy, and technically competent. Preserve the visual character and interaction principles, but adapt all page content, navigation, and workflows to the new product. Do not copy BinSight-specific text unless the new project is BinSight.
+
+CORE EXPERIENCE
+
+- Put the user's immediate task first. The first screen should answer: "What can I do here?"
+- Prefer a small number of obvious actions over dashboards full of labels and status cards.
+- Use plain, direct language. Avoid greetings, marketing slogans, AI buzzwords, and explanatory filler.
+- Show system details only when they help the user make a decision.
+- Keep routine actions fast, with clear feedback and a visible next step.
+- Make the interface feel like a reliable public utility, not a promotional landing page.
+
+AESTHETIC DIRECTION
+
+Industrial civic glass:
+
+- Dark graphite structural surfaces.
+- Monash-inspired blue as the primary action and navigation accent.
+- Sustainable green for successful or environmentally positive states.
+- White and cool concrete backgrounds for clarity.
+- Thin steel-grey borders, square geometry, restrained shadows, and selective glass effects.
+- Sharp, engineered composition with small radii. Never use pill-shaped cards or playful bubbles.
+- Use one strong dark task surface as the main visual gesture. Keep surrounding sections quiet.
+- No decorative gradient orbs, beige palettes, purple themes, oversized marketing heroes, or ornamental illustrations.
+
+DESIGN TOKENS
+
+Colours:
+
+- Primary blue: #006DAE
+- Dark blue: #00527F
+- Soft blue: #E7F2F8
+- Graphite: #171D20
+- Secondary graphite: #242C30
+- Concrete background: #F3F5F3
+- Paper surface: #FFFFFF
+- Steel border: #D7DDDC
+- Dark steel border: #AAB5B4
+- Main text: #172126
+- Muted text: #5F6B70
+- Sustainable green: #2F7D5B
+- Soft green: #E7F2EC
+- Teal: #287F83
+- Soft teal: #E3F1F1
+- Warning amber: #D99A24
+- Soft amber: #FFF3DA
+- Error red: #C64045
+- Soft red: #FBE9EA
+
+Typography:
+
+- Primary family: Barlow, with Segoe UI and sans-serif fallbacks.
+- Technical labels and references: JetBrains Mono, with Consolas and monospace fallbacks.
+- Page title: 36px desktop, 30px mobile, weight 600, line-height about 1.05.
+- Main task heading: 28-32px, weight 600.
+- Section heading: 18-22px, weight 600.
+- Body: 14-16px, line-height 1.5-1.6.
+- Small technical labels: 9-11px in the mono family, usually uppercase.
+- Letter spacing must remain 0. Do not compress text with negative tracking.
+
+Geometry and depth:
+
+- Default radius: 4-6px.
+- Repeated item cards may use up to 6px radius.
+- Use 1px borders on most surfaces.
+- Use a 4-6px coloured left rule to identify important sections or states.
+- Default shadow: 0 14px 40px rgba(23, 29, 32, 0.09).
+- Shadows should be selective. Most operational panels rely on borders, not elevation.
+- Glass effects are reserved for sticky navigation, overlays, and focused command surfaces.
+
+Spacing scale:
+
+- 4px: icon and micro-label spacing.
+- 8px: compact control spacing.
+- 12px: row and field spacing.
+- 16px: standard internal padding.
+- 20-24px: panel padding.
+- 32-40px: major section spacing.
+- Desktop content padding: about 40px.
+- Mobile content padding: 16px.
+
+PAGE STRUCTURE
+
+Desktop shell:
+
+- Fixed dark graphite sidebar, approximately 220-236px wide.
+- Product mark and name at the top.
+- Primary navigation in the middle with icons and concise labels.
+- Support links and prototype or environment information at the bottom.
+- Active navigation uses a darker panel and a bright blue left rule.
+- A slim sticky top bar contains utility icons such as chat, notifications, and account.
+- Do not repeat the page title or breadcrumb in the top bar when the page already has a clear heading.
+- Main content width should be constrained to roughly 1200-1240px.
+
+Mobile shell:
+
+- Dark top bar with product identity and utility icons.
+- Fixed five-item bottom navigation for the most common destinations.
+- Each destination uses a Lucide icon and a one-word label.
+- Reserve enough page space so fixed navigation never hides actionable content.
+- Hide secondary navigation and dense desktop metadata.
+
+Page hierarchy:
+
+- One clear H1 per page.
+- Add one short supporting sentence only when it clarifies the task.
+- Use section headings with a slim blue vertical rule.
+- Avoid wrapping every section in a card. Use open layouts, bordered rows, and full-width bands.
+- Cards are for repeated items, focused tools, receipts, and modal content.
+- Never place a card inside another decorative card.
+
+PRIMARY TASK SURFACE
+
+For the main user action, use a full-width graphite command surface:
+
+- Divide it into a dominant action area and an optional contextual side area.
+- Use a small blue mono eyebrow, a direct task question, and one sentence of guidance.
+- Place the main input in a translucent glass-like strip with a thin steel border.
+- Use a familiar icon inside the input and an icon-only submit button with an accessible label.
+- Place no more than two secondary actions beneath the main input.
+- Use white for the primary secondary-action button and a transparent outlined treatment for the other.
+- On mobile, stack the contextual side area below the main task area.
+
+COMPONENT LANGUAGE
+
+Buttons:
+
+- Primary: solid Monash blue with white text.
+- Secondary: white with a steel border and dark text.
+- Destructive: solid red with white text.
+- On dark surfaces: white button or transparent light outline.
+- Use Lucide icons when an appropriate icon exists.
+- Icon-only buttons must have tooltips or title text and accessible labels.
+- Minimum target size: 44x44px.
+- Use short command labels such as "Submit report", "Find a location", or "Stop server".
+
+Inputs:
+
+- White or translucent dark-surface inputs with 1px borders.
+- Minimum height: 46px; important search inputs may be 52px.
+- Focus state: blue border and a restrained blue focus ring.
+- Labels should describe necessary form fields, but avoid labels around obvious search or command controls.
+- Placeholder text should use a realistic example, not generic words such as "Search".
+
+Rows and lists:
+
+- Prefer full-width bordered rows for accounts, reports, history, settings, and service directories.
+- Use a 40-48px icon tile, concise title, one line of metadata, and a chevron.
+- Keep row heights stable so dynamic content does not shift the layout.
+- Use mono type for references, IDs, transaction codes, and measured values.
+
+Status and feedback:
+
+- Success: green on soft green.
+- Information: blue on soft blue.
+- Warning: amber on soft amber.
+- Error or rejection: red on soft red.
+- Use compact rectangular badges with 4px radius, not pills.
+- Important result panels use a coloured left border, a clear icon, a short heading, and direct next actions.
+- Loading or inspection states should visibly indicate progress and disable duplicate actions.
+- Every error state must offer a recovery path.
+
+Navigation and icons:
+
+- Use Lucide icons consistently.
+- Do not draw custom SVG icons when a standard Lucide icon communicates the action.
+- Keep icon stroke weight visually consistent.
+- Use labels in main navigation, but avoid labeling every visual region or metric.
+- Navigation names should be short and task-based: Home, Return, Report, Dispose, Services, Account.
+
+Modals:
+
+- Use modals only for confirmation, compact data entry, or destructive actions.
+- Desktop modals are centred; mobile modals behave like bottom sheets.
+- Use a lightly translucent paper surface with background blur.
+- Include a clear title, concise consequence, close icon, and explicit confirm/cancel buttons.
+
+Copy style:
+
+- Formal, calm, and human.
+- Use active voice and concrete nouns.
+- Write for a resident completing a task, not an administrator reading a system manual.
+- Avoid "Good morning/afternoon", promotional headlines, and generic encouragement.
+- Avoid terms such as leverage, seamless, intelligent ecosystem, revolutionise, cutting-edge, and AI-powered unless technically necessary.
+- State prototype limitations honestly and briefly.
+- Success messages should acknowledge the person's action, for example: "Thank you for helping keep your community clean."
+
+INTERACTION PRINCIPLES
+
+- Default to the shortest valid path through a task.
+- Do not ask users to provide information the system can determine itself.
+- Keep one primary action per state.
+- Preserve the user's login and relevant mock state across reloads.
+- Show immediate feedback after actions.
+- Keep accepted, rejected, loading, empty, offline, and error states visually distinct.
+- Do not show schedules for services controlled by automatic routing or demand.
+- When a catalogue cannot be complete, guide by broad categories and provide an uncertain-result path.
+- Do not imply simulated or prototype actions are real transactions or deployed services.
+
+RESPONSIVE RULES
+
+- Desktop breakpoint: full sidebar and multi-column layouts.
+- Tablet: reduce content padding and collapse secondary columns when needed.
+- Mobile breakpoint: about 760px.
+- Convert complex grids to one column on mobile.
+- Keep forms, buttons, and result panels within the viewport at 390px width.
+- Do not size text with viewport-width units.
+- Do not allow fixed navigation or sticky controls to cover content.
+- Use stable grid tracks, minmax(), aspect-ratio, and explicit control dimensions.
+- Test at 1440x900, 768x1024, and 390x844.
+- Verify document scroll width never exceeds viewport width.
+
+ACCESSIBILITY
+
+- Use semantic landmarks, headings, forms, lists, and buttons.
+- Maintain one H1 per screen and logical heading order.
+- Provide visible keyboard focus states.
+- Use aria-live for results, loading changes, and transaction feedback.
+- Give icon-only controls accessible names.
+- Maintain WCAG AA contrast for text and controls.
+- Respect prefers-reduced-motion.
+- Do not rely on colour alone to communicate state.
+- Keep touch targets at least 44px.
+
+MOTION
+
+- Motion should communicate state, not decorate the page.
+- Use 150-250ms transitions for hover, focus, and panel changes.
+- Use a subtle spinner or three-bar pulse for system processing.
+- Avoid parallax, bouncing cards, excessive entrance animations, and continuous ambient motion.
+
+DO NOT USE
+
+- Oversized marketing hero sections.
+- Gradient orbs, bokeh blobs, or decorative floating shapes.
+- Purple-heavy, beige, cream, or monochromatic blue palettes.
+- Excessively rounded cards, controls, or pills.
+- Card grids for every section.
+- Visible instructional text explaining obvious interface mechanics.
+- Fake metrics presented as proven results.
+- Dense schedules when the service is automatic or demand-led.
+- Long fixed item catalogues for open-ended domains.
+- Duplicate actions that compete or cover content.
+- User-facing AI buzzwords.
+
+IMPLEMENTATION CHECKLIST
+
+Before considering the interface complete:
+
+1. Confirm the first screen exposes the three or four most important user tasks immediately.
+2. Remove greetings, duplicate labels, redundant status cards, and decorative copy.
+3. Confirm all workflows include empty, loading, success, rejection, failure, and recovery states where applicable.
+4. Check that system-detected information is not being requested from the user.
+5. Verify every desktop and mobile layout for clipping, overlap, and horizontal overflow.
+6. Test keyboard navigation and accessible names.
+7. Confirm the design uses the token palette and does not drift into a one-note blue theme.
+8. Confirm all prototype or simulated actions are described accurately.
+9. Use screenshots for visual review rather than relying only on code inspection.
+10. Keep the final interface focused, operational, and easy to scan.
+
+ONE-PARAGRAPH CODEX PROMPT
+
+Apply the BinSight industrial civic glass design language to this website. Use a dark graphite structural shell, Monash-inspired blue primary actions, sustainable green success states, white and cool-concrete content surfaces, thin steel borders, 4-6px radii, Barlow typography, JetBrains Mono for technical references, Lucide icons, and restrained glass effects. Organise the interface around the user's immediate task rather than greetings, marketing copy, or dense dashboards. Use one strong dark command surface, open section layouts, bordered operational rows, concise result panels, and clear recovery states. Keep labels only where they aid comprehension, avoid buzzwords and decorative UI, and make the experience responsive and accessible at 1440x900, 768x1024, and 390x844 without overlap or horizontal overflow.
