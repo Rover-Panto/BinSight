@@ -11,6 +11,7 @@ Do not force-push `main`. Submit admin routing and KPI work through a pull reque
 Read:
 
 - [Project state](docs/PROJECT_STATE.md)
+- [Frontend reference](docs/FRONTEND.md)
 - [Admin integration](docs/ADMIN_INTEGRATION.md)
 - [Data preservation](docs/DATA_PRESERVATION.md)
 - [UI design language](BinSight_UI_Design_Language.txt)
@@ -41,9 +42,14 @@ Attach screenshots when a pull request changes a user-facing page. Check 1440x90
 
 Update documentation in the same pull request as the code. At minimum:
 
+- update `docs/FRONTEND.md` for frontend architecture, workflow, state, or test changes;
 - update `docs/PROJECT_STATE.md` for route or workflow changes;
 - update `docs/DATA_PRESERVATION.md` for stored-data changes;
 - document every KPI formula, unit, assumption, and simulation flag;
 - record any new storage key and internal schema version.
 
 Code and documentation should describe the same behavior at merge time.
+
+## Publishing work
+
+Commit each completed, verified change and push it to the contributor's remote branch. Do not leave finished work only in a local checkout. Contributors still use pull requests for merging into `main`; pushing a feature branch does not bypass review.

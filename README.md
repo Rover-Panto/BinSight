@@ -8,7 +8,7 @@ The proposal, supporting research, document-generation scripts, and responsive c
 
 ## Repository contents
 
-- `docs/`: project state, admin integration, and data-preservation contracts
+- `docs/`: frontend reference, project state, admin integration, and data-preservation contracts
 - `BinSight_UI_Design_Language.txt`: citizen and admin interface rules
 - `outputs/`: current proposal documents and review material
 - `scripts/`: proposal and document-generation scripts

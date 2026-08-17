@@ -48,6 +48,7 @@ The admin implementation should use `/admin` as its route prefix and keep admin 
 - `web/src/App.tsx`: active route map
 - `web/tests/`: tested browser workflows
 - `BinSight_UI_Design_Language.txt`: shared visual and interaction rules
+- `docs/FRONTEND.md`: frontend architecture, workflows, state, and verification rules
 - `docs/`: integration contracts and current implementation status
 
 Screenshots, chat messages, and proposal text do not override these files. Update this page in the same pull request whenever a route, storage key, schema version, or workflow changes.
