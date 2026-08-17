@@ -1,80 +1,96 @@
-# Focus Area C research brief - Subang Jaya
+# Focus Area C research brief — Subang Jaya
 
-## Competition fit
+## Recommended position
 
-The supplied question paper calls for a physical prototype and reproducible 30-day digital comparison for 500 households plus 20 commercial units. Focus Area C is addressed through sensor-based fill estimation, predictive pickup prioritization, and capacity-constrained routing on Malaysian OpenStreetMap roads. The supplied proposal's Raspberry Pi/laptop hub and tree-model concept are implemented without claiming unsupported field accuracy.
+BinSight should be presented as a **forecast-then-optimize decision-support prototype**, not an autonomous municipal system:
 
-## Recommended system position
+1. one ESP32 samples three ultrasonic and three pressure/load channels;
+2. the Raspberry Pi validates, calibrates, stores, and exports the atomic three-bin message;
+3. a locally trained tree model estimates 48-hour growth from observed data;
+4. a safe three-state decision separates collection from inspection and no-action;
+5. OR-Tools builds capacity-feasible trips from OSM/OSRM road costs; and
+6. a paired SimPy experiment reports the safety/cost trade-off against a corrected fixed baseline.
 
-Use a forecast-then-optimize decision-support architecture:
-
-1. One ESP32 reads three ultrasonic channels and three pressure/load channels.
-2. The Raspberry Pi validates the atomic three-bin payload, applies calibration, fuses volume and mass conservatively, and stores the records.
-3. A tree model estimates next-48-hour fill growth and uncertainty.
-4. Current and predicted risks select candidate bins.
-5. OR-Tools orders capacity-feasible trips using an OSM-derived OSRM road-distance matrix.
-6. A SimPy experiment compares the candidate policy against a strong every-three-days road-routed baseline.
-
-This is decision support, not an autonomous municipal dispatch system. The revised synthetic controller uses an emergency overflow deadline, co-located-site batching, and incremental-distance gating. It passed the modeled safety comparison, but the fixed schedule remains the field safeguard until the forecast and dispatch logic are validated with real telemetry.
+The strongest competition evidence is the transparent end-to-end Focus Area C implementation. The result should not be forced into a fuel-saving success story if the locked data shows otherwise.
 
 ## Local waste basis
 
-MBSJ's 2021 Voluntary Local Review reports **249,668.08 tonnes of solid waste in 2019** and a **1.90 kg/capita/day** generation indicator for Subang Jaya: [MBSJ Voluntary Local Review 2021](https://www.mbsj.gov.my/sites/default/files/Subang%20Jaya%20Voluntary%20Local%20Review%202021.pdf).
+MBSJ's 2021 Voluntary Local Review reports 249,668.08 tonnes of solid waste in 2019 and a **1.90 kg/capita/day** indicator for Subang Jaya: [MBSJ Voluntary Local Review 2021](https://www.mbsj.gov.my/sites/default/files/Subang%20Jaya%20Voluntary%20Local%20Review%202021.pdf).
 
-The Department of Statistics Malaysia's MyCensus 2020 publication gives an average household size of **3.7 persons for Subang Jaya**: [DOSM MyCensus 2020 administrative-district findings](https://www.dosm.gov.my/uploads/publications/20221018120328.pdf).
+DOSM's MyCensus 2020 administrative-district publication gives an average household size of **3.7 people** for Subang Jaya: [DOSM MyCensus 2020](https://www.dosm.gov.my/uploads/publications/20221018120328.pdf).
 
-Those sources imply `1.90 x 3.7 = 7.03 kg/household/day`. For the required 500 households, that is 3,515 kg/day.
+These imply `1.90 × 3.7 = 7.03 kg/household/day`, or 3,515 kg/day for 500 households. The additional **4.43 kg/commercial unit/day** is retained as a configurable planning value from an older Malaysian waste-minimization supporting report: [JPSPN/KPKT supporting report](https://jpspn.kpkt.gov.my/jpspn/resources/Images%20JPSPN/Sumber%20Rujukan/Kajian/Kajian%20Mengenai%20Pengurangan%20Sisa%20di%20Malaysia/SupportingReport1_V2.pdf). It contributes 88.6 kg/day, giving 3,603.6 kg/day total. Replace the commercial value with an MBSJ/operator audit before field claims.
 
-No equally current local commercial-unit disaggregation was identified. The configurable **4.43 kg/commercial unit/day** value is retained from an older Malaysian waste-minimization supporting report: [JPSPN/KPKT supporting report](https://jpspn.kpkt.gov.my/jpspn/resources/Images%20JPSPN/Sumber%20Rujukan/Kajian/Kajian%20Mengenai%20Pengurangan%20Sisa%20di%20Malaysia/SupportingReport1_V2.pdf). It contributes 88.6 kg/day, giving **3,603.6 kg/day total**. This commercial value must be replaced with an MBSJ/operator audit before field claims.
+## Bin and vehicle archetype
 
-## Dutch underground-bin and truck archetype
+VDL lists underground UGC containers in 3 m³ and 4.5 m³ variants; BinSight uses 4.5 m³: [VDL UGC](https://www.vdltranslift.nl/en/products/crane-collection-vehicles/underground-bin-system-ugc).
 
-VDL Translift lists its underground UGC container system in **3 m3 and 4.5 m3** variants; BinSight uses the 4.5 m3 option: [VDL UGC underground bin](https://www.vdltranslift.nl/en/products/crane-collection-vehicles/underground-bin-system-ugc).
+VDL describes the Maxxum for 4.5 m³ underground containers and lists a 1,500 kg maximum lift: [VDL Maxxum](https://www.vdltranslift.nl/en/products/sideloader-collection-vehicles/sideloader-maxxum). Its IES family includes a 22 m³ body: [VDL IES](https://www.vdltranslift.nl/en/products/body-types/ies).
 
-VDL describes the Maxxum as suitable for 4.5 m3 underground containers and lists a **maximum lift capacity of 1,500 kg**: [VDL Maxxum](https://www.vdltranslift.nl/en/products/sideloader-collection-vehicles/sideloader-maxxum). Its IES demountable body family lists **16, 18, and 22 m3** bodies: [VDL IES](https://www.vdltranslift.nl/en/products/body-types/ies). BinSight models the 22 m3 variant, a 3.5 compaction assumption, and a conservative 9,000 kg route payload. The payload, compaction, fuel rate, legal axle loads, and Malaysian homologation must be confirmed against the selected chassis and operator.
-
-The 120 kg/m3 loose mixed-waste density is an engineering assumption. It gives 540 kg per 4.5 m3 bin, well below the 1,500 kg crane limit but not a substitute for wet-waste testing, water-ingress allowance, or a manufacturer-approved gross container mass.
+BinSight's 120 kg/m³ loose mixed-waste density, 3.5 compaction ratio, 9,000 kg route payload, and fuel parameters are prototype assumptions. The resulting nominal 540 kg per bin is below the 1,500 kg lift reference but is not a manufacturer-approved wet gross mass. Malaysian chassis, axle, crane, water-ingress, and homologation limits require verification.
 
 ## Why 33 bins
 
-At 80% design fill, one three-bin site provides `3 x 540 x 0.80 = 1,296 kg`. With a three-day collection interval and 25% reserve, the district needs:
+At 80% design fill, one three-bin site provides `3 × 540 × 0.80 = 1,296 kg`. For three days and a 25% reserve:
 
-`ceil(3,603.6 x 3 x 1.25 / 1,296) = 11 sites`
+`ceil(3,603.6 × 3 × 1.25 ÷ 1,296) = 11 sites`
 
-With three bins per controller, that is **33 underground bins and 11 ESP32 controllers**. The allocation in `SITING_PLAN.md` is balanced so each individual site also remains below its own design limit.
+At three bins per ESP32, this gives **33 bins and 11 controllers**. Every site is checked individually in `SITING_PLAN.md`. Optimization did not add assets beyond this design.
 
-## OpenStreetMap implementation
+## OpenStreetMap and OSRM
 
-The project uses OSRM table and route services over OpenStreetMap data. OSRM documents that table distances are distances along the fastest route, in metres, rather than simple straight-line measurements: [OSRM HTTP API](https://github.com/Project-OSRM/osrm-backend/blob/master/docs/http.md). The requested site anchors are snapped to accessible road-service points; all are within 22.1 m.
+OSRM's Table service computes durations—and optionally distances—between all ordered pairs of supplied coordinates. Distances are along the fastest routes, in metres: [OSRM Table service](https://project-osrm.org/docs/v26.4.0/api/#table-service).
 
-The road-service matrix, requested/snapped coordinates, response hash, and route geometries are cached. The dashboard attributes OpenStreetMap. Public services are suitable for prototype work, but deployment should self-host OSRM with a pinned Malaysian OSM extract and defined update policy.
+BinSight caches the depot/site matrix, its expansion to depot + 33 bins, requested/snapped coordinates, durations, distances, and display geometry. Three bins at one site repeat the same costs because they are physically co-located. The UI uses one site marker rather than misleading visual offsets.
 
-The provisional depot is the public OSM waste-transfer feature at **3.06192, 101.55272** near Batu Tiga/Subang Jaya: [mapped feature context](https://mapcarta.com/W35143558). This is a routing assumption, not operator authorization. MBSJ separately publishes information about its Waste Eco Park initiative: [MBSJ Waste Eco Park](https://www.mbsj.gov.my/ms/info-projek-pengasingan-sisa-mbsj).
+Normal human map viewing must preserve visible attribution and comply with the OpenStreetMap Foundation's tile rules. The public tile service is best-effort, requires correct URL/attribution, and prohibits bulk prefetch: [OSMF Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/). Deployment should use a suitable hosted provider or self-hosted Malaysian OSM stack.
 
-## Electronics and gateway readiness
+The depot at **3.06192, 101.55272** is a provisional routing anchor, not operator authorization.
 
-Espressif's Arduino-ESP32 API supports raw ADC reads and millivolt conversion: [ESP32 ADC documentation](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html). The firmware samples the three ultrasonic sensors sequentially to limit acoustic crosstalk and takes median readings. Pressure channels are analog and require a properly rated sensor and conditioning circuit that cannot exceed 3.3 V. A hobby FSR is not acceptable for a full underground-bin mechanism.
+## Electronics and MQTT
 
-The ESP32 publishes one three-bin JSON document by MQTT. The Raspberry Pi gateway uses the Eclipse Paho Python client interface: [Paho MQTT Python documentation](https://eclipse.dev/paho/files/paho.mqtt.python/html/index.html). Credentials are supplied through environment variables, TLS can be enabled, message IDs are deduplicated in SQLite, and collection-reset events are detected.
+Espressif documents raw and millivolt ADC APIs for Arduino-ESP32: [Arduino-ESP32 ADC](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html). Every real pressure/load channel needs rated structural hardware, overload protection, conditioning, and a maximum 3.3 V ESP32 input. A hobby FSR is not a safe full-container weighing solution.
 
-The fusion rule takes the larger normalized fill estimate from pressure-derived mass and ultrasonic-derived volume. That conservative rule favors overflow protection; confidence falls when the two disagree. Calibration must use known empty/full distances and several known loads for each physical channel.
+The controller publishes a three-bin JSON message. Its maximum harness case fits the configured 1,024-byte MQTT buffer. The current PubSubClient firmware publishes at QoS 0; retries and a four-message RAM queue reduce loss but do not provide acknowledgement or persistence. The Raspberry Pi uses Eclipse Paho, validates schema/message IDs, stores both sensor channels, and can export model-ready CSV: [Paho Python client](https://eclipse.dev/paho/files/paho.mqtt.python/html/index.html).
 
-## Forecast and experiment evidence
+## Observation and decision safety
 
-The forecasting pre-period is synthetic and separate from the 30-day policy evaluation. Its last 20% is held out chronologically. In the locked run, the tree model's 48-hour MAE was 2.527 percentage points versus 6.952 for the naive benchmark, a 63.65% modeled improvement. This validates the software against generated data only.
+The simulator separates hidden physical mass from noisy sensor observations. Random noise, bias, drift, outliers, missing data, disagreement, confidence, and uncertainty use saved seeds. The forecast/dispatcher never receives hidden truth.
 
-The policy comparison uses 30 independent paired replications. Within each pair, both policies receive identical hourly arrivals and sensor-noise arrays. Analysis is performed on replication-level paired differences, with 95% Student-t intervals and a two-sided Monte Carlo sign-flip p-value. These characterize Monte Carlo uncertainty conditional on assumptions; they do not establish real-world causal effects.
+A single available sensor receives a 7.5-point margin. General low-confidence/aged evidence receives 15 points. Both sensors missing with no valid history produces inspection, not a fabricated safe zero or full load. A predictive-AI critical/high record remains collection-relevant, with conservative capacity reserved and an operator warning.
 
-## Operational conclusion
+This policy is intentionally asymmetric: uncertainty is never silently safe, but uncertain optional pickups are not added merely to make a route look efficient.
 
-The revised smart policy matched fixed service at zero overflow incidents, zero full-bin exposure, and zero spilled waste in a fresh 30-replication synthetic holdout. Relative to fixed collection, it reduced road distance, fuel, and modeled tailpipe CO2 by 5.08%, trips by 7.37%, stops by 14.38%, and low-fill pickups by 16.68%. Mean truck utilization increased from 59.69% to 66.91%.
+## Fuel and carbon assumptions
 
-The competition story should therefore emphasize:
+Fuel includes base driving, time-band traffic, payload penalty, collection idle, and depot idle. Only the carbon conversion is externally anchored: the US EPA uses **10,180 g CO₂ per US gallon of diesel**, about 2.69 kg/L: [US EPA calculations](https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator-calculations-and-references). BinSight uses 2.68 kg/L as a close approximation.
 
-- the defensible 33-bin/11-site sizing and OSM implementation;
-- the complete ESP32-to-Raspberry-Pi data path;
-- emergency deadline protection that can override normal route batching;
-- co-located and nearby-bin consolidation to reduce repeated travel; and
-- a fresh paired holdout that showed modeled safety parity with lower route cost.
+The 0.45 L/km base rate, 3.0 L/hour idle rate, 15% full-payload penalty, and traffic multipliers are assumptions. A real truck logger/fuel audit is required before economic or climate claims.
 
-These remain scenario results under synthetic arrivals and sensor noise. Fixed three-day service should remain the field safeguard until the seven-field AI interface, calibrated sensors, and operator constraints are validated prospectively.
+## Forecast and experiment design
+
+The forecaster is trained on a separate 45-day synthetic pre-period and scored on the last chronological 20%. The policy comparison uses 30 paired replications per scenario. Fixed and smart share arrivals and observation noise within each pair. Raw and equal three-day post-warm-up metrics are both saved.
+
+Scenarios are base, 1.45× high demand, 1.35× traffic, 18% missing/8% outlier sensor failure, and 0.65× truck capacity. They must be reported separately. Confidence intervals represent Monte Carlo variation under assumptions, not field causality.
+
+<!-- LOCKED_RESEARCH_RESULTS_START -->
+
+The final forecaster achieved **2.484 percentage-point MAE** on the synthetic chronological 48-hour holdout, versus **7.646** for the naive benchmark (67.52% improvement).
+
+In the primary equal three-day post-warm-up base comparison, fixed service averaged 511.730 km and 413.323 L; smart averaged 633.448 km and 491.458 L. The smart policy was therefore **23.79% worse for distance** and **18.90% worse for fuel/CO₂**, with intervals wholly favoring fixed. Fixed averaged zero overflow; smart averaged 0.067 incidents, with the paired overflow interval crossing zero.
+
+The safety value appears under stress. At 1.45× demand, smart reduced overflow incidents from 62.667 to 2.733 (95.64%) and spill from 3,006.703 to 58.828 kg (98.04%), but used 59.09% more fuel. At 0.65× truck capacity it reduced incidents from 7.133 to 0.100 and unserved required bins from 9.900 to 0.633, but used 25.62% more fuel. Under sensor failure, fixed remained at zero overflow while smart averaged 0.167 and more than doubled fuel.
+
+The result does **not** support routine fuel-saving deployment. It supports a future hybrid: fixed service in the validated normal regime, with forecast-driven emergency routing activated only under verified high-demand/capacity risk. Earlier claims of 5.08% lower distance/fuel are withdrawn.
+
+<!-- LOCKED_RESEARCH_RESULTS_END -->
+
+## Competition interpretation
+
+The digital Focus Area C requirements are substantially covered: 500 households, 20 commercial units, 30 days, multiple KPIs, fixed-versus-AI comparison, statistical analysis, source, seeds, and a live simulation portal.
+
+Full competition compliance is not complete. The physical 1:20 build/photos, measured <10 W power evidence, sustainability materials statement, BOM/receipts, cost-benefit, scaling budget, SDG mapping, final deck/video, and proposal consistency remain open. The proposal also promises a Teensy/FreeRTOS sensing platform, camera classifier, and physical ESP32 QR return station that this repository does not currently demonstrate. See `../docs/COMPETITION_COMPLIANCE_AUDIT.md`.
+
+## Operational recommendation
+
+Keep fixed three-day service as the field safeguard. Use BinSight first in shadow mode: ingest calibrated real readings, issue inspection/route recommendations without controlling trucks, compare recommendations with operator decisions, and prospectively measure overflow, kilometres, litres, service time, data outages, and false alerts. Only then tune/authorize a deployment policy.

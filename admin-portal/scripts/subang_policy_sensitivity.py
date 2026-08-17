@@ -41,7 +41,7 @@ VARIANTS = {
 
 
 def main() -> None:
-    config, _, _, bins, matrix = prepare_project(ROOT)
+    config, _, _, bins, matrix, duration_matrix = prepare_project(ROOT)
     forecaster, _ = train_forecaster(bins, config, seed=config.operations.base_seed + 90_000)
     horizon = config.operations.horizon_days * 24
     rows = []
@@ -50,7 +50,15 @@ def main() -> None:
         sensor_seed = config.operations.base_seed + 520_000 + replication * 103
         arrivals = generate_hourly_waste(bins, config, arrival_seed, horizon)
         fixed = run_policy(
-            "fixed", replication, bins, config, matrix, arrivals, sensor_seed, forecaster=None
+            "fixed",
+            replication,
+            bins,
+            config,
+            matrix,
+            duration_matrix,
+            arrivals,
+            sensor_seed,
+            forecaster=None,
         )
         rows.append({"variant": "fixed", **fixed.metrics})
         for name, changes in VARIANTS.items():
@@ -61,6 +69,7 @@ def main() -> None:
                 bins,
                 variant_config,
                 matrix,
+                duration_matrix,
                 arrivals,
                 sensor_seed,
                 forecaster=forecaster,

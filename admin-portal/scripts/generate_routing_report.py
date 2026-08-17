@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import shutil
 from pathlib import Path
 
 from docx import Document
@@ -15,11 +14,8 @@ from docx.shared import Inches, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "ROUTING_REPORT.md"
-OUTPUT_DIR = Path(
-    r"C:\Users\akiik\Documents\Codex\2026-08-02\i\outputs\BinSight-Focus-C-Subang-Jaya"
-)
+OUTPUT_DIR = ROOT / "reports"
 OUTPUT_DOCX = OUTPUT_DIR / "BinSight_Routing_Subsystem_Report_Improved.docx"
-OUTPUT_MD = OUTPUT_DIR / "BinSight_Routing_Subsystem_Report_Improved.md"
 
 # Resolved design system: standard_business_brief.
 # Page: Letter portrait, 1.0-inch margins, 0.492-inch header/footer distance.
@@ -75,6 +71,7 @@ def set_cell_shading(cell, fill):
     if shd is None:
         shd = OxmlElement("w:shd")
         tc_pr.append(shd)
+    shd.set(qn("w:val"), "clear")
     shd.set(qn("w:fill"), fill)
 
 
@@ -84,7 +81,12 @@ def set_cell_margins(cell, top=80, bottom=80, start=120, end=120):
     if tc_mar is None:
         tc_mar = OxmlElement("w:tcMar")
         tc_pr.append(tc_mar)
-    for edge, value in (("top", top), ("bottom", bottom), ("start", start), ("end", end)):
+    for edge, value in (
+        ("top", top),
+        ("left", start),
+        ("bottom", bottom),
+        ("right", end),
+    ):
         tag = tc_mar.find(qn(f"w:{edge}"))
         if tag is None:
             tag = OxmlElement(f"w:{edge}")
@@ -103,6 +105,25 @@ def set_cell_width(cell, width_dxa):
     tc_w.set(qn("w:type"), "dxa")
 
 
+def insert_paragraph_shading(p_pr, shd):
+    earlier_tags = {
+        qn("w:pStyle"),
+        qn("w:keepNext"),
+        qn("w:keepLines"),
+        qn("w:pageBreakBefore"),
+        qn("w:framePr"),
+        qn("w:widowControl"),
+        qn("w:numPr"),
+        qn("w:suppressLineNumbers"),
+        qn("w:pBdr"),
+    }
+    insert_at = 0
+    for index, child in enumerate(p_pr):
+        if child.tag in earlier_tags:
+            insert_at = index + 1
+    p_pr.insert(insert_at, shd)
+
+
 def set_table_geometry(table, widths):
     assert sum(widths) == TABLE_WIDTH_DXA
     table.alignment = WD_TABLE_ALIGNMENT.LEFT
@@ -117,7 +138,18 @@ def set_table_geometry(table, widths):
     tbl_ind = tbl_pr.find(qn("w:tblInd"))
     if tbl_ind is None:
         tbl_ind = OxmlElement("w:tblInd")
-        tbl_pr.append(tbl_ind)
+        later_tags = {
+            qn("w:tblBorders"),
+            qn("w:shd"),
+            qn("w:tblLayout"),
+            qn("w:tblCellMar"),
+            qn("w:tblLook"),
+        }
+        insert_at = next(
+            (idx for idx, child in enumerate(tbl_pr) if child.tag in later_tags),
+            len(tbl_pr),
+        )
+        tbl_pr.insert(insert_at, tbl_ind)
     tbl_ind.set(qn("w:w"), "120")
     tbl_ind.set(qn("w:type"), "dxa")
 
@@ -236,8 +268,8 @@ def add_numbering(document):
         spacing.set(qn("w:after"), "160")
         spacing.set(qn("w:line"), "280")
         spacing.set(qn("w:lineRule"), "auto")
-        p_pr.extend([tabs, ind, spacing])
-        level.extend([start, num_fmt, lvl_text, suff, p_pr])
+        p_pr.extend([tabs, spacing, ind])
+        level.extend([start, num_fmt, suff, lvl_text, p_pr])
         if font:
             r_pr = OxmlElement("w:rPr")
             r_fonts = OxmlElement("w:rFonts")
@@ -293,10 +325,11 @@ def set_paragraph_numbering(paragraph, num_id):
     num_pr = p_pr.find(qn("w:numPr"))
     if num_pr is None:
         num_pr = OxmlElement("w:numPr")
-        p_pr.append(num_pr)
     else:
+        p_pr.remove(num_pr)
         for child in list(num_pr):
             num_pr.remove(child)
+    p_pr.insert(0, num_pr)
     ilvl = OxmlElement("w:ilvl")
     ilvl.set(qn("w:val"), "0")
     num_id_el = OxmlElement("w:numId")
@@ -315,6 +348,10 @@ def configure_document(document):
     section.header_distance = Inches(0.492)
     section.footer_distance = Inches(0.492)
     section.different_first_page_header_footer = True
+
+    zoom = document.settings.element.find(qn("w:zoom"))
+    if zoom is not None:
+        zoom.set(qn("w:percent"), "100")
 
     normal = document.styles["Normal"]
     normal.font.name = "Calibri"
@@ -389,7 +426,10 @@ def add_cover(document):
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title.paragraph_format.space_after = Pt(10)
     title.paragraph_format.keep_with_next = True
-    r = title.add_run("BinSight Predictive\nCollection Routing Subsystem")
+    r = title.add_run("BinSight Predictive")
+    set_run_font(r, size=28, color=NAVY, bold=True)
+    r.add_break()
+    r = title.add_run("Collection Routing Subsystem")
     set_run_font(r, size=28, color=NAVY, bold=True)
 
     sub = document.add_paragraph()
@@ -412,9 +452,10 @@ def add_cover(document):
     status.paragraph_format.line_spacing = 1.15
     p_pr = status._p.get_or_add_pPr()
     shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
     shd.set(qn("w:fill"), CALLOUT_FILL)
-    p_pr.append(shd)
-    r = status.add_run("ROUTING DESIGN COMPLETE  |  FINAL AI PREDICTION DATA PENDING")
+    insert_paragraph_shading(p_pr, shd)
+    r = status.add_run("SIMULATION LOCKED  |  FIELD VALIDATION PENDING")
     set_run_font(r, size=10.5, color=DARK_BLUE, bold=True)
 
     date = document.add_paragraph()
@@ -490,8 +531,9 @@ def add_code_block(document, code_lines):
     p.paragraph_format.keep_together = True
     p_pr = p._p.get_or_add_pPr()
     shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
     shd.set(qn("w:fill"), CALLOUT_FILL)
-    p_pr.append(shd)
+    insert_paragraph_shading(p_pr, shd)
     for idx, line in enumerate(code_lines):
         run = p.add_run(line)
         set_run_font(run, name="Consolas", size=8.5, color=DARK_BLUE)
@@ -508,8 +550,9 @@ def add_callout(document, text):
     p.paragraph_format.line_spacing = 1.15
     p_pr = p._p.get_or_add_pPr()
     shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
     shd.set(qn("w:fill"), CALLOUT_FILL)
-    p_pr.append(shd)
+    insert_paragraph_shading(p_pr, shd)
     add_rich_text(p, text)
 
 
@@ -565,6 +608,12 @@ def build_document():
             index += 1
             continue
         if not stripped:
+            active_list_kind = None
+            index += 1
+            continue
+        if stripped.startswith("<!--") and stripped.endswith("-->"):
+            # Preserve machine-readable result-lock markers in Markdown without
+            # exposing them in the competition-facing Word/PDF report.
             active_list_kind = None
             index += 1
             continue
@@ -643,8 +692,6 @@ def build_document():
     for paragraph in document.paragraphs:
         if paragraph.style.name.startswith("Heading"):
             paragraph.paragraph_format.keep_with_next = True
-        if paragraph.style.name == "Normal":
-            paragraph.paragraph_format.widow_control = True
 
     core_props = document.core_properties
     core_props.title = "BinSight Predictive Collection Routing Subsystem"
@@ -654,7 +701,6 @@ def build_document():
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     document.save(OUTPUT_DOCX)
-    shutil.copy2(SOURCE, OUTPUT_MD)
     print(OUTPUT_DOCX)
 
 

@@ -24,7 +24,9 @@ Use a separate key for admin fixtures and preferences. Start with `binsight-admi
 
 Shared data should pass through typed selectors or adapters. Do not let two stores write the same record. Until a backend exists, citizen reports remain citizen-owned records; the admin area may read a mapped copy for display.
 
-The phase 1 Streamlit portal does not access browser `localStorage`. Its optional mock truck-dispatch audit is written to `admin-portal/data/mock_truck_dispatches.jsonl`, which is ignored by Git and contains prototype data only. SQLite files, Python environments, logs, and UI QA captures under the admin portal are also excluded from commits.
+The phase 1 Streamlit portal does not access browser `localStorage`. Its optional mock truck-dispatch audit is written to `admin-portal/data/mock_truck_dispatches.jsonl`. Accepted last-valid route-input observations are written to `admin-portal/data/last_valid_bin_readings.json` so a degraded sensor can be aged conservatively instead of becoming a false zero. Both files are ignored by Git and contain prototype data only. SQLite files, Python environments, logs, and UI QA captures under the admin portal are also excluded from commits.
+
+Do not place real resident identities, addresses, vehicle credentials, or operational telemetry in either local file. A production implementation needs authenticated storage, retention limits, access control, encryption, and an auditable deletion policy.
 
 ## Schema changes
 

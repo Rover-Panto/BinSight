@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import html
 import json
-import math
 from pathlib import Path
 
-import folium
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -14,6 +11,7 @@ import streamlit.components.v1 as components
 from binsight.config import load_config, required_controller_sites
 from binsight.dispatch import (
     build_dispatch_plan,
+    load_last_valid_readings,
     load_mock_dispatches,
     make_demo_snapshot,
     make_snapshot_template,
@@ -21,17 +19,22 @@ from binsight.dispatch import (
     parse_snapshot_bytes,
     parse_snapshot_json,
     route_loads_kg,
+    save_last_valid_readings,
     save_mock_dispatch,
     validate_snapshot,
+    update_last_valid_readings,
 )
+from binsight.maps import build_dispatch_map, build_overview_map, build_tracking_map
 from binsight.network import load_cached_service_network, route_coordinates
 from binsight.pipeline import run_experiment
+from binsight.tracking import build_tracking_manifest
 
 
 ROOT = Path(__file__).resolve().parent
 ARTIFACTS = ROOT / "artifacts"
 DATA = ROOT / "data"
 DISPATCH_LOG = DATA / "mock_truck_dispatches.jsonl"
+LAST_VALID_READINGS = DATA / "last_valid_sensor_readings.json"
 CONFIG = load_config(ROOT / "config.json")
 
 
@@ -242,6 +245,7 @@ st.markdown(
     .status-card strong {display: block; font-size: 1.12rem; margin-bottom: .16rem;}
     .status-card span {font-size: .92rem;}
     .status-danger {background: var(--soft-red); border-color: #e8b7ba; color: #7f292d;}
+    .status-warning {background: var(--soft-amber); border-color: #e6c77f; color: #76510e;}
     .status-safe {background: var(--soft-green); border-color: #b9d7c7; color: #245f47;}
     .status-neutral {background: var(--soft-blue); border-color: #b9d5e4; color: var(--dark-blue);}
     div[data-baseweb="tab-list"] {
@@ -373,37 +377,8 @@ st.markdown(
 )
 
 
-def _render_map(route_map: folium.Map, height: int = 610) -> None:
+def _render_map(route_map, height: int = 610) -> None:
     components.html(route_map.get_root().render(), height=height)
-
-
-def _bin_marker_position(row: object) -> tuple[float, float]:
-    angle = math.radians(90 + (int(row.controller_channel) - 1) * 120)
-    offset_m = 42.0
-    latitude = float(row.latitude)
-    longitude = float(row.longitude)
-    latitude_offset = (offset_m / 111_320.0) * math.cos(angle)
-    longitude_offset = (
-        offset_m / (111_320.0 * math.cos(math.radians(latitude))) * math.sin(angle)
-    )
-    return latitude + latitude_offset, longitude + longitude_offset
-
-
-def _base_map(zoom_start: int = 14) -> folium.Map:
-    route_map = folium.Map(
-        location=[CONFIG.pilot.center_lat, CONFIG.pilot.center_lon],
-        zoom_start=zoom_start,
-        tiles=None,
-        control_scale=True,
-    )
-    folium.TileLayer(
-        tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-        attr="© OpenStreetMap contributors",
-        name="OpenStreetMap",
-        overlay=False,
-        control=True,
-    ).add_to(route_map)
-    return route_map
 
 
 def _site_frame(bins: pd.DataFrame) -> pd.DataFrame:
@@ -419,90 +394,9 @@ def _site_frame(bins: pd.DataFrame) -> pd.DataFrame:
 def _overview_map(
     bins: pd.DataFrame,
     routes: dict,
-    needs_collection: set[str],
-) -> folium.Map:
-    route_map = _base_map()
-    palette = {"fixed": "#536561", "smart": "#0f766e"}
-    route_layers = {
-        "smart": folium.FeatureGroup(name="Smart route · solid teal", show=True),
-        "fixed": folium.FeatureGroup(name="Fixed route · dashed gray", show=True),
-    }
-    display_points = [[CONFIG.pilot.depot_lat, CONFIG.pilot.depot_lon]]
-    for feature in routes["features"]:
-        policy = feature["properties"]["policy"]
-        lat_lon = [(lat, lon) for lon, lat in feature["geometry"]["coordinates"]]
-        display_points.extend([list(point) for point in lat_lon])
-        folium.PolyLine(
-            lat_lon,
-            color=palette[policy],
-            weight=6 if policy == "smart" else 4,
-            dash_array=None if policy == "smart" else "8,6",
-            opacity=0.9,
-            tooltip=f"{policy.title()} route · day {feature['properties']['day']}",
-        ).add_to(route_layers[policy])
-    for layer in route_layers.values():
-        layer.add_to(route_map)
-
-    for row in _site_frame(bins).itertuples():
-        display_points.append([row.latitude, row.longitude])
-        folium.CircleMarker(
-            [row.latitude, row.longitude],
-            radius=7 + min(row.commercial_units, 4),
-            color="#245c52" if row.area_type == "residential" else "#b95f24",
-            fill=True,
-            fill_opacity=0.9,
-            tooltip=(
-                f"{row.site_id} · {row.site_label}: 3 bins / {row.controller_id}; "
-                f"{row.households} households, {row.commercial_units} commercial units"
-            ),
-        ).add_to(route_map)
-        folium.Marker(
-            [row.latitude, row.longitude],
-            icon=folium.DivIcon(
-                icon_size=(42, 16),
-                icon_anchor=(-8, 8),
-                html=(
-                    "<div style='font:700 10px Segoe UI;color:#102a26;background:rgba(255,255,255,.9);"
-                    f"padding:2px 4px;border-radius:5px'>{html.escape(str(row.site_id))}</div>"
-                ),
-            ),
-        ).add_to(route_map)
-
-    collection_layer = folium.FeatureGroup(name="Individual bin status", show=True)
-    for row in bins.itertuples():
-        latitude, longitude = _bin_marker_position(row)
-        selected = row.bin_id in needs_collection
-        folium.CircleMarker(
-            [latitude, longitude],
-            radius=6 if selected else 3,
-            color="#9f321f" if selected else "#70817d",
-            weight=2 if selected else 1,
-            fill=True,
-            fill_color="#e95d3f" if selected else "#cfd9d5",
-            fill_opacity=1.0 if selected else 0.8,
-            tooltip=f"{row.bin_id} / {row.site_id}: " + ("COLLECT" if selected else "can wait"),
-        ).add_to(collection_layer)
-    collection_layer.add_to(route_map)
-    folium.Marker(
-        [CONFIG.pilot.depot_lat, CONFIG.pilot.depot_lon],
-        tooltip=CONFIG.pilot.depot_label,
-        icon=folium.Icon(color="green", icon="truck", prefix="fa"),
-    ).add_to(route_map)
-    legend = """
-    <div style="position:fixed;bottom:25px;right:10px;z-index:9999;background:white;
-                border:1px solid #b7c8c3;border-radius:10px;padding:9px 11px;
-                font:12px Segoe UI;color:#102a26;box-shadow:0 6px 18px rgba(0,0,0,.12)">
-      <b>Simulation route</b><br>
-      <span style="color:#0f766e;font-weight:900">━━</span> Smart route<br>
-      <span style="color:#6b7d78;font-weight:900">┄┄</span> Fixed route<br>
-      <span style="color:#e95d3f;font-size:16px">●</span> Collect &nbsp;
-      <span style="color:#9aa9a5">●</span> Can wait
-    </div>
-    """
-    route_map.get_root().html.add_child(folium.Element(legend))
-    route_map.fit_bounds(display_points, padding=(24, 24))
-    folium.LayerControl().add_to(route_map)
-    return route_map
+    snapshot_rows: list[dict],
+):
+    return build_overview_map(CONFIG, bins, routes, snapshot_rows)
 
 
 def _dispatch_geometries(plan, bins: pd.DataFrame) -> tuple[list[list[tuple[float, float]]], str | None]:
@@ -534,66 +428,8 @@ def _dispatch_geometries(plan, bins: pd.DataFrame) -> tuple[list[list[tuple[floa
     return geometries, note
 
 
-def _dispatch_map(plan, bins: pd.DataFrame, geometries) -> folium.Map:
-    route_map = _base_map()
-    display_points = [[CONFIG.pilot.depot_lat, CONFIG.pilot.depot_lon]]
-    route_colors = ["#0f766e", "#256d85", "#7251a6", "#c16f24"]
-    for trip_number, geometry in enumerate(geometries, start=1):
-        display_points.extend([list(point) for point in geometry])
-        folium.PolyLine(
-            geometry,
-            color=route_colors[(trip_number - 1) % len(route_colors)],
-            weight=7,
-            opacity=0.92,
-            tooltip=f"Truck trip {trip_number}",
-        ).add_to(route_map)
-
-    required = set(plan.required_bin_indices)
-    sibling = set(plan.sibling_bin_indices)
-    optional = set(plan.optional_bin_indices)
-    review = set(plan.review_bin_indices)
-    selected = set(plan.selected_bin_indices)
-    for index, row in enumerate(bins.itertuples()):
-        latitude, longitude = _bin_marker_position(row)
-        if index in required:
-            color, radius, label = "#e95d3f", 7, "REQUIRED"
-        elif index in sibling:
-            color, radius, label = "#d78a16", 6, "CO-LOCATED"
-        elif index in optional:
-            color, radius, label = "#0f766e", 6, "NEARBY PICKUP"
-        else:
-            color, radius, label = "#a8b5b1", 3, "WAIT"
-        border = "#4b251d" if index in review else color
-        folium.CircleMarker(
-            [latitude, longitude],
-            radius=radius,
-            color=border,
-            weight=4 if index in review else 2,
-            fill=True,
-            fill_color=color,
-            fill_opacity=1 if index in selected else .72,
-            tooltip=f"{row.bin_id} · {row.site_id} · {label}" + (" · REVIEW" if index in review else ""),
-        ).add_to(route_map)
-    folium.Marker(
-        [CONFIG.pilot.depot_lat, CONFIG.pilot.depot_lon],
-        tooltip=CONFIG.pilot.depot_label,
-        icon=folium.Icon(color="green", icon="truck", prefix="fa"),
-    ).add_to(route_map)
-    legend = """
-    <div style="position:fixed;bottom:25px;right:10px;z-index:9999;background:white;
-                border:1px solid #b7c8c3;border-radius:10px;padding:9px 11px;
-                font:12px Segoe UI;color:#102a26;box-shadow:0 6px 18px rgba(0,0,0,.12)">
-      <b>Live snapshot decision</b><br>
-      <span style="color:#e95d3f;font-size:16px">●</span> Required &nbsp;
-      <span style="color:#d78a16;font-size:16px">●</span> Co-located<br>
-      <span style="color:#0f766e;font-size:16px">●</span> Efficient nearby pickup &nbsp;
-      <span style="color:#a8b5b1">●</span> Wait
-    </div>
-    """
-    route_map.get_root().html.add_child(folium.Element(legend))
-    if display_points:
-        route_map.fit_bounds(display_points, padding=(24, 24))
-    return route_map
+def _dispatch_map(plan, bins: pd.DataFrame, geometries):
+    return build_dispatch_map(CONFIG, bins, geometries, plan.audit_rows)
 
 
 def _clear_dispatch_state() -> None:
@@ -607,6 +443,7 @@ required_files = [
     ARTIFACTS / "representative_routes.geojson",
     ARTIFACTS / "representative_route_events.json",
     ARTIFACTS / "road_distance_matrix_m.npy",
+    ARTIFACTS / "road_duration_matrix_s.npy",
     DATA / "subang_jaya_osrm_network.json",
 ]
 
@@ -621,7 +458,7 @@ with st.sidebar:
     st.metric("Underground bins", CONFIG.pilot.bin_count)
     st.metric("Three-bin controller sites", required_controller_sites(CONFIG))
     st.metric("Truck payload", f"{CONFIG.operations.truck_capacity_kg:,.0f} kg")
-    st.metric("Simulation runs", CONFIG.operations.replications)
+    st.metric("Paired runs", f"{CONFIG.operations.replications} × 5 scenarios")
     if st.button("Run 30-day experiment", type="primary", width="stretch"):
         with st.spinner("Running paired 30-day simulations…"):
             run_experiment(ROOT)
@@ -656,7 +493,9 @@ if not all(path.exists() for path in required_files):
     st.info("Generate the project artifacts with `python -m binsight.cli run`, or use Run full experiment.")
     st.stop()
 
-effects = pd.read_csv(ARTIFACTS / "paired_effects.csv").set_index("metric")
+effects_all = pd.read_csv(ARTIFACTS / "paired_effects.csv")
+if "scenario" not in effects_all.columns:
+    effects_all["scenario"] = "base"
 forecast = json.loads((ARTIFACTS / "forecast_evaluation.json").read_text(encoding="utf-8"))
 bins = pd.read_csv(ARTIFACTS / "district_bins.csv")
 distance_matrix = np.load(ARTIFACTS / "road_distance_matrix_m.npy")
@@ -664,16 +503,52 @@ routes = json.loads((ARTIFACTS / "representative_routes.geojson").read_text(enco
 route_events = json.loads(
     (ARTIFACTS / "representative_route_events.json").read_text(encoding="utf-8")
 )
-representative_smart_event = max(route_events["smart"], key=lambda event: event["distance_km"])
-needs_collection = set(representative_smart_event["served_bins"])
+base_route_events = route_events.get("base", route_events)
+completed_smart_events = [
+    event for event in base_route_events["smart"] if event.get("completed", False)
+]
+representative_smart_event = max(
+    completed_smart_events or base_route_events["smart"],
+    key=lambda event: event["distance_km"],
+)
 sites = _site_frame(bins)
+service_network = load_cached_service_network(DATA / "subang_jaya_osrm_network.json")
+tracking_manifest = build_tracking_manifest(
+    representative_smart_event,
+    bins,
+    service_network,
+    DATA / "osrm_route_geometry_cache.json",
+)
 
-input_tab, overview_tab, log_tab = st.tabs(
-    [":material/route: Route input", ":material/monitoring: Operations", ":material/receipt_long: Dispatch log"]
+input_tab, overview_tab, tracking_tab, log_tab = st.tabs(
+    [
+        ":material/route: Route input",
+        ":material/monitoring: Operations",
+        ":material/local_shipping: Mock live tracking",
+        ":material/receipt_long: Dispatch log",
+    ]
 )
 
 with overview_tab:
     st.markdown('<p class="micro-label">Simulation evidence · 30-day paired experiment</p>', unsafe_allow_html=True)
+    filter_left, filter_right = st.columns(2)
+    scenario = filter_left.selectbox(
+        "Evaluation scenario",
+        sorted(effects_all["scenario"].unique()),
+        format_func=lambda value: str(value).replace("_", " ").title(),
+    )
+    analysis_scope = filter_right.radio(
+        "Analysis window",
+        ["After shared warm-up", "Raw 30 days"],
+        horizontal=True,
+    )
+    suffix = "_post_warmup" if analysis_scope == "After shared warm-up" else ""
+    effects = effects_all[effects_all["scenario"] == scenario].set_index("metric")
+
+    def scoped(metric: str) -> str:
+        candidate = f"{metric}{suffix}"
+        return candidate if candidate in effects.index else metric
+
     top = st.columns(5)
     cards = [
         ("Overflow change", "overflow_incidents"),
@@ -683,6 +558,7 @@ with overview_tab:
         ("Wasted pickups", "wasted_pickups"),
     ]
     for column, (label, metric) in zip(top, cards):
+        metric = scoped(metric)
         value = effects.loc[metric, "beneficial_change_pct_vs_fixed"]
         if pd.isna(value):
             absolute = effects.loc[metric, "beneficial_difference"]
@@ -697,9 +573,15 @@ with overview_tab:
         st.subheader("Representative road routes")
         st.caption(
             f"Smart dispatch from simulation day {representative_smart_event['day']}, "
-            f"{representative_smart_event['hour'] % 24:02d}:00. Red dots are individual bins selected for collection."
+            f"{representative_smart_event['hour'] % 24:02d}:00. Each marker is one ESP32 site with three co-located bins."
         )
-        _render_map(_overview_map(bins, routes, needs_collection))
+        _render_map(
+            _overview_map(
+                bins,
+                routes,
+                representative_smart_event["snapshot_rows"],
+            )
+        )
     with right:
         st.subheader("Forecast validation")
         horizon = int(forecast["forecast_horizon_hours"])
@@ -715,8 +597,19 @@ with overview_tab:
         st.metric("Forecast error improvement", f"{forecast['model_improvement_pct']:.1f}%")
         st.caption("MAE is mean absolute error. The model is tested on later observations it did not train on.")
         st.subheader("Paired scenario comparison")
+        display_metrics = [
+            scoped(metric)
+            for metric in (
+                "overflow_incidents",
+                "overflow_spilled_kg",
+                "distance_km",
+                "travel_time_hours",
+                "fuel_l",
+                "unserved_required_bins",
+            )
+        ]
         display = effects.loc[
-            ["overflow_incidents", "overflow_spilled_kg", "distance_km", "wasted_pickups"],
+            display_metrics,
             [
                 "fixed_mean",
                 "smart_mean",
@@ -745,7 +638,25 @@ with overview_tab:
         st.dataframe(site_table, hide_index=True, width="stretch")
 
     st.subheader("All KPI effects")
-    chart = effects.reset_index()[["metric", "beneficial_change_pct_vs_fixed"]].dropna()
+    chart_metrics = [
+        scoped(metric)
+        for metric in (
+            "overflow_incidents",
+            "overflow_spilled_kg",
+            "distance_km",
+            "travel_time_hours",
+            "fuel_l",
+            "co2_kg",
+            "collection_stops",
+            "wasted_pickups",
+            "unserved_required_bins",
+        )
+    ]
+    chart = (
+        effects.loc[chart_metrics]
+        .reset_index()[["metric", "beneficial_change_pct_vs_fixed"]]
+        .dropna()
+    )
     st.bar_chart(chart.set_index("metric"), horizontal=True)
     st.caption("Positive values mean the smart policy improved the metric in its beneficial direction.")
 
@@ -844,10 +755,23 @@ with input_tab:
                 raw_snapshot,
                 bins["bin_id"],
                 CONFIG.operations.crane_lift_limit_kg,
+                stale_after_hours=CONFIG.sensor.stale_after_hours,
+                future_tolerance_minutes=CONFIG.sensor.future_tolerance_minutes,
             )
             with st.spinner("Applying collection rules and optimizing OSM-road trips…"):
-                plan = build_dispatch_plan(normalized, bins, distance_matrix, CONFIG)
+                last_valid = load_last_valid_readings(LAST_VALID_READINGS)
+                plan = build_dispatch_plan(
+                    normalized,
+                    bins,
+                    distance_matrix,
+                    CONFIG,
+                    last_valid,
+                )
                 geometries, geometry_note = _dispatch_geometries(plan, bins)
+                save_last_valid_readings(
+                    update_last_valid_readings(last_valid, normalized, bins, CONFIG),
+                    LAST_VALID_READINGS,
+                )
             st.session_state["dispatch_plan"] = plan
             st.session_state["dispatch_snapshot"] = normalized
             st.session_state["dispatch_geometries"] = geometries
@@ -870,11 +794,24 @@ with input_tab:
                 f'{plan.selected_count} bin(s) across {len(plan.route_plan.routes)} trip(s).</span></div>',
                 unsafe_allow_html=True,
             )
+        elif plan.inspection_required:
+            st.markdown(
+                f'<div class="status-card status-warning"><strong>Inspection/data review required</strong>'
+                f'<span>{len(plan.review_bin_indices)} bin(s) have stale, missing, contradictory, or '
+                f'low-confidence data. A final no-collection decision is blocked.</span></div>',
+                unsafe_allow_html=True,
+            )
         else:
             st.markdown(
                 '<div class="status-card status-safe"><strong>No collection required</strong>'
                 '<span>No bin crossed the current-fill, risk, or 48-hour overflow trigger.</span></div>',
                 unsafe_allow_html=True,
+            )
+
+        if plan.inspection_required:
+            st.warning(
+                "Safety review remains open. Low-confidence readings were retained conservatively; "
+                "see the 33-bin audit for the reason attached to every affected bin."
             )
 
         if plan.collection_required:
@@ -942,8 +879,88 @@ with input_tab:
                 st.session_state["last_mock_dispatch"] = payload
                 st.success(f"Mock route sent to MOCK-TRUCK-01 · dispatch {payload['dispatch_id']}")
                 st.toast("Mock truck dispatch recorded locally", icon="✅")
+        elif plan.inspection_required:
+            st.subheader("Inspection map")
+            st.caption(
+                "Amber controller sites require a sensor or data review. No mock truck route was created."
+            )
+            _render_map(_dispatch_map(plan, bins, geometries), height=590)
+            if geometry_note:
+                st.warning(geometry_note)
         else:
             st.info("No truck route was created because collection is not currently required.")
+
+        with st.expander("Full 33-bin decision audit", expanded=plan.inspection_required):
+            audit_table = pd.DataFrame(plan.audit_rows)
+            st.dataframe(
+                audit_table[
+                    [
+                        "bin_id",
+                        "site_id",
+                        "collection_state",
+                        "reason",
+                        "fill_pct",
+                        "weight_kg",
+                        "conservative_upper_fill_pct",
+                        "time_to_overflow_hours",
+                        "risk_level",
+                        "confidence_flag",
+                        "reading_age_hours",
+                    ]
+                ],
+                hide_index=True,
+                width="stretch",
+            )
+
+with tracking_tab:
+    st.markdown('<p class="micro-label">Local playback · simulated vehicle only</p>', unsafe_allow_html=True)
+    st.subheader("Mock live truck tracking")
+    st.caption(
+        "This replays one completed smart-policy dispatch using its timestamped OSRM travel, "
+        "collection-service, unloading, and turnaround events. No GPS device or real truck is connected."
+    )
+    tracking_summary = st.columns(4)
+    tracking_summary[0].metric("Route ID", tracking_manifest["route_id"])
+    tracking_summary[1].metric("Bins served", tracking_manifest["total_bins"])
+    tracking_summary[2].metric(
+        "Playback duration", f"{tracking_manifest['duration_minutes']:.0f} sim min"
+    )
+    tracking_summary[3].metric(
+        "Truck capacity", f"{tracking_manifest['payload_capacity_kg']:,.0f} kg"
+    )
+    st.info(
+        "Use Resume, Pause, Reset, and the speed selector inside the map. Site markers turn green "
+        "only after collection service completes."
+    )
+    _render_map(
+        build_tracking_map(
+            CONFIG,
+            bins,
+            tracking_manifest,
+            representative_smart_event["snapshot_rows"],
+        ),
+        height=720,
+    )
+    with st.expander("Timestamped execution audit"):
+        timeline_table = pd.DataFrame(representative_smart_event["timeline"])
+        preferred = [
+            column
+            for column in (
+                "day",
+                "simulation_hour",
+                "status",
+                "trip_number",
+                "origin",
+                "destination",
+                "bin_id",
+                "payload_kg",
+                "travel_minutes",
+                "duration_minutes",
+            )
+            if column in timeline_table.columns
+        ]
+        st.dataframe(timeline_table[preferred], hide_index=True, width="stretch")
+
 
 with log_tab:
     st.markdown('<p class="micro-label">Prototype audit trail</p>', unsafe_allow_html=True)

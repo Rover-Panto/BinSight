@@ -1,315 +1,293 @@
-# BinSight Predictive Collection Routing Subsystem
+# BinSight predictive collection routing subsystem
 
-**Technical implementation report - Focus Area C**
+**Focus Area C technical implementation report**
 
-**Pilot scenario:** Subang Jaya, Selangor, Malaysia
+**Pilot:** Subang Jaya, Selangor
 
 **Team:** MON BLUE
 
-**Status:** Routing design and prototype complete; final AI prediction data pending
-**Prepared:** August 2026
-
-> This report documents only the routing subsystem that has been implemented. The forecasting model is an upstream data source. Final AI predictions and field sensor records will be inserted later through the interface defined in Section 3. No field-performance claim is made from the present synthetic integration test.
+**Status:** Reproducible digital prototype; physical and municipal validation pending
+**Date:** 17 August 2026
 
 ## Executive summary
 
-BinSight converts a timestamped set of current bin measurements and AI overflow-risk predictions into a capacity-feasible collection plan on Malaysian road data. The implemented Subang Jaya scenario contains 33 Dutch-style underground bins at 11 preliminary service sites, with three co-located bins monitored by one ESP32 at each site. A provisional depot near Batu Tiga/Subang Jaya is used as the start and end of every trip.
+BinSight converts a complete 33-bin predictive snapshot into a safe operator decision and, when collection is required, a capacity-feasible route over OpenStreetMap-derived roads. The pilot represents 500 households and 20 commercial units using 33 Dutch-style 4.5 m³ underground bins at 11 sites. Each site has three genuinely co-located bins controlled by one ESP32. No extra bins, sites, or trucks were added during optimization.
 
-The routing sequence is: validate AI and sensor inputs; identify bins requiring collection; obtain road-network costs from OpenStreetMap through OSRM; solve a capacitated vehicle routing problem with Google OR-Tools; request route geometry; and display the result on an interactive map. Red dots show individual bins selected for collection, gray dots show bins that can wait, and each generated trip begins and ends at the depot.
+The implemented chain is:
 
-The current prototype assumes a 9,000 kg truck payload and no more than two daily trips. It includes deterministic fallback routing if the optimization solver does not return a solution within its configured time limit. All 14 automated tests passed. In a fresh 30-replication synthetic holdout, the revised safety-constrained policy matched fixed three-day service at zero modeled overflow while reducing road distance, fuel, and tailpipe carbon dioxide by 5.08%. Fixed service remains the field safeguard until real sensor, AI, and operator data validate autonomous use.
+1. three ultrasonic and three pressure/load channels are sampled by one ESP32;
+2. a Raspberry Pi gateway validates, calibrates, stores, and exports readings;
+3. noisy observations—not hidden simulated fill—enter the 48-hour forecaster and decision logic;
+4. the operator receives `COLLECTION_REQUIRED`, `INSPECTION_REQUIRED`, or `NO_COLLECTION_REQUIRED` with reasons;
+5. selected bins are packed into at most two 9,000 kg daily trips and ordered by OR-Tools using cached OSRM road costs;
+6. SimPy executes travel, service, unloading, and turnaround chronologically; and
+7. the portal displays 11 consolidated site markers, road routes, and a mock truck replay.
 
-## 1. Scope and system boundary
+The earlier claim of 5.08% lower route distance was withdrawn. It came from an unfair day-zero fixed collection of empty bins. The corrected baseline first collects after its complete interval and both policies use the same three-day post-warm-up reporting rule. The final experiment reports base and stress scenarios separately and does not hide metrics where the smart policy is worse.
 
-### 1.1 Included work
+> BinSight is decision support. Mock dispatch does not contact a vehicle, and simulation evidence is not measured municipal performance.
 
-This report covers the following completed work:
+## 1. Scope and fixed design
 
-1. Representation of the depot, 11 service sites, 33 bins, and three-bin ESP32 controller groups.
-2. Definition of the data contract between the future AI forecaster and the routing system.
-3. Validation and prioritization of bins that require collection.
-4. Road-network distance and duration acquisition using OSRM over OpenStreetMap data.
-5. Capacity-constrained route optimization using OR-Tools.
-6. Deterministic fallback routing for solver timeout or failure.
-7. Interactive map display and route/event data export.
-8. Reproducible tests and a provisional synthetic integration study.
+This report covers only the Focus Area C sensing-to-routing subsystem. It does not claim completion of the proposal's camera classifier or physical QR return station.
 
-### 1.2 Excluded work
+| Design item | Implemented value |
+| --- | --- |
+| Service population | 500 households + 20 commercial units |
+| Evaluation horizon | 30 days |
+| Underground bins | 33 × 4.5 m³ |
+| Sites/controllers | 11 sites; 1 ESP32 + 3 bins per site |
+| Physical model unit | 1 ESP32 + 3 instrumented bins |
+| Depot | Provisional Batu Tiga/Subang Jaya point, 3.06192, 101.55272 |
+| Truck archetype | VDL Maxxum/UGS family, 22 m³ body assumption |
+| Route payload | 9,000 kg assumption |
+| Daily trips | Maximum 2 across the whole calendar day |
 
-The report does not claim that the future AI model is accurate, that the proposed coordinates are construction-ready, or that the tested routing policy will reduce fuel or emissions in the field. Forecast training, sensor calibration, municipal approval, detailed crew scheduling, traffic prediction, disposal queueing, and excavation design remain separate work packages.
+The 33-bin sizing follows `SITING_PLAN.md`:
 
-## 2. Implemented pilot model
+`ceil(3,603.6 kg/day × 3 days × 1.25 reserve ÷ 1,296 kg/site) = 11 sites`
 
-### 2.1 Routing entities
+where a site has `3 × 4.5 m³ × 120 kg/m³ × 80% = 1,296 kg` usable design capacity.
 
-The digital pilot contains:
+## 2. Sensor and predictive-data boundary
 
-- one provisional depot at latitude 3.06192, longitude 101.55272;
-- 11 preliminary service sites covering SS12-SS19, USJ 1/2/4, and Bandar Sunway;
-- 33 bins, arranged as three co-located bins per site;
-- one ESP32 controller per site, producing three separate bin records;
-- 4.5 m3 nominal volume per underground bin;
-- 540 kg modeled nominal mass capacity per bin at 120 kg/m3 mixed-waste density;
-- one 9,000 kg collection vehicle with a maximum of two modeled trips per day.
+### 2.1 Controller message
 
-Three bins share a microprocessor and location, but the routing layer treats them as individual pickup decisions. If only one bin at a site requires collection, only that bin is added to the vehicle demand. Co-location gives zero or near-zero road travel between the three bin records while preserving separate fill, weight, and status values.
-
-### 2.2 Vehicle and route assumptions
-
-Every route starts and ends at the depot. Vehicle demand is the estimated waste weight in each selected bin, rounded upward to an integer kilogram for the solver. The total load of each trip may not exceed 9,000 kg. A fixed 15 km-equivalent departure cost encourages the solver to consolidate collection into fewer trips while still permitting two trips when capacity requires them.
-
-The 9,000 kg payload, two-trip limit, and service-site coordinates are configurable planning assumptions. They must be replaced with operator-approved payload, axle, crane, working-time, and access constraints before deployment.
-
-## 3. AI-to-routing input contract
-
-### 3.1 Required fields
-
-The confirmed future AI system will provide one record for each of the 33 bins at every routing decision time. The AI record contains exactly the seven fields below. Site coordinates, site identifiers, and controller assignments are resolved from the BinSight registry using `bin_id`; the AI does not need to send them repeatedly.
-
-| Field | Type and unit | Routing purpose |
-|---|---|---|
-| `timestamp` | ISO 8601 timestamp with time-zone offset | Confirms when the prediction was produced and that records belong to the same decision snapshot. |
-| `bin_id` | String, `UGB-001` to `UGB-033` | Unique pickup identifier. |
-| `fill_pct` | Percentage, 0 to 100 | Current fill estimate derived from the ultrasonic sensor. |
-| `weight_kg` | Kilograms | Current load-cell estimate used as vehicle-capacity demand. |
-| `time_to_overflow_hours` | Hours | Predicted remaining time before the bin reaches overflow. |
-| `risk_level` | `low`, `medium`, `high`, or `critical` | AI-assigned collection urgency. |
-| `confidence_flag` | Boolean | States whether the AI prediction passes its confidence and data-quality checks. |
-
-The routing service joins each record to the static bin registry. That registry supplies `site_id`, `controller_id`, latitude, longitude, and the common road service point for the three bins at a site. A future optional field, `predicted_weight_at_collection_kg`, could improve payload planning, but it is not required by the confirmed interface.
-
-### 3.2 Example JSON record
-
-```json
-{
-  "timestamp": "2026-08-16T06:00:00+08:00",
-  "bin_id": "UGB-001",
-  "fill_pct": 87.4,
-  "weight_kg": 463.0,
-  "time_to_overflow_hours": 15.5,
-  "risk_level": "high",
-  "confidence_flag": true
-}
-```
-
-The values above are an interface example only, not a measured result.
-
-### 3.3 Input validation and fail-safe behavior
-
-Before optimization, the routing service checks that all expected bin identifiers are unique, timestamps are current and consistent, `fill_pct` is between 0 and 100, weights and overflow times are finite and non-negative, risk values use the agreed categories, and each `bin_id` exists in the site/controller registry. Values outside plausible bounds are flagged rather than silently corrected.
-
-If AI values are missing, stale, invalid, or have `confidence_flag: false`, the system must not infer a safe collection cancellation. It should retain the fixed three-day schedule or require operator review. Valid current `fill_pct` and `weight_kg` measurements may still support a conservative collection decision and truck-capacity planning when the AI risk prediction is unavailable.
-
-## 4. From prediction to collection decision
-
-The routing service evaluates the AI snapshot at the configured decision times. Under the confirmed interface, a bin is selected for collection when at least one of the following initial rules is met:
-
-- `risk_level` is `high` or `critical`;
-- `time_to_overflow_hours` is 48 hours or less; or
-- `fill_pct` is 80% or higher.
-
-Bins marked `critical` are ranked first, followed by `high`-risk bins and bins with the shortest time to overflow. Current `fill_pct` breaks ties. The routing service uses `weight_kg`, rounded upward to an integer kilogram, as the OR-Tools demand. Until the AI supplies predicted collection-time weight, a configurable safety margin should be applied to current weight before field deployment.
-
-The normal policy retains a 48-hour minimum gap between dispatches, but a `critical` bin with `time_to_overflow_hours` at or below 20 hours may override that gap. When the truck already visits a three-bin site, a sibling bin may be added if it is at least 50% full or predicted to overflow within 72 hours because doing so adds no road travel. Other optional bins are added only when vehicle capacity remains, the total proxy route stays within 30 km, and the bin adds no more than 5 km to that proxy route.
-
-When `confidence_flag` is false, the AI risk prediction is not used to cancel service. The system falls back to valid current sensor measurements, the fixed three-day schedule, or operator review.
-
-These are competition-prototype decision rules, not field-approved thresholds. The synthetic integration adapter derives `time_to_overflow_hours` and `risk_level` from the internal conservative 48-hour fill-growth forecast; Section 8 therefore validates software behavior under generated data, not the confirmed external seven-field AI interface. That intake adapter and the experiment must be rerun with real records before field-performance claims are made. If critical demand exceeds daily capacity, the production system must raise an explicit unserved-critical-bin alarm and schedule emergency capacity.
-
-## 5. Road-network model using OpenStreetMap and OSRM
-
-### 5.1 Service-point snapping
-
-The depot and the 11 site anchors are sent to the OSRM Table service using the `driving` profile. OSRM returns a snapped road-network point for every location. The prototype rejects a network when any point is more than 250 m from a routable road. In the cached Subang Jaya network, the maximum snap distance is 22.1 m.
-
-The requested site coordinate represents a planning anchor; the snapped coordinate represents the point used for routing. Neither is an approved excavation or truck-stopping position.
-
-### 5.2 Distance matrix
-
-The OSRM Table service returns distance in metres and duration in seconds for the fastest route between every ordered pair of service points. The 12 locations are the depot plus SJ-01 through SJ-11. Examples of ordered pairs are depot to SJ-01, SJ-01 to depot, and SJ-01 to SJ-02. A matrix row means "from" and a column means "to." The diagonal contains zero-distance self-pairs. The 12-by-12 matrix therefore contains 144 cells, including 132 directed non-self pairs. Opposite directions may differ because of one-way roads and other network restrictions.
-
-These are road-route costs, not straight-line distances. Separate 12-by-12 matrices store distance and duration. The optimizer reads these matrices as cost tables; it does not draw all 132 pairwise paths. After the stop order has been chosen, only the selected trip sequence is sent to the OSRM Route service for road-following vector geometry. For individual-bin capacity decisions, the service matrix is expanded to a 34-by-34 matrix containing the depot plus 33 bins by repeating each site's costs for its three co-located bins.
-
-The response is cached with retrieval time and SHA-256 hash so a simulation can be reproduced even if the live map later changes. The current cache was retrieved on 3 August 2026 and has SHA-256 `3718c6c6da5de35760cde23fdc15f8a582acc269969b1b289a0463439975af27`.
-
-### 5.3 Route geometry
-
-After the stop order is solved, each trip is sent to the OSRM Route service with full GeoJSON geometry. This produces a polyline that follows mapped roads in the stop order. Geometry is cached separately from the distance matrix and exported to `representative_routes.geojson` for the dashboard.
-
-OpenStreetMap data are credited on the map and are licensed under the Open Data Commons Open Database License. The public OSRM demonstration service is suitable for a competition prototype, but a production deployment should use a self-hosted or contracted routing backend with a pinned data version and service-level monitoring.
-
-## 6. Capacity-constrained route optimization
-
-### 6.1 Mathematical form
-
-For the selected bins, the routing problem minimizes total road distance plus a fixed departure penalty, subject to:
-
-- each selected bin is served exactly once;
-- each active trip begins and ends at the depot;
-- the sum of bin weights on a trip is no more than 9,000 kg;
-- no more than two trips are used in the decision period.
-
-This is a capacitated vehicle routing problem (CVRP). The distance callback uses the asymmetric OSRM road matrix, and the demand callback uses current estimated kilograms. OR-Tools applies parallel cheapest insertion to construct a first solution, then guided local search to improve it within a 250 ms prototype time limit. A fixed vehicle cost discourages unnecessary extra departures.
-
-### 6.2 Deterministic fallback
-
-If OR-Tools returns no solution within the configured time, the system uses a deterministic two-stage fallback. It first packs the selected bins into capacity-feasible trip buckets, processing heavier bins first. It then orders each bucket using nearest-neighbor road distance from the depot and returns to the depot after the last stop.
-
-The fallback prioritizes predictability and feasibility over optimality. Each route event records `ortools`, `deterministic_fallback`, or `none`, allowing the dashboard and audit files to reveal how the route was produced. No fallback was required in the final 30-replication integration run.
-
-### 6.3 Operational pseudocode
+The ESP32 publishes one atomic JSON message for all three channels on:
 
 ```text
-receive one seven-field AI record for every bin
-validate timestamps, IDs, fill, weight, overflow time, risk, and confidence
-join each bin_id to its stored site, controller, and road service point
-if confidence is false: use sensor/fixed-schedule fallback or request review
-
-select high/critical, <=48-hour-overflow, or >=80%-full bins
-allow <=20-hour emergency bins to override the normal dispatch gap
-rank critical bins first, then by risk, overflow time, and current fill
-add useful sibling bins at already-visited sites while capacity remains
-rank other optional bins by urgency and incremental route distance
-add optional bins while capacity, incremental, and total distance budgets remain
-
-solve the CVRP using the OSRM distance matrix
-if the solver fails: construct deterministic capacity-feasible routes
-request road geometry for each depot-to-depot trip
-publish route, selected bins, load, distance, solver method, and warnings
+binsight/v1/telemetry/<controller_id>
 ```
 
-## 7. Route display and operator output
+The firmware uses a 1,024-byte MQTT buffer. Its maximum tested three-bin JSON is 555 bytes and the complete packet is 616 bytes. Serialization length is checked; publication is attempted three times with backoff; up to four unsent messages remain in a bounded RAM queue; and logs identify failure stages.
 
-The Streamlit dashboard displays the solved route on an OpenStreetMap basemap. The visual encodings are intentionally redundant:
+PubSubClient publishes at QoS 0. Retry/queue behavior reduces transient loss but does not provide broker acknowledgement or power-loss durability. A field system requiring QoS 1 must use a client with acknowledged publishing and retain gateway deduplication.
 
-- solid teal line: smart route;
-- dashed dark-gray line: fixed three-day route;
-- green truck marker: provisional depot;
-- blue site marker: residential controller site;
-- orange site marker: mixed/commercial controller site;
-- large red bin dot: collect now;
-- small gray bin dot: can wait.
+### 2.2 Route-input contract
 
-Hovering over a route shows the policy and representative simulation day. Hovering over a bin shows its unique identifier, site, and collection status. Hovering over a site shows the site label, ESP32 identifier, allocated households and businesses, and the number of bins. The layer control can hide either route or the individual-bin status layer.
+The external predictive AI supplies:
+
+```text
+timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence_flag
+```
+
+Exactly one row is required for each `UGB-001` through `UGB-033`. The shared timestamp must include a timezone, be no more than 12 hours old, and be no more than five minutes in the future. Ranges, duplicate/missing IDs, risk labels, confidence values, and sensor disagreement are validated.
+
+Missing sensor values may enter the degraded-data path, but missing predictive risk/time fields are rejected. A last-valid observation can be aged conservatively. If no trustworthy evidence exists, the result is inspection—not an invented safe zero or an invented full-bin truck load.
+
+### 2.3 Three decisions
+
+| Decision | Meaning |
+| --- | --- |
+| Collection required | At least one trustworthy/current or emergency trigger requires a route; uncertainty remains visible |
+| Inspection required | Data quality prevents a safe no-collection decision, but evidence does not justify automatic collection |
+| No collection required | Snapshot is sufficiently trustworthy and no service trigger is active |
+
+Low-confidence urgent readings are never silently discarded. The route input retains them with a warning; the simulator allows only conservative emergency current/aged-fill evidence to override a low-confidence forecast.
+
+## 3. Hidden state, observations, and forecast
+
+The simulation maintains physical mass privately. At each six-hour observation, a separately seeded model produces ultrasonic and load-cell values with random noise, per-bin bias, drift, missing readings, outliers, and disagreement. Both policies in a pair receive the same error realization.
+
+High-confidence observations receive a one-sided 95% margin (`z = 1.645`). A single available sensor uses a 7.5-point margin; general low-confidence/aged evidence uses 15 points. When both sensors are absent, a recent valid record is aged at 0.75 percentage points/hour plus its margin. With no valid record, inspection is required.
+
+The histogram gradient-boosting regressor uses observed fill/weight, confidence, observed history, allocation, and time cycles. Its target is hidden 48-hour fill growth. A 45-day synthetic pre-period is split chronologically: the last 20% is holdout. Automated leakage guards reject feature names indicating hidden/true/future/target state.
+
+<!-- FORECAST_RESULTS -->
+
+The final model used 4,752 training rows and 1,188 chronological holdout rows. Its 48-hour MAE was **2.484 percentage points**, versus **7.646** for the naive benchmark, a 67.52% synthetic improvement. This is generated-data software validation, not measured forecast accuracy.
+
+## 4. Road locations and matrices
+
+OSRM runs over OpenStreetMap data. Its Table service returns duration and distance for every ordered pair of supplied coordinates. Distance is the length of the fastest route, not straight-line distance and not necessarily the geometrically shortest path.
+
+The service matrix begins as 12 × 12:
+
+- index 0: depot;
+- indices 1–11: service sites.
+
+It expands to 34 × 34 for individual-bin capacity decisions:
+
+- index 0: depot;
+- indices 1–33: bins.
+
+Each site's costs are repeated for its three co-located bins. This expansion is executable code in `binsight/network.py`; it does not move markers or create a fictional road. Same-site bin-to-bin road cost is zero because one truck stop/crane position serves the site.
+
+The matrices are vectors of numeric costs used by the optimizer. Road polylines are requested only for display/replay and cached separately. A geometry failure can therefore fall back to straight display segments without changing the solved stop order or reported matrix distance.
+
+## 5. Collection selection
+
+The fixed baseline marks every bin due at 06:00 after each full three-day interval. It has no day-zero empty-bin sweep.
+
+The smart policy evaluates at 06:00 and 18:00. High/critical fill or predicted-overflow triggers become required candidates. Critical evidence inside the 20-hour horizon can override the usual 48-hour dispatch gap. Co-located siblings are considered next, followed by confident medium-risk bins whose addition stays within:
+
+- available truck capacity;
+- the soft 30 km route budget; and
+- no more than 5 km incremental road-route cost.
+
+The 5 km rule is not a radius around a critical bin. It compares the capacity-aware proxy route before and after adding one optional stop.
+
+## 6. Capacity-constrained route solving
+
+Candidate priority is preserved while each demand is rounded upward exactly as OR-Tools will consume it. Preselection explicitly packs candidates into the remaining trips. This prevents a floating-point total from passing preselection and then failing the integer vehicle-capacity constraint.
+
+OR-Tools solves asymmetric depot tours with:
+
+- the cached 34 × 34 distance matrix;
+- a 9,000 kg payload per trip;
+- no more than two daily trips;
+- a 250 ms solve limit; and
+- a fixed departure cost encouraging consolidation.
+
+Every produced route starts and ends at `DEPOT`. If the solver returns no solution within the limit, a deterministic fallback exactly partitions bins into capacity-feasible buckets and orders each bucket by nearest road cost. Excess required bins are reported as unserved rather than silently dropped.
+
+## 7. Chronological execution
+
+Routes are not instantaneous. The minute-level SimPy process performs:
+
+1. travel using OSRM duration and a departure-time traffic multiplier;
+2. eight minutes of service at each bin;
+3. emptying only at service completion;
+4. 20 minutes of depot unloading; and
+5. 10 minutes of turnaround before a later trip.
+
+Waste generation continues during every activity. Overflow can therefore occur while a truck is en route or collecting. The two-trip count is shared by morning and evening; if a trip must wait for the next day, that wait is retained in the event timeline. Trips unfinished at the 30-day boundary are reported.
+
+## 8. Fuel and CO₂
+
+Total fuel is the sum of:
+
+| Component | Prototype formula |
+| --- | --- |
+| Base driving | Road km × 0.45 L/km |
+| Traffic penalty | Base driving × configured time-band increment |
+| Payload penalty | Up to 15% of base fuel at full payload |
+| Collection idle | Service hours × 3.0 L/hour |
+| Depot idle | Unload/turnaround idle hours × 3.0 L/hour |
+
+Tailpipe CO₂ is fuel × 2.68 kg/L. The US EPA gives 10,180 g CO₂ per US gallon of diesel (about 2.69 kg/L), so 2.68 is a close prototype approximation. All fuel-performance values require real truck calibration.
+
+## 9. Map and mock tracking
+
+All maps use 11 consolidated markers. Each popup lists the three bin IDs and their fill, weight, time to overflow, risk, confidence, decision reason, and state. The attention badge shows `n/3`; the highest-priority state determines the marker style. No visual offset is applied.
+
+The map is restricted to the Subang Jaya pilot bounds, zoom 13–18, no tile wrapping, with a reset control and switchable route/site/truck layers. Smart routes use a cyan line with dark underlay; fixed routes use a restrained dashed comparison.
+
+Mock tracking converts the representative route timeline and geometry into interpolated truck frames. The truck moves during travel and pauses during service/unloading/turnaround. A site becomes completed only after service completion. Play/pause, reset, timeline, and speed controls operate locally; reduced-motion mode removes pulsing animation.
 
 ![Representative BinSight route map for Subang Jaya](artifacts/route_map_preview.png)
 
-**Figure 1.** Representative solved dispatch on OpenStreetMap. The image demonstrates routing and status display only; it is not a fixed daily route or a construction plan. Map data © OpenStreetMap contributors, ODbL.
+**Figure 1.** Representative simulation route. Coordinates are planning anchors, not construction-ready locations.
 
-## 8. Verification and provisional results
+## 10. Experiment and statistical analysis
 
-### 8.1 Software verification
+Thirty paired replications are run for each scenario, giving 300 policy runs:
 
-The complete local test suite was run on 16 August 2026. All 14 tests passed. Routing-specific checks confirm that routes begin and end at the depot, every selected bin is served, vehicle loads remain within capacity, empty selections produce no route, and the deterministic fallback remains capacity-feasible. Simulation checks also verify overflow-deadline conversion, risk classification, and zero added road distance for a co-located optional bin.
+| Scenario | Configured change |
+| --- | --- |
+| Base | Declared demand, traffic, sensing, and capacity |
+| High demand | Arrivals × 1.45 |
+| Traffic | Traffic duration/fuel effect × 1.35 |
+| Sensor failure | 18% missing + 8% outlier probability |
+| Truck capacity | Capacity × 0.65 |
 
-The locked 30-replication study also recorded zero routing fallbacks. Reproducibility files include the configuration, cached OSRM network, route-event log, GeoJSON geometry, seed manifest, package versions, and replication-level metrics.
+Fixed and smart policies share arrivals and observation noise within every pair. Raw metrics use all 30 days; post-warm-up metrics remove the first three days for both. Scenario results remain separate.
 
-### 8.2 Synthetic integration test - not final AI evidence
+For lower-is-better metrics, beneficial effect = fixed − smart. For higher-is-better metrics, beneficial effect = smart − fixed. Positive is favorable. Each effect includes a 95% Student-t interval and a 19,999-draw paired sign-flip p-value. These measure Monte Carlo uncertainty under configured assumptions only.
 
-The following 30-day values come from 30 paired synthetic replications. They test the connection between prediction, selection, routing, and measurement. They do not validate real sensor accuracy or future AI performance.
+## 11. Locked results and interpretation
 
-| Routing/safety KPI | Fixed three-day mean | Tested smart-policy mean | Interpretation |
-|---|---:|---:|---|
-| Road distance | 551.262 km | 523.279 km | Smart policy used 5.08% less road distance. |
-| Collection trips | 19.000 | 17.600 | Smart policy used 7.37% fewer trips. |
-| Collection stops | 330.000 | 282.533 | Smart policy used 14.38% fewer stops. |
-| Low-fill pickups | 33.367 | 27.800 | Smart policy used 16.68% fewer low-fill pickups. |
-| Mean fill at collection | 57.276% | 69.271% | Smart pickups were 11.995 percentage points fuller. |
-| Overflow incidents | 0.000 | 0.000 | Both policies recorded zero modeled overflow. |
+<!-- LOCKED_RESULTS_START -->
 
-The result indicates that the emergency deadline, co-located batching, and incremental-distance rule corrected the failure observed in the first synthetic policy. Mean modeled fuel fell from 248.068 L to 235.476 L and modeled tailpipe carbon dioxide fell from 664.822 kg to 631.075 kg. These are paired scenario contrasts under synthetic assumptions, not measured municipal savings or proof that the external AI model is safe.
+The untouched final seed block begins at base +1,310,000 for arrivals and +1,320,000 for sensors. Artifacts contain 300 policy runs, 30 pairs per scenario, and 150 seed records.
 
-### 8.3 Acceptance criteria for the future AI dataset
+Primary equal three-day post-warm-up base means:
 
-When the final AI records are supplied, the routing evaluation should be rerun without changing the fixed-policy baseline. At minimum, the candidate system should:
+| Metric | Fixed | Smart | Interpretation |
+| --- | ---: | ---: | --- |
+| Overflow incidents | 0.000 | 0.067 | Rare smart incidents; paired interval includes zero |
+| Spilled waste | 0.000 kg | 0.755 kg | Paired interval includes zero |
+| Road distance | 511.730 km | 633.448 km | Smart **23.79% worse**; p<0.001 |
+| Fuel | 413.323 L | 491.458 L | Smart **18.90% worse**; p<0.001 |
+| Tailpipe CO₂ | 1,107.706 kg | 1,317.108 kg | Smart **18.90% worse**; p<0.001 |
+| Trips | 18.000 | 21.167 | Smart **17.59% worse**; p<0.001 |
+| Stops | 297.000 | 309.600 | Smart **4.24% worse**; p<0.001 |
+| Low-fill pickups | 0.567 | 72.033 | Smart made 71.467 more; p<0.001 |
 
-1. produce a complete valid snapshot for all 33 bins at each decision time;
-2. validate `time_to_overflow_hours`, `risk_level`, and `confidence_flag` on a later, untouched time window;
-3. remain non-inferior to fixed collection on overflow incidents and full-bin exposure;
-4. satisfy trip payload and daily-trip constraints in every dispatch;
-5. report road distance, trips, stops, low-fill pickups, fuel proxy, and overflow together;
-6. disclose missed critical bins, fallback use, invalid inputs, and operator overrides;
-7. use paired replications or matched operating days with identical waste arrivals where possible.
+The beneficial distance effect (fixed − smart) was -121.719 km (95% CI -138.773 to -104.664); fuel was -78.135 L (95% CI -88.962 to -67.308). Normal-demand fuel savings are therefore not supported.
 
-Final tables should replace the synthetic figures rather than being added beside them, preventing preliminary and field results from being confused.
+Stress post-warm-up means show a different safety/cost trade-off:
 
-## 9. Sustainability relevance
+| Scenario | Overflow fixed → smart | Distance fixed → smart | Fuel fixed → smart |
+| --- | ---: | ---: | ---: |
+| High demand ×1.45 | 62.667 → 2.733 | 511.080 → 860.166 km | 415.874 → 661.606 L |
+| Traffic ×1.35 | 0.000 → 0.133 | 511.760 → 632.777 km | 505.581 → 610.646 L |
+| Sensor failure | 0.000 → 0.167 | 511.431 → 1,190.298 km | 413.039 → 832.330 L |
+| Truck capacity ×0.65 | 7.133 → 0.100 | 552.411 → 731.525 km | 438.026 → 550.231 L |
 
-The routing subsystem supports Sustainable Development Goal 11, particularly Target 11.6 on reducing the environmental impact of cities with attention to municipal waste management. It also relates to Goal 13 because road distance, fuel use, and tailpipe carbon dioxide can be monitored as routing outcomes.
+Smart reduced high-demand overflow by 95.64% and reduced-capacity overflow by 98.60%, but it consumed substantially more distance/fuel in every scenario. Under reduced capacity it also cut unserved required bins from 9.900 to 0.633. Under sensor failure it did not beat fixed safety and produced excessive inspection/routing activity.
 
-These links describe design intent, not a proven field impact. The revised synthetic smart policy reduced modeled distance and emissions by 5.08% without modeled overflow, but BinSight should claim real climate benefit only if later field-calibrated results reproduce that safe reduction relative to the fixed baseline.
+The implemented smart policy is therefore an **emergency-capacity decision-support candidate**, not a routine replacement. A future field-calibrated hybrid should retain fixed service in a validated normal regime and activate predictive emergency routing only when a verified demand/capacity state warrants the cost.
 
-## 10. Limitations and next steps
+<!-- LOCKED_RESULTS_END -->
 
-The main limitations are:
+## 12. Verification
 
-- AI predictions and real pressure/ultrasonic telemetry have not yet been supplied for final evaluation.
-- Site and depot coordinates are preliminary planning anchors and require municipal, utility, drainage, crane-access, and safety surveys.
-- The public OSRM service and OpenStreetMap snapshot can change; the prototype cache is reproducible, but production routing needs controlled updates.
-- The model does not yet include time-dependent traffic, crew shifts, service time uncertainty, crane setup, disposal unloading, vehicle breakdowns, road restrictions, or multiple depots.
-- Estimated bin weight is treated as the pickup demand; sensor bias or bridging inside the bin could affect capacity feasibility.
-- The optional-stop distance gate uses a fast proxy before the exact CVRP is solved.
-- If critical demand exceeds available daily capacity, the production system needs an escalation and emergency-vehicle rule.
+Forty-eight automated tests cover configuration, siting, sensors, leakage, firmware payload size, safe input states, routing/capacity, chronology, fuel, statistics, map consolidation/bounds, tracking, and pipeline scenarios.
 
-The next implementation step is to ingest the confirmed seven-field AI records together with several weeks of calibrated three-bin telemetry and operator logs, implement and lock the adapter, validate the emergency constraint, add a hard maximum-service rule, rerun the paired evaluation, and obtain field approval for the road service points.
+Browser QA covers:
 
-## 11. Reproducibility record
+- route-input demo and local mock dispatch;
+- desktop 1440×900, tablet 768×1024, and mobile 390×844 without horizontal overflow;
+- exactly 11 site markers and three popup rows per site;
+- map bounds, zoom 13–18, no wrap, reset, and route containment;
+- truck movement, pause/resume, completion timing, and reset; and
+- reduced-motion behavior with zero browser console/page errors.
 
-The completed routing work is contained in:
+## 13. Known limitations and next work
 
-- `binsight/network.py` - OSRM requests, snapping, matrices, caching, and route geometry;
-- `binsight/routing.py` - OR-Tools CVRP and deterministic fallback;
-- `binsight/simulation.py` - selection policy, dispatch logic, metrics, and route events;
-- `app.py` - interactive route and bin-status map;
-- `config.json` - depot, bins, truck, thresholds, and solver settings;
-- `data/subang_jaya_sites.json` - 11 preliminary site anchors;
-- `data/subang_jaya_osrm_network.json` - cached road-network response;
-- `artifacts/representative_routes.geojson` - displayed route geometry;
-- `artifacts/representative_route_events.json` - stop order and solver audit;
-- `artifacts/run_provenance.json` and `artifacts/seed_manifest.json` - reproducibility metadata;
-- `tests/test_routing.py` - capacity and fallback tests.
-- `tests/test_simulation.py` - deadline, risk, distance-proxy, and batching tests.
+- Inputs and outcomes are synthetic; sensor/vehicle parameters are not field calibrated.
+- Coordinates are preliminary and require permission, utility, access, drainage, flood, and crane-safety surveys.
+- The public map/router stack is prototype infrastructure without an SLA; production should use an appropriate provider or self-hosted Malaysian extract.
+- MQTT publication is QoS 0 and the ESP32 queue is volatile.
+- Mock dispatch/tracking has no authentication, driver acknowledgement, GPS, cancellation, or municipal API.
+- Severe sensor failure may protect overflow at the cost of inspections and extra collection; an operator inspection workflow is required.
+- The current smart policy is not an automatic replacement for the fixed schedule unless field validation proves the required safety/cost trade-off.
+- Competition-wide gaps remain: physical build/photos, measured power, materials statement, BOM/receipts, cost-benefit, city-scale budget, deck/video, and proposal consistency.
 
-The routing core is ready to be connected to the later AI dataset through the adapter contract in Section 3; the seven-field intake adapter still has to be implemented and tested. Until that dataset passes the safety criteria in Section 8.3, the fixed three-day collection schedule remains the operational safeguard.
+## 14. UN Sustainable Development Goal alignment
 
-## References
+- **SDG 11 — Sustainable Cities and Communities, Target 11.6.** BinSight models municipal-waste collection capacity and overflow risk. The high-demand and reduced-capacity scenarios show how predictive routing could support service resilience, but the result is synthetic and does not establish a measured reduction in Subang Jaya's environmental impact.
+- **SDG 13 — Climate Action, Target 13.2.** The prototype includes route distance, decomposed fuel, and tailpipe CO₂ in collection decisions and evaluation. The corrected normal-demand result used more fuel than fixed service, so the climate-aligned next step is a field-calibrated hybrid policy—not a claim that the present smart policy already cuts emissions.
 
-1. Open Source Routing Machine Project. *OSRM HTTP API, v5.24.0*. Route and Table service documentation. https://project-osrm.org/docs/v5.24.0/api/ (accessed 16 August 2026).
-2. Google for Developers. *OR-Tools: Capacity Constraints - Capacitated Vehicle Routing Problem*. https://developers.google.com/optimization/routing/cvrp (accessed 16 August 2026).
-3. OpenStreetMap Foundation. *Copyright and License*. https://www.openstreetmap.org/copyright (accessed 16 August 2026).
-4. United Nations Department of Economic and Social Affairs. *Sustainable Development Goal 11*. https://sdgs.un.org/goals/goal11 (accessed 16 August 2026).
-5. United Nations Department of Economic and Social Affairs. *Sustainable Development Goal 13*. https://sdgs.un.org/goals/goal13 (accessed 16 August 2026).
-6. Southeast Asia Engineering Design Competition 2026. *Degree Level Question Paper - Smart, Efficient and AI-Based Waste Management*, Focus Area C and D2 requirements. User-provided competition brief.
+These mappings describe intended engineering contribution and evaluation criteria. Field kilometres, litres, emissions, overflow, and service outcomes are required before claiming real SDG impact.
 
-## Appendix A. Site-to-controller schedule
+## 15. Implementation map
 
-| Site | Area | Controller | Bin IDs |
-|---|---|---|---|
-| SJ-01 | SS12 residential cluster | ESP32-001 | UGB-001 to UGB-003 |
-| SJ-02 | SS13 residential cluster | ESP32-002 | UGB-004 to UGB-006 |
-| SJ-03 | SS14 residential cluster | ESP32-003 | UGB-007 to UGB-009 |
-| SJ-04 | SS15 commercial-residential cluster | ESP32-004 | UGB-010 to UGB-012 |
-| SJ-05 | SS17 residential cluster | ESP32-005 | UGB-013 to UGB-015 |
-| SJ-06 | SS18 residential cluster | ESP32-006 | UGB-016 to UGB-018 |
-| SJ-07 | SS19 residential cluster | ESP32-007 | UGB-019 to UGB-021 |
-| SJ-08 | USJ 1 mixed-use cluster | ESP32-008 | UGB-022 to UGB-024 |
-| SJ-09 | USJ 2 residential cluster | ESP32-009 | UGB-025 to UGB-027 |
-| SJ-10 | USJ 4 residential cluster | ESP32-010 | UGB-028 to UGB-030 |
-| SJ-11 | Bandar Sunway mixed-use cluster | ESP32-011 | UGB-031 to UGB-033 |
+| File | Responsibility |
+| --- | --- |
+| `config.json` | All pilot, sensor, operations, fuel, traffic, map, and stress assumptions |
+| `binsight/observations.py` | Hidden-to-observed sensor model and leakage guard |
+| `binsight/forecast.py` | Observed-feature 48-hour forecaster |
+| `binsight/dispatch.py` | External snapshot validation, three-state decision, audit, mock dispatch |
+| `binsight/network.py` | OSRM service/duration matrices and geometry cache |
+| `binsight/routing.py` | Preselection, OR-Tools, exact fallback, route proxy |
+| `binsight/simulation.py` | Minute-level policy and trip execution |
+| `binsight/fuel.py` | Traffic, payload, driving, and idle fuel components |
+| `binsight/maps.py` | Consolidated markers, routes, bounds, and tracking HTML |
+| `binsight/tracking.py` | Timeline manifest and truck interpolation |
+| `app.py` | Operator portal |
+| `firmware/esp32_binsight/` | Three-bin controller firmware and payload harness |
+| `artifacts/` | Locked forecasts, metrics, events, routes, seeds, and provenance |
 
-## Appendix B. Route output contract
+## 16. Sources and assumption boundary
 
-Each solved dispatch should publish:
+- MBSJ Voluntary Local Review 2021: https://www.mbsj.gov.my/sites/default/files/Subang%20Jaya%20Voluntary%20Local%20Review%202021.pdf
+- DOSM MyCensus 2020 administrative-district findings: https://www.dosm.gov.my/uploads/publications/20221018120328.pdf
+- VDL UGC underground system: https://www.vdltranslift.nl/en/products/crane-collection-vehicles/underground-bin-system-ugc
+- VDL Maxxum: https://www.vdltranslift.nl/en/products/sideloader-collection-vehicles/sideloader-maxxum
+- OSRM HTTP API: https://project-osrm.org/docs/v26.4.0/api/
+- OpenStreetMap tile policy: https://operations.osmfoundation.org/policies/tiles/
+- US EPA diesel CO₂ reference: https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator-calculations-and-references
 
-| Field | Meaning |
-|---|---|
-| `decision_timestamp_utc` | Snapshot that triggered the route. |
-| `route_id` and `trip_number` | Unique route/trip identifiers. |
-| `solver_method` | `ortools`, `deterministic_fallback`, or `none`. |
-| `stop_sequence` | Depot, ordered bin IDs, depot. |
-| `selected_bin_ids` | All bins assigned to the dispatch. |
-| `unserved_critical_bin_ids` | Critical bins requiring escalation. |
-| `estimated_load_kg` | Sum of current weights on the trip. |
-| `distance_km` and `duration_s` | OSRM route outputs. |
-| `route_geometry_geojson` | Road-following line for the map. |
-| `warnings` | Invalid inputs, stale prediction, false confidence flag, capacity issue, or fallback use. |
+Waste density, commercial generation, truck payload, base fuel rate, traffic multipliers, payload penalty, idle rate, service time, compaction, and preliminary coordinates remain prototype assumptions until measured locally.

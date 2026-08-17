@@ -16,9 +16,10 @@ from .network import (
     ServiceNetwork,
     download_or_load_service_network,
     expand_bin_distance_matrix,
+    expand_bin_duration_matrix,
     route_coordinates,
 )
-from .simulation import PolicyResult, run_policy
+from .simulation import PolicyResult, SimulationScenario, run_policy
 
 
 def prepare_project(project_dir: str | Path, refresh_graph: bool = False):
@@ -36,23 +37,67 @@ def prepare_project(project_dir: str | Path, refresh_graph: bool = False):
     matrix = expand_bin_distance_matrix(
         service_network, [item.service_index for item in bins]
     )
+    duration_matrix = expand_bin_duration_matrix(
+        service_network, [item.service_index for item in bins]
+    )
     save_district(bins, root / "artifacts" / "district_bins.csv")
     np.save(root / "artifacts" / "road_distance_matrix_m.npy", matrix)
-    return config, service_network, depot, bins, matrix
+    np.save(root / "artifacts" / "road_duration_matrix_s.npy", duration_matrix)
+    return config, service_network, depot, bins, matrix, duration_matrix
+
+
+def experiment_scenarios(config: Config) -> tuple[SimulationScenario, ...]:
+    """Return the declared base and stress conditions for paired evaluation."""
+    return (
+        SimulationScenario(name="base"),
+        SimulationScenario(
+            name="high_demand",
+            demand_multiplier=config.stress.high_demand_multiplier,
+        ),
+        SimulationScenario(
+            name="traffic",
+            traffic_multiplier=config.stress.traffic_multiplier,
+        ),
+        SimulationScenario(
+            name="sensor_failure",
+            sensor_missing_probability=config.stress.sensor_failure_probability,
+            sensor_outlier_probability=config.stress.sensor_outlier_probability,
+        ),
+        SimulationScenario(
+            name="truck_capacity",
+            truck_capacity_multiplier=config.stress.truck_capacity_multiplier,
+        ),
+    )
 
 
 def run_experiment(
     project_dir: str | Path,
     refresh_graph: bool = False,
     replications: int | None = None,
+    scenario_names: tuple[str, ...] | None = None,
 ) -> dict:
     root = Path(project_dir).resolve()
     artifacts = root / "artifacts"
     artifacts.mkdir(parents=True, exist_ok=True)
-    config, service_network, depot, bins, matrix = prepare_project(root, refresh_graph)
-    replication_count = replications or config.operations.replications
+    config, service_network, depot, bins, matrix, duration_matrix = prepare_project(
+        root, refresh_graph
+    )
+    replication_count = (
+        config.operations.replications if replications is None else int(replications)
+    )
     if replication_count < 2 or replication_count > 200:
         raise ValueError("replications must be between 2 and 200")
+    declared_scenarios = experiment_scenarios(config)
+    if scenario_names is None:
+        scenarios = declared_scenarios
+    else:
+        wanted = set(scenario_names)
+        scenarios = tuple(item for item in declared_scenarios if item.name in wanted)
+        unknown = sorted(wanted - {item.name for item in declared_scenarios})
+        if unknown:
+            raise ValueError("Unknown experiment scenarios: " + ", ".join(unknown))
+        if not scenarios:
+            raise ValueError("At least one experiment scenario is required")
 
     forecaster, training_data = train_forecaster(
         bins, config, seed=config.operations.base_seed + 90_000
@@ -64,48 +109,63 @@ def run_experiment(
     )
 
     results: list[PolicyResult] = []
-    representative: dict[str, list[dict]] = {}
+    representative: dict[str, dict[str, list[dict]]] = {}
     seed_manifest = []
     horizon_hours = config.operations.horizon_days * 24
     for replication in range(replication_count):
-        # This final seed block is intentionally disjoint from both the original
-        # study and the safety/fuel tuning trials used during model development.
-        arrival_seed = config.operations.base_seed + 910_000 + replication * 101
-        sensor_seed = config.operations.base_seed + 920_000 + replication * 103
-        arrivals = generate_hourly_waste(
+        # This final seed block is intentionally disjoint from the original study,
+        # the startup-artifact audit, and the dispatch-gap/optional-stop tuning trials.
+        arrival_seed = config.operations.base_seed + 1_310_000 + replication * 101
+        sensor_seed = config.operations.base_seed + 1_320_000 + replication * 103
+        base_arrivals = generate_hourly_waste(
             bins, config, seed=arrival_seed, horizon_hours=horizon_hours
         )
-        fixed = run_policy(
-            "fixed",
-            replication,
-            bins,
-            config,
-            matrix,
-            arrivals,
-            sensor_seed,
-            forecaster=None,
-        )
-        smart = run_policy(
-            "smart",
-            replication,
-            bins,
-            config,
-            matrix,
-            arrivals,
-            sensor_seed,
-            forecaster=forecaster,
-        )
-        results.extend([fixed, smart])
-        if replication == 0:
-            representative = {"fixed": fixed.route_events, "smart": smart.route_events}
-        seed_manifest.append(
-            {
-                "replication": replication,
-                "arrival_seed": arrival_seed,
-                "sensor_seed": sensor_seed,
-                "policies_share_arrivals_and_sensor_noise": True,
-            }
-        )
+        for scenario in scenarios:
+            arrivals = base_arrivals * scenario.demand_multiplier
+            fixed = run_policy(
+                "fixed",
+                replication,
+                bins,
+                config,
+                matrix,
+                duration_matrix,
+                arrivals,
+                sensor_seed,
+                forecaster=None,
+                scenario=scenario,
+            )
+            smart = run_policy(
+                "smart",
+                replication,
+                bins,
+                config,
+                matrix,
+                duration_matrix,
+                arrivals,
+                sensor_seed,
+                forecaster=forecaster,
+                scenario=scenario,
+            )
+            results.extend([fixed, smart])
+            if replication == 0:
+                representative[scenario.name] = {
+                    "fixed": fixed.route_events,
+                    "smart": smart.route_events,
+                }
+            seed_manifest.append(
+                {
+                    "scenario": scenario.name,
+                    "replication": replication,
+                    "arrival_seed": arrival_seed,
+                    "sensor_seed": sensor_seed,
+                    "demand_multiplier": scenario.demand_multiplier,
+                    "traffic_multiplier": scenario.traffic_multiplier,
+                    "sensor_missing_probability": scenario.sensor_missing_probability,
+                    "sensor_outlier_probability": scenario.sensor_outlier_probability,
+                    "truck_capacity_multiplier": scenario.truck_capacity_multiplier,
+                    "policies_share_arrivals_and_sensor_noise": True,
+                }
+            )
 
     metrics = pd.DataFrame([result.metrics for result in results])
     summary, effects = save_analysis(metrics, artifacts, config.operations.base_seed + 30_000)
@@ -116,9 +176,14 @@ def run_experiment(
         json.dumps(seed_manifest, indent=2), encoding="utf-8"
     )
     write_representative_route_geojson(
-        service_network, depot, bins, representative, artifacts, root / "data"
+        service_network,
+        depot,
+        bins,
+        representative.get("base", next(iter(representative.values()))),
+        artifacts,
+        root / "data",
     )
-    provenance = build_provenance(config, replication_count)
+    provenance = build_provenance(config, replication_count, scenarios)
     (artifacts / "run_provenance.json").write_text(
         json.dumps(provenance, indent=2), encoding="utf-8"
     )
@@ -181,7 +246,11 @@ def write_representative_route_geojson(
     )
 
 
-def build_provenance(config: Config, replications: int) -> dict:
+def build_provenance(
+    config: Config,
+    replications: int,
+    scenarios: tuple[SimulationScenario, ...],
+) -> dict:
     packages = {}
     for package in [
         "simpy",
@@ -199,13 +268,19 @@ def build_provenance(config: Config, replications: int) -> dict:
         except importlib.metadata.PackageNotFoundError:
             packages[package] = "not installed"
     return {
-        "study_type": "terminating 30-day stochastic simulation",
+        "study_type": "terminating 30-day stochastic simulation with base and stress scenarios",
         "comparison": "paired common-random-number fixed vs smart policies",
-        "replications": replications,
+        "paired_replications_per_scenario": replications,
+        "scenario_count": len(scenarios),
+        "total_policy_runs": replications * len(scenarios) * 2,
+        "scenarios": [item.__dict__ for item in scenarios],
         "base_seed": config.operations.base_seed,
-        "time_unit": "hour",
+        "simulation_time_unit": "minute",
         "horizon_hours": config.operations.horizon_days * 24,
-        "warm_up": "none; initial empty-bin condition is part of the estimand",
+        "warm_up": (
+            f"Raw metrics use all {config.operations.horizon_days} days; post-warm-up metrics "
+            f"exclude the first {config.operations.analysis_warmup_days} days for both policies"
+        ),
         "inference_scope": "Monte Carlo uncertainty under configured assumptions, not real-world causality",
         "road_backend": "OSRM table/route services over OpenStreetMap data",
         "packages": packages,

@@ -12,15 +12,16 @@ The portal is a prototype. It does not authenticate municipal staff, contact a v
 
 ## Information architecture
 
-The first page shown is **Route input**. The three top-level destinations are:
+The first page shown is **Route input**. The four top-level destinations are:
 
 | Destination | Operator purpose | Main outputs |
 | --- | --- | --- |
 | Route input | Validate predictive data and decide whether collection is required | Decision state, selected bins, capacity-safe trips, OSM route preview, mock-send control |
 | Operations | Inspect the configured 30-day simulation | KPI cards, fixed-versus-smart route map, forecast MAE, paired comparison table |
+| Mock live tracking | Replay one representative chronological truck run | Road-leg movement, service/depot pauses, site completion states, timeline and speed controls |
 | Dispatch log | Review local mock-send records | Dispatch table, latest JSON download, full payload inspection |
 
-On desktop and tablet these destinations use a sticky tab bar. At widths of 760 px or less, the same three destinations become a fixed bottom navigation bar.
+On desktop and tablet these destinations use a sticky tab bar. At widths of 760 px or less, the same four destinations become a fixed bottom navigation bar.
 
 The sidebar contains the product identity, pilot configuration, experiment control, and a permanent prototype disclaimer. It is 232 px wide on desktop and follows Streamlit's automatic collapsed behavior on smaller screens.
 
@@ -65,7 +66,7 @@ The interface uses 4-6 px corner radii, one-pixel steel borders, and 4-6 px left
 | --- | --- |
 | Greater than 1024 px | 232 px dark sidebar; content constrained to 1240 px; two-column graphite command surface |
 | 761-1024 px | Command surface becomes one column; its task summary moves below a divider; content padding reduces to 1.5 rem |
-| 760 px or less | Dark top bar; one-column content; fixed three-item bottom navigation; extra bottom padding keeps content reachable |
+| 760 px or less | Dark top bar; one-column content; fixed four-item bottom navigation; extra bottom padding keeps content reachable |
 
 The supported QA viewports are 1440x900, 768x1024, and 390x844. The browser test checks each viewport for horizontal overflow.
 
@@ -73,7 +74,7 @@ The supported QA viewports are 1440x900, 768x1024, and 390x844. The browser test
 
 ### Command surface
 
-The graphite command surface states the main operator question and lists the three available tasks. It is the single dominant visual surface on the page.
+The graphite command surface states the main operator question and lists the available tasks. It is the single dominant visual surface on the page.
 
 ### Route-input states
 
@@ -81,6 +82,7 @@ The graphite command surface states the main operator question and lists the thr
 | --- | --- | --- |
 | Waiting | Soft blue with blue left rule | No snapshot has been evaluated in the current session |
 | Collection required | Soft red with red left rule | At least one bin crossed a required-service trigger |
+| Inspection required | Soft amber with amber left rule | Data quality is insufficient to safely declare no collection, without a trustworthy urgent collection trigger |
 | No collection required | Soft green with green left rule | No bin crossed the current triggers |
 | Mock-only warning | Soft amber with amber left rule | The next action writes a local record only |
 
@@ -91,9 +93,14 @@ The graphite command surface states the main operator question and lists the thr
 | Required | High or critical risk, predicted overflow within 48 hours, or at least 65% full |
 | Co-located sibling | A bin at a required site that is at least 50% full or predicted to overflow within 72 hours |
 | Efficient nearby pickup | A medium-risk or near-threshold bin accepted within truck capacity, the 30 km planning budget, and at most 5 km incremental distance |
+| Inspection required | Missing, stale, low-confidence, or disagreeing data requiring operator review |
 | Wait | A bin that is not selected for the current plan |
 
 Emergency bins are prioritized when they are critical, predicted to overflow within 20 hours, or at least 90% full. Low-confidence selected readings remain in the plan but produce an operator-review warning. A required bin that cannot fit within two 9,000 kg trips blocks the mock-send button.
+
+Maps use one marker for each of the 11 physical sites. Each popup shows all three co-located bins and the marker badge shows the count requiring attention. Site shape and text reinforce color. The configured Subang Jaya bounds, zoom range 13–18, disabled wrapping, and reset control keep the operational area in view.
+
+Mock tracking adds in-transit, servicing, completed, and depot states. Completion is timestamp-driven and appears only after service ends. Reduced-motion mode removes the pulsing animation without removing manual playback controls.
 
 ### Buttons and navigation
 
@@ -120,15 +127,21 @@ Emergency bins are prioritized when they are critical, predicted to overflow wit
 | `admin-portal/binsight/dispatch.py` | Snapshot validation, selection rules, route-plan assembly, and mock-dispatch records |
 | `admin-portal/binsight/routing.py` | Capacity-constrained route solver |
 | `admin-portal/binsight/network.py` | Cached OSM/OSRM service matrix and route geometry |
+| `admin-portal/binsight/maps.py` | Consolidated site markers, map bounds/layers, route styling, and tracking HTML |
+| `admin-portal/binsight/tracking.py` | Chronological route manifest and truck interpolation |
 | `admin-portal/scripts/qa_dispatch_ui.js` | Browser workflow, screenshot, error, and overflow checks |
+| `admin-portal/scripts/qa_maps_tracking.js` | Map bounds, markers, popup, tracking, responsive, and reduced-motion checks |
 | `BinSight_UI_Design_Language.txt` | Repository-wide visual and interaction source language |
 
 ## Verification record
 
 The redesign was verified on 17 August 2026 with:
 
-- 18 Python tests passing;
+- 48 Python tests passing;
 - a complete demo route and local mock-dispatch browser workflow;
+- exactly 11 map markers with three-bin popup rows;
+- map bound/zoom/no-wrap/reset and route containment checks;
+- truck movement, service-completion timing, replay reset, and reduced-motion checks;
 - desktop 1440x900, tablet 768x1024, and mobile 390x844 screenshots;
 - no browser console errors or page errors;
 - no horizontal overflow at any tested viewport; and
@@ -138,7 +151,7 @@ The redesign was verified on 17 August 2026 with:
 
 - Mock dispatch writes only to `admin-portal/data/mock_truck_dispatches.jsonl`.
 - No authentication, municipal role gate, API, driver application, or real vehicle connection exists.
-- Snapshot validation requires one shared timezone-aware timestamp, but it does not yet reject stale data based on its age.
+- Snapshot validation rejects stale/future snapshots and preserves safe inspection behavior for degraded sensor data; the configured freshness window still requires field validation.
 - OSRM road geometry can fall back to straight stop-to-stop preview lines. Stop order and reported distance still use the cached OSM road matrix.
 - OpenStreetMap tiles and Google Fonts need network access; routing calculations can use the committed cache.
 - Running the 30-day experiment is synchronous, so the sidebar control remains busy until the run finishes.

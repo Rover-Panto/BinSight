@@ -25,7 +25,7 @@ The first collaborator integration keeps the existing Streamlit portal under `ad
 - The existing `/admin` route plan remains the target for a later authenticated gateway or React admin shell.
 - Streamlit outputs must continue to identify simulations and mock truck dispatches accurately.
 
-The current simulation uses underground-bin IDs `UGB-001` through `UGB-033` and a Boolean `confidence_flag`. These remain internal to the independent portal in phase 1. Before a shared API is introduced, add an explicit adapter to the repository-wide `BIN-###` identifier and categorical confidence contract; do not silently rename historical simulation records.
+The current simulation uses underground-bin IDs `UGB-001` through `UGB-033` and a Boolean `confidence_flag`. These remain internal to the independent portal in phase 1. The route-input adapter validates freshness, missing readings, confidence, ranges, and duplicate IDs, but it does **not** yet translate to the repository-wide `BIN-###` identifier or categorical confidence contract. Add that mapping explicitly before a shared API is introduced; do not silently rename historical simulation records.
 
 Do not add admin links to the citizen mobile navigation. Use a separate admin shell and a role gate. A mock role is acceptable for the prototype, but the interface must label it as simulated access.
 
@@ -124,7 +124,7 @@ Use these definitions:
 | Overflow incidents | Count of bins that reached the overflow threshold during the comparison window |
 | Unnecessary trips | Stops where the bin remained below the agreed collection threshold |
 | Route distance | Sum of simulated route-leg distance in kilometres |
-| Fuel use | Modelled litres based on route distance and the documented vehicle assumption |
+| Fuel use | Modelled litres from base driving, traffic, payload, collection-idle, and depot-idle components |
 | CO2 | Modelled kilograms from fuel use and the documented emission factor |
 | Contamination | Rejected recycling items divided by inspected recycling items |
 | Sensing energy | Estimated watt-hours used by the sensing schedule during the window |
@@ -135,7 +135,9 @@ Do not present proposal targets as measured results. The admin UI may show targe
 
 The fixed baseline represents the same bins, depot, vehicle assumptions, and time window as the priority route. A comparison is invalid when either route uses a different service area or input window.
 
-The priority score should expose its input fields. At minimum, record fill level, time-to-overflow or risk, confidence, report urgency, and data freshness. Do not label a route as optimal unless the implementation proves optimality for the stated objective and constraints. `Priority route` is the safe default label.
+The priority decision must expose its input fields. At minimum, record fill level, weight, time-to-overflow/risk, confidence, data freshness, uncertainty bound, last-valid age when used, decision reason, and selection category. Preserve three top-level states: collection required, inspection required, and no collection required. Do not label a route as optimal unless the implementation proves optimality for the stated objective and constraints. `Priority route` is the safe default label.
+
+The current mock tracking view replays saved simulation timestamps and road geometry. It is not GPS and must never be presented as a live vehicle feed. A future driver integration needs authenticated route versioning, acknowledgement, GPS freshness, cancellation, and operator override contracts.
 
 ## Pull request evidence
 

@@ -41,9 +41,11 @@ The `feature/admin-operations-portal` branch adds the collaborator's routing and
 
 The applications do not exchange data yet. The admin portal does not import or write the citizen store, and the existing citizen route map remains unchanged. A later integration can expose an authenticated `/admin` gateway or shared API after the data contract and role model are agreed.
 
-The admin portal currently opens on a route-input command surface and provides predictive-AI CSV/JSON input, collection-required decisions, OpenStreetMap/OSRM route previews, simulation results, and a local mock truck-dispatch audit. Its responsive interface uses desktop/tablet tabs and a three-destination mobile bottom navigation. All operational outputs remain labelled as prototype or simulation data.
+The admin portal currently opens on a route-input command surface and provides predictive-AI CSV/JSON input; collection, inspection, or no-collection decisions; OpenStreetMap/OSRM route previews; base/stress simulation results; chronological mock truck tracking; and a local mock-dispatch audit. The current operational model separates noisy observations from hidden physical state, rejects stale/future snapshots, enforces two trips across the full calendar day, and models travel/service/unloading/turnaround before a bin is emptied. Its responsive interface uses desktop/tablet tabs and a four-destination mobile bottom navigation. All operational outputs remain labelled as prototype or simulation data.
 
 See `ADMIN_PORTAL_DESIGN_SYSTEM.md` for the implemented visual and responsive contract, and `HOW_TO_OPERATE_ADMIN_PORTAL.md` for the operator workflow and verification commands.
+
+`COMPETITION_COMPLIANCE_AUDIT.md` records the current question-paper coverage and the unresolved physical-prototype, budget, power, presentation, camera, return-station, and proposal-consistency gaps. Digital Focus Area C completion must not be presented as full competition completion.
 
 ## Source of truth
 
@@ -52,6 +54,8 @@ See `ADMIN_PORTAL_DESIGN_SYSTEM.md` for the implemented visual and responsive co
 - `web/src/App.tsx`: active route map
 - `admin-portal/app.py`: independent operations portal entry point
 - `admin-portal/binsight/dispatch.py`: predictive snapshot validation and mock dispatch contract
+- `admin-portal/binsight/observations.py`: simulated sensor errors, confidence, uncertainty, and leakage boundary
+- `admin-portal/binsight/maps.py` and `tracking.py`: consolidated site maps and chronological replay
 - `web/tests/`: tested browser workflows
 - `BinSight_UI_Design_Language.txt`: shared visual and interaction rules
 - `docs/`: integration contracts and current implementation status

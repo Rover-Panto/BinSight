@@ -1,11 +1,55 @@
 {
-  "study_type": "terminating 30-day stochastic simulation",
+  "study_type": "terminating 30-day stochastic simulation with base and stress scenarios",
   "comparison": "paired common-random-number fixed vs smart policies",
-  "replications": 30,
+  "paired_replications_per_scenario": 30,
+  "scenario_count": 5,
+  "total_policy_runs": 300,
+  "scenarios": [
+    {
+      "name": "base",
+      "demand_multiplier": 1.0,
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "high_demand",
+      "demand_multiplier": 1.45,
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "traffic",
+      "demand_multiplier": 1.0,
+      "traffic_multiplier": 1.35,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "sensor_failure",
+      "demand_multiplier": 1.0,
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": 0.18,
+      "sensor_outlier_probability": 0.08,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "truck_capacity",
+      "demand_multiplier": 1.0,
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 0.65
+    }
+  ],
   "base_seed": 7112026,
-  "time_unit": "hour",
+  "simulation_time_unit": "minute",
   "horizon_hours": 720,
-  "warm_up": "none; initial empty-bin condition is part of the estimand",
+  "warm_up": "Raw metrics use all 30 days; post-warm-up metrics exclude the first 3 days for both policies",
   "inference_scope": "Monte Carlo uncertainty under configured assumptions, not real-world causality",
   "road_backend": "OSRM table/route services over OpenStreetMap data",
   "packages": {

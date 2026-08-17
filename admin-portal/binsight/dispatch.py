@@ -12,8 +12,12 @@ import numpy as np
 import pandas as pd
 
 from .config import Config
-from .routing import RoutePlan, solve_routes
-from .simulation import _incremental_proxy_distance_m
+from .routing import (
+    RoutePlan,
+    incremental_proxy_distance_m,
+    select_capacity_feasible,
+    solve_routes,
+)
 
 
 PREDICTIVE_COLUMNS = (
@@ -26,12 +30,17 @@ PREDICTIVE_COLUMNS = (
     "confidence_flag",
 )
 ALLOWED_RISK_LEVELS = ("low", "medium", "high", "critical")
+COLLECTION_REQUIRED = "COLLECTION_REQUIRED"
+INSPECTION_REQUIRED = "INSPECTION_REQUIRED"
+NO_COLLECTION_REQUIRED = "NO_COLLECTION_REQUIRED"
 
 
 @dataclass(frozen=True)
 class DispatchPlan:
     snapshot_timestamp: str
+    decision_state: str
     collection_required: bool
+    inspection_required: bool
     route_plan: RoutePlan
     selected_bin_indices: list[int]
     required_bin_indices: list[int]
@@ -40,6 +49,7 @@ class DispatchPlan:
     unserved_required_bin_indices: list[int]
     review_bin_indices: list[int]
     selection_rows: list[dict[str, Any]]
+    audit_rows: list[dict[str, Any]]
     warnings: tuple[str, ...]
 
     @property
@@ -114,6 +124,10 @@ def validate_snapshot(
     frame: pd.DataFrame,
     expected_bin_ids: Iterable[str],
     crane_lift_limit_kg: float,
+    *,
+    now_utc: datetime | None = None,
+    stale_after_hours: float = 12.0,
+    future_tolerance_minutes: float = 5.0,
 ) -> pd.DataFrame:
     """Validate and normalize one complete predictive-AI snapshot."""
     expected = [str(bin_id) for bin_id in expected_bin_ids]
@@ -154,18 +168,42 @@ def validate_snapshot(
     if len(timestamp_values) != 1:
         raise ValueError("All 33 rows must have the same timestamp so they form one snapshot")
     normalized["timestamp"] = [value.isoformat() for value in parsed_timestamps]
-
-    for column in ("fill_pct", "weight_kg", "time_to_overflow_hours"):
-        normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
-        invalid = ~np.isfinite(normalized[column].to_numpy(dtype=float))
-        if invalid.any():
-            bad_rows = (np.flatnonzero(invalid) + 2).tolist()
-            raise ValueError(f"{column} must be a finite number; invalid rows: {bad_rows[:5]}")
-    if ((normalized["fill_pct"] < 0) | (normalized["fill_pct"] > 100)).any():
-        raise ValueError("fill_pct must be between 0 and 100")
-    if ((normalized["weight_kg"] < 0) | (normalized["weight_kg"] > crane_lift_limit_kg)).any():
+    snapshot_time = parsed_timestamps[0]
+    reference_time = (now_utc or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    age_hours = (reference_time - snapshot_time).total_seconds() / 3600.0
+    if age_hours < -future_tolerance_minutes / 60.0:
         raise ValueError(
-            f"weight_kg must be between 0 and the {crane_lift_limit_kg:g} kg crane lift limit"
+            f"Snapshot timestamp is {-age_hours * 60.0:.1f} minutes in the future; "
+            f"the tolerance is {future_tolerance_minutes:g} minutes"
+        )
+    normalized["reading_age_hours"] = max(0.0, age_hours)
+    normalized["stale_flag"] = age_hours > stale_after_hours
+
+    for column in ("fill_pct", "weight_kg"):
+        source = normalized[column]
+        converted = pd.to_numeric(source, errors="coerce")
+        invalid = converted.isna() & source.notna()
+        if invalid.any():
+            bad_rows = (np.flatnonzero(invalid.to_numpy()) + 2).tolist()
+            raise ValueError(f"{column} must be numeric or null; invalid rows: {bad_rows[:5]}")
+        normalized[column] = converted.astype(float)
+    normalized["time_to_overflow_hours"] = pd.to_numeric(
+        normalized["time_to_overflow_hours"], errors="coerce"
+    )
+    invalid_tto = ~np.isfinite(normalized["time_to_overflow_hours"].to_numpy(dtype=float))
+    if invalid_tto.any():
+        bad_rows = (np.flatnonzero(invalid_tto) + 2).tolist()
+        raise ValueError(
+            f"time_to_overflow_hours must be a finite number; invalid rows: {bad_rows[:5]}"
+        )
+    if ((normalized["fill_pct"].dropna() < 0) | (normalized["fill_pct"].dropna() > 100)).any():
+        raise ValueError("fill_pct must be between 0 and 100 when present")
+    if (
+        (normalized["weight_kg"].dropna() < 0)
+        | (normalized["weight_kg"].dropna() > crane_lift_limit_kg)
+    ).any():
+        raise ValueError(
+            f"weight_kg must be null or between 0 and the {crane_lift_limit_kg:g} kg crane lift limit"
         )
     if (normalized["time_to_overflow_hours"] < 0).any():
         raise ValueError("time_to_overflow_hours cannot be negative")
@@ -245,6 +283,7 @@ def build_dispatch_plan(
     bins: pd.DataFrame,
     distance_matrix_m: np.ndarray,
     config: Config,
+    last_valid_readings: dict[str, dict[str, Any]] | None = None,
 ) -> DispatchPlan:
     """Turn a validated AI snapshot into capacity-feasible OSM-road collection trips."""
     if snapshot["bin_id"].tolist() != bins["bin_id"].astype(str).tolist():
@@ -258,41 +297,129 @@ def build_dispatch_plan(
     risk = snapshot["risk_level"].to_numpy(dtype=object)
     confidence = snapshot["confidence_flag"].to_numpy(dtype=bool)
     operations = config.operations
+    capacities = bins["capacity_kg"].to_numpy(dtype=float)
+    stale = snapshot.get("stale_flag", pd.Series(False, index=snapshot.index)).to_numpy(dtype=bool)
+    age_hours = snapshot.get("reading_age_hours", pd.Series(0.0, index=snapshot.index)).to_numpy(
+        dtype=float
+    )
+    fill_missing = ~np.isfinite(fill_pct)
+    weight_missing = ~np.isfinite(weights)
+    weight_fill_pct = 100.0 * weights / capacities
+    disagreement = (
+        np.isfinite(fill_pct)
+        & np.isfinite(weight_fill_pct)
+        & (np.abs(fill_pct - weight_fill_pct) > config.sensor.disagreement_threshold_pct)
+    )
+    base_fill = np.where(
+        np.isfinite(fill_pct) & np.isfinite(weight_fill_pct),
+        np.maximum(fill_pct, weight_fill_pct),
+        np.where(np.isfinite(fill_pct), fill_pct, weight_fill_pct),
+    )
+    high_margin = config.sensor.upper_uncertainty_z * config.sensor.fill_random_sd_pct
+    one_sensor_missing = fill_missing ^ weight_missing
+    margin = np.where(
+        confidence & ~stale & ~disagreement,
+        high_margin,
+        np.where(
+            one_sensor_missing,
+            config.sensor.single_sensor_margin_pct,
+            config.sensor.low_confidence_margin_pct,
+        ),
+    )
+    conservative_fill = np.where(np.isfinite(base_fill), base_fill + margin, np.nan)
+    conservative_weight = np.where(
+        np.isfinite(weights),
+        weights + config.sensor.upper_uncertainty_z * config.sensor.weight_random_sd_kg,
+        np.where(
+            np.isfinite(conservative_fill),
+            conservative_fill / 100.0 * capacities,
+            capacities,
+        ),
+    )
+
+    history = last_valid_readings or {}
+    snapshot_time = _parse_timestamp(snapshot.iloc[0]["timestamp"])
+    for index, bin_id in enumerate(snapshot["bin_id"].astype(str)):
+        previous = history.get(bin_id)
+        if not previous or not (stale[index] or not confidence[index] or fill_missing[index] or weight_missing[index]):
+            continue
+        try:
+            previous_time = _parse_timestamp(previous["timestamp"])
+            previous_age = max(0.0, (snapshot_time - previous_time).total_seconds() / 3600.0)
+            previous_fill = float(previous["fill_pct"])
+            previous_weight = float(previous["weight_kg"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        retained_margin = (
+            config.sensor.low_confidence_margin_pct
+            if fill_missing[index] and weight_missing[index]
+            else config.sensor.single_sensor_margin_pct
+        )
+        fallback_fill = (
+            previous_fill
+            + previous_age * config.sensor.conservative_growth_pct_per_hour
+            + retained_margin
+        )
+        if fill_missing[index] and weight_missing[index]:
+            conservative_fill[index] = fallback_fill
+            conservative_weight[index] = max(
+                previous_weight, fallback_fill / 100.0 * capacities[index]
+            )
+        else:
+            conservative_fill[index] = max(conservative_fill[index], fallback_fill)
+            conservative_weight[index] = max(conservative_weight[index], previous_weight)
+
+    conservative_fill = np.clip(conservative_fill, 0.0, 150.0)
+    conservative_weight = np.clip(
+        conservative_weight, 0.0, config.operations.crane_lift_limit_kg
+    )
+
+    review_reasons: list[list[str]] = [[] for _ in range(len(bins))]
+    for index in range(len(bins)):
+        if stale[index]:
+            review_reasons[index].append(f"stale reading ({age_hours[index]:.1f}h old)")
+        if fill_missing[index]:
+            review_reasons[index].append("ultrasonic fill missing")
+        if weight_missing[index]:
+            review_reasons[index].append("load-cell weight missing")
+        if fill_missing[index] and weight_missing[index] and not np.isfinite(conservative_fill[index]):
+            review_reasons[index].append("no valid reading available; inspection required")
+        if disagreement[index]:
+            review_reasons[index].append("fill and weight sensors disagree")
+        if not confidence[index]:
+            review_reasons[index].append("low confidence")
+    review = [index for index, reasons in enumerate(review_reasons) if reasons]
 
     required = [
         index
         for index in range(len(bins))
         if risk[index] in {"high", "critical"}
         or tto[index] <= operations.smart_dispatch_time_to_overflow_hours
-        or fill_pct[index] >= operations.smart_dispatch_current_trigger_pct
+        or conservative_fill[index] >= operations.smart_dispatch_current_trigger_pct
     ]
     emergency = {
         index
         for index in required
         if risk[index] == "critical"
         or tto[index] <= operations.smart_emergency_time_to_overflow_hours
-        or fill_pct[index] >= operations.smart_emergency_current_trigger_pct
+        or conservative_fill[index] >= operations.smart_emergency_current_trigger_pct
     }
     required = sorted(
         required,
         key=lambda index: (
             index not in emergency,
             tto[index],
-            -fill_pct[index],
+            -conservative_fill[index],
             str(bins.iloc[index]["bin_id"]),
         ),
     )
 
-    daily_capacity = operations.truck_capacity_kg * operations.max_daily_trips
-    selected: list[int] = []
-    selected_load = 0.0
-    unserved_required: list[int] = []
-    for index in required:
-        if selected_load + weights[index] <= daily_capacity + 1e-9:
-            selected.append(index)
-            selected_load += weights[index]
-        else:
-            unserved_required.append(index)
+    selected, unserved_required = select_capacity_feasible(
+        required,
+        conservative_weight,
+        operations.truck_capacity_kg,
+        operations.max_daily_trips,
+    )
 
     selected_services = {int(bins.iloc[index]["service_index"]) for index in selected}
     siblings = sorted(
@@ -301,56 +428,68 @@ def build_dispatch_plan(
             for index in range(len(bins))
             if index not in selected
             and int(bins.iloc[index]["service_index"]) in selected_services
+            and confidence[index]
             and (
-                fill_pct[index] >= operations.smart_sibling_include_current_pct
+                conservative_fill[index] >= operations.smart_sibling_include_current_pct
                 or tto[index] <= operations.smart_sibling_include_time_to_overflow_hours
             )
         ),
-        key=lambda index: (tto[index], -fill_pct[index], str(bins.iloc[index]["bin_id"])),
+        key=lambda index: (tto[index], -conservative_fill[index], str(bins.iloc[index]["bin_id"])),
     )
     selected_siblings: list[int] = []
     for index in siblings:
-        if selected_load + weights[index] <= daily_capacity + 1e-9:
-            selected.append(index)
+        proposal, rejected = select_capacity_feasible(
+            selected + [index],
+            conservative_weight,
+            operations.truck_capacity_kg,
+            operations.max_daily_trips,
+        )
+        if not rejected:
+            selected = proposal
             selected_siblings.append(index)
-            selected_load += weights[index]
 
     optional_candidates = sorted(
         (
             index
             for index in range(len(bins))
             if index not in selected
+            and confidence[index]
             and (
                 risk[index] == "medium"
-                or fill_pct[index] >= operations.smart_include_current_trigger_pct
+                or conservative_fill[index] >= operations.smart_include_current_trigger_pct
                 or tto[index] <= operations.smart_sibling_include_time_to_overflow_hours
             )
         ),
-        key=lambda index: (tto[index], -fill_pct[index], str(bins.iloc[index]["bin_id"])),
+        key=lambda index: (tto[index], -conservative_fill[index], str(bins.iloc[index]["bin_id"])),
     )
     selected_optional: list[int] = []
     distance_budget_m = operations.smart_max_dispatch_distance_km * 1000.0
     increment_limit_m = operations.smart_optional_max_increment_km * 1000.0
     if required:
         for index in optional_candidates:
-            if selected_load + weights[index] > daily_capacity + 1e-9:
+            capacity_proposal, rejected = select_capacity_feasible(
+                selected + [index],
+                conservative_weight,
+                operations.truck_capacity_kg,
+                operations.max_daily_trips,
+            )
+            if rejected:
                 continue
-            proposal, added = _incremental_proxy_distance_m(
+            proposal, added = incremental_proxy_distance_m(
                 selected,
                 index,
-                weights,
+                conservative_weight,
                 distance_matrix_m,
                 operations.truck_capacity_kg,
                 operations.max_daily_trips,
             )
             if proposal <= distance_budget_m and added <= increment_limit_m:
-                selected.append(index)
+                selected = capacity_proposal
                 selected_optional.append(index)
-                selected_load += weights[index]
 
     route_plan = solve_routes(
         selected,
-        weights,
+        conservative_weight,
         distance_matrix_m,
         operations.truck_capacity_kg,
         operations.max_daily_trips,
@@ -358,7 +497,6 @@ def build_dispatch_plan(
     )
 
     warnings: list[str] = []
-    review = [index for index in selected if not confidence[index]]
     if review:
         ids = ", ".join(str(bins.iloc[index]["bin_id"]) for index in review)
         warnings.append(f"Operator review required for low-confidence readings: {ids}")
@@ -378,7 +516,12 @@ def build_dispatch_plan(
         ids = ", ".join(str(bins.iloc[index]["bin_id"]) for index in over_nominal)
         warnings.append(f"Measured weight exceeds the nominal 540 kg bin capacity: {ids}")
     inconsistent = [
-        index for index in selected if fill_pct[index] >= 65 and weights[index] <= 1.0
+        index
+        for index in selected
+        if np.isfinite(fill_pct[index])
+        and np.isfinite(weights[index])
+        and fill_pct[index] >= 65
+        and weights[index] <= 1.0
     ]
     if inconsistent:
         ids = ", ".join(str(bins.iloc[index]["bin_id"]) for index in inconsistent)
@@ -387,42 +530,70 @@ def build_dispatch_plan(
     required_set = set(required)
     sibling_set = set(selected_siblings)
     optional_set = set(selected_optional)
-    rows: list[dict[str, Any]] = []
-    for index in route_plan.served_bin_indices:
-        if index in required_set:
+    served_set = set(route_plan.served_bin_indices)
+    unserved_set = set(unserved_required)
+    audit_rows: list[dict[str, Any]] = []
+    for index in range(len(bins)):
+        if index in required_set and index in served_set:
             selection_class = "Required"
+        elif index in unserved_set:
+            selection_class = "Unserved required"
+        elif index in review and index not in served_set:
+            selection_class = "Inspection required"
         elif index in sibling_set:
             selection_class = "Co-located sibling"
         elif index in optional_set:
             selection_class = "Efficient nearby pickup"
         else:
-            selection_class = "Selected"
-        reasons = []
+            selection_class = "Wait"
+        reasons = list(review_reasons[index])
         if risk[index] in {"high", "critical"}:
             reasons.append(f"{risk[index]} risk")
         if tto[index] <= operations.smart_dispatch_time_to_overflow_hours:
             reasons.append(f"overflow in {tto[index]:g}h")
-        if fill_pct[index] >= operations.smart_dispatch_current_trigger_pct:
-            reasons.append(f"{fill_pct[index]:g}% full")
+        if conservative_fill[index] >= operations.smart_dispatch_current_trigger_pct:
+            reasons.append(f"conservative upper fill {conservative_fill[index]:.1f}%")
         if not reasons:
             reasons.append(selection_class.lower())
-        rows.append(
+        audit_rows.append(
             {
                 "bin_id": str(bins.iloc[index]["bin_id"]),
                 "site_id": str(bins.iloc[index]["site_id"]),
                 "selection": selection_class,
                 "reason": ", ".join(reasons),
-                "fill_pct": float(fill_pct[index]),
-                "weight_kg": float(weights[index]),
+                "fill_pct": float(fill_pct[index]) if np.isfinite(fill_pct[index]) else None,
+                "weight_kg": float(weights[index]) if np.isfinite(weights[index]) else None,
+                "conservative_upper_fill_pct": (
+                    float(conservative_fill[index])
+                    if np.isfinite(conservative_fill[index])
+                    else None
+                ),
+                "conservative_upper_weight_kg": (
+                    float(conservative_weight[index])
+                    if np.isfinite(conservative_weight[index])
+                    else None
+                ),
                 "time_to_overflow_hours": float(tto[index]),
                 "risk_level": str(risk[index]),
                 "confidence_flag": bool(confidence[index]),
+                "reading_age_hours": float(age_hours[index]),
+                "collection_state": selection_class,
             }
         )
+    rows = [row for index, row in enumerate(audit_rows) if index in served_set]
+    inspection_required = bool(review)
+    if required:
+        decision_state = COLLECTION_REQUIRED
+    elif inspection_required:
+        decision_state = INSPECTION_REQUIRED
+    else:
+        decision_state = NO_COLLECTION_REQUIRED
 
     return DispatchPlan(
         snapshot_timestamp=str(snapshot.iloc[0]["timestamp"]),
+        decision_state=decision_state,
         collection_required=bool(required),
+        inspection_required=inspection_required,
         route_plan=route_plan,
         selected_bin_indices=list(route_plan.served_bin_indices),
         required_bin_indices=required,
@@ -431,12 +602,63 @@ def build_dispatch_plan(
         unserved_required_bin_indices=unserved_required,
         review_bin_indices=review,
         selection_rows=rows,
+        audit_rows=audit_rows,
         warnings=tuple(warnings),
     )
 
 
+def update_last_valid_readings(
+    history: dict[str, dict[str, Any]],
+    snapshot: pd.DataFrame,
+    bins: pd.DataFrame,
+    config: Config,
+) -> dict[str, dict[str, Any]]:
+    """Retain only fresh, high-confidence, mutually consistent readings."""
+    updated = dict(history)
+    capacities = bins["capacity_kg"].to_numpy(dtype=float)
+    for index, row in snapshot.iterrows():
+        fill = row["fill_pct"]
+        weight = row["weight_kg"]
+        if (
+            not bool(row["confidence_flag"])
+            or bool(row.get("stale_flag", False))
+            or not np.isfinite(fill)
+            or not np.isfinite(weight)
+        ):
+            continue
+        weight_fill = 100.0 * float(weight) / capacities[index]
+        if abs(float(fill) - weight_fill) > config.sensor.disagreement_threshold_pct:
+            continue
+        updated[str(row["bin_id"])] = {
+            "timestamp": str(row["timestamp"]),
+            "fill_pct": float(fill),
+            "weight_kg": float(weight),
+        }
+    return updated
+
+
+def load_last_valid_readings(path: str | Path) -> dict[str, dict[str, Any]]:
+    source = Path(path)
+    if not source.exists():
+        return {}
+    try:
+        payload = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def save_last_valid_readings(history: dict[str, dict[str, Any]], path: str | Path) -> None:
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(history, indent=2), encoding="utf-8")
+
+
 def route_loads_kg(plan: DispatchPlan, snapshot: pd.DataFrame) -> list[float]:
-    weights = snapshot["weight_kg"].to_numpy(dtype=float)
+    weights = np.array(
+        [row["conservative_upper_weight_kg"] for row in plan.audit_rows],
+        dtype=float,
+    )
     return [
         float(sum(weights[index] for index in route if index != -1))
         for route in plan.route_plan.routes

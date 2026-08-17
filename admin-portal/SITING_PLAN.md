@@ -28,6 +28,8 @@ Therefore the district needs `11 x 3 = 33 bins`. The site allocation was also ch
 
 The requested coordinates below are planning anchors. The OSM/OSRM coordinate is the road-service point used in the model, not an approved excavation point.
 
+All three bins assigned to one controller share that site's coordinate. The map intentionally draws one consolidated marker and lists the three IDs in its popup; it does not spread co-located bins apart for visibility. The optimization did not add any bins, sites, or trucks beyond this budgeted design.
+
 | Site | Planning area | Controller | Bins | Households | Commercial | Daily kg | Requested latitude, longitude | OSM road point latitude, longitude | Snap m |
 |---|---|---:|---:|---:|---:|---:|---|---|---:|
 | SJ-01 | SS12 residential cluster | ESP32-001 | 3 | 46 | 1 | 327.81 | 3.075400, 101.575500 | 3.075280, 101.575341 | 22.1 |

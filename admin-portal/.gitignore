@@ -7,4 +7,5 @@ tmp/
 *.log
 data/*.sqlite3
 data/mock_truck_dispatches.jsonl
+data/last_valid_sensor_readings.json
 artifacts/ui-qa-*/

@@ -10,10 +10,17 @@ from sklearn.metrics import mean_absolute_error
 
 from .config import Config
 from .district import BinSpec, generate_hourly_waste
+from .observations import (
+    assert_observation_only_columns,
+    generate_sensor_noise_scenario,
+    observe_sensors,
+)
 
 
 FEATURE_COLUMNS = [
     "fill_pct",
+    "weight_kg",
+    "confidence_flag",
     "growth_6h_pct",
     "growth_24h_pct",
     "hour_sin",
@@ -33,6 +40,7 @@ class ForecastBundle:
     evaluation: dict[str, float]
 
     def predict(self, feature_frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        assert_observation_only_columns(FEATURE_COLUMNS)
         features = feature_frame[FEATURE_COLUMNS]
         mean = np.maximum(0.0, self.mean_model.predict(features))
         upper = np.maximum(mean, self.upper_model.predict(features))
@@ -42,6 +50,8 @@ class ForecastBundle:
 def make_feature_row(
     item: BinSpec,
     fill_pct: float,
+    weight_kg: float,
+    confidence_flag: bool,
     observations: Sequence[float],
     absolute_hour: int,
 ) -> dict[str, float]:
@@ -54,6 +64,8 @@ def make_feature_row(
     total_units = item.households + item.commercial_units
     return {
         "fill_pct": float(fill_pct),
+        "weight_kg": float(weight_kg),
+        "confidence_flag": float(bool(confidence_flag)),
         "growth_6h_pct": float(growth_6h),
         "growth_24h_pct": float(growth_24h),
         "hour_sin": float(np.sin(2 * np.pi * hour / 24)),
@@ -73,20 +85,54 @@ def training_frame(bins: list[BinSpec], config: Config, seed: int) -> pd.DataFra
     arrivals = generate_hourly_waste(
         bins, config, seed=seed, horizon_hours=history_hours + future, start_day=-config.waste.history_days
     )
-    rng = np.random.default_rng(seed + 17)
     fill = np.zeros(len(bins), dtype=float)
     observations: list[list[float]] = [[] for _ in bins]
     rows: list[dict[str, float]] = []
+    sensor_scenario = generate_sensor_noise_scenario(
+        config,
+        seed + 17,
+        observation_count=history_hours // interval + 1,
+        bin_count=len(bins),
+    )
+    capacities = np.array([item.capacity_kg for item in bins], dtype=float)
+    sensor_index = 0
     for hour in range(history_hours):
         fill += arrivals[hour]
-        if hour % (config.operations.fixed_interval_days * 24) == config.operations.decision_hour:
+        first_fixed_hour = (
+            config.operations.fixed_interval_days * 24 + config.operations.decision_hour
+        )
+        if (
+            hour >= first_fixed_hour
+            and (hour - config.operations.decision_hour)
+            % (config.operations.fixed_interval_days * 24)
+            == 0
+        ):
             fill[:] = 0.0
         if hour % interval != 0:
             continue
+        batch = observe_sensors(
+            fill,
+            capacities,
+            sensor_scenario,
+            sensor_index,
+            hour,
+            config,
+        )
         for index, item in enumerate(bins):
-            true_fill_pct = 100.0 * fill[index] / item.capacity_kg
-            observed = max(0.0, true_fill_pct + rng.normal(0, config.waste.sensor_noise_sd_pct))
-            feature = make_feature_row(item, observed, observations[index], hour)
+            observed = float(batch.fill_pct[index])
+            if not np.isfinite(observed):
+                observed = observations[index][-1] if observations[index] else 0.0
+            observed_weight = float(batch.weight_kg[index])
+            if not np.isfinite(observed_weight):
+                observed_weight = observed / 100.0 * item.capacity_kg
+            feature = make_feature_row(
+                item,
+                observed,
+                observed_weight,
+                bool(batch.confidence_flag[index]),
+                observations[index],
+                hour,
+            )
             target_growth = (
                 100.0 * arrivals[hour + 1 : hour + future + 1, index].sum() / item.capacity_kg
             )
@@ -102,7 +148,10 @@ def training_frame(bins: list[BinSpec], config: Config, seed: int) -> pd.DataFra
             )
             rows.append(feature)
             observations[index].append(observed)
-    return pd.DataFrame(rows)
+        sensor_index += 1
+    frame = pd.DataFrame(rows)
+    assert_observation_only_columns(FEATURE_COLUMNS)
+    return frame
 
 
 def train_forecaster(bins: list[BinSpec], config: Config, seed: int) -> tuple[ForecastBundle, pd.DataFrame]:

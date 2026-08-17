@@ -28,6 +28,22 @@ This log records material decisions made before the packaged result. Exploratory
 
 13. **Second exploratory block.** The original +710,000/+720,000 seed block became development data for the redesign. Small paired trials selected a 20-hour emergency horizon and 5 km maximum optional incremental distance, with overflow treated as a hard acceptance constraint. Because those seeds had been inspected, they were not reused for the new packaged result.
 
-14. **Fresh final validation.** The replacement 30-replication holdout uses previously untouched arrival seeds beginning at base +910,000 and sensor seeds at base +920,000. Both policies recorded zero overflow. The revised smart policy reduced modeled road distance/fuel/CO2 by 5.08%, trips by 7.37%, stops by 14.38%, and low-fill pickups by 16.68%. Fixed three-day service remains the field safeguard because this is synthetic validation, not measured municipal performance.
+14. **Startup-artifact discovery; prior result withdrawn.** The replacement holdout initially appeared to show 5.08% lower distance/fuel. Audit showed that the fixed policy swept all 33 bins at hour 6 on day zero even though every bin began empty. That one artificial 39.56 km sweep was larger than the reported total advantage. Removing it reversed the distance conclusion, so the packaged claim was withdrawn and the baseline was corrected before further reporting.
+
+15. **Observation and leakage correction.** Hidden physical mass is now private simulation state. A separate seeded sensor model adds noise, bias, drift, outliers, missing readings, disagreement, confidence, and uncertainty. Forecast/dispatch features contain observations and history only; hidden fill is used only for labels and outcome measurement. Input validation now handles stale/future timestamps and preserves an aged last-valid reading instead of converting uncertainty to zero.
+
+16. **Chronological operations correction.** The SimPy clock changed to minutes. OSRM durations, traffic bands, eight-minute service, depot unloading, inter-trip turnaround, and sequential trips now consume time. Waste continues to arrive during the trip, and a bin is emptied only when its service completes. The two-trip limit applies to the entire calendar day rather than independently at 06:00 and 18:00.
+
+17. **Fuel-model correction.** Fuel is now decomposed into base driving, traffic, payload, collection idle, and depot idle components. CO2 follows total fuel. These remain configurable assumptions and are not a measured truck model.
+
+18. **Map and replay correction.** Artificial offsets for three bins at a site were removed. All route maps now use 11 consolidated site markers with three-bin popups, attention counts, bounded Subang Jaya navigation, and accessible states. Mock tracking interpolates along saved road geometry and respects travel/service/depot timestamps.
+
+19. **Stress evaluation added.** Base, 1.45× high-demand, 1.35× traffic, 18% missing/8% outlier sensor-failure, and 0.65× truck-capacity conditions use 30 paired replications each. Raw and equal three-day post-warm-up metrics are reported separately; scenarios are not pooled.
+
+20. **Integer-capacity boundary correction.** During the definitive stress run, a rare load passed floating-point preselection but exceeded OR-Tools capacity after each demand was rounded upward. Preselection, exact fallback packing, proxy routing, and OR-Tools now share the same conservative integer demand rule. A regression test fixes the boundary behavior.
+
+21. **Policy tuning lock.** Separate development seeds at base +1,010,000/+1,020,000 compared 48-, 60-, and 72-hour dispatch gaps and tighter optional/sibling rules under base and high demand. The 48-hour gap and current sibling/5 km rule retained the best safety-first fuel trade-off. Shorter emergency horizons reduced fuel but allowed materially more overflow, so the 20-hour emergency horizon was retained.
+
+22. **Definitive validation seed.** Because earlier smoke/audit runs exposed the +910,000/+920,000 seeds, they are not called a holdout. The definitive result uses untouched arrival seeds beginning at base +1,310,000 and sensor seeds at base +1,320,000 across all five declared scenarios. Exact results are recorded in `FINAL_RESULTS.md`; any earlier 5.08% saving statement is obsolete.
 
 These are engineering-development corrections, not confirmatory hypothesis testing. `FINAL_RESULTS.md` contains the only packaged performance result.

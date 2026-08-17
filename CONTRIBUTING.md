@@ -26,6 +26,14 @@ Use simulated data. Label route output, KPI values, payouts, service status, and
 
 ## Required checks
 
+Run from `admin-portal/` for routing, sensor, simulation, firmware-contract, report, or admin UI changes:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+When maps/tracking or route input changes, run both `scripts/qa_dispatch_ui.js` and `scripts/qa_maps_tracking.js` against the local Streamlit service.
+
 Run from `web/`:
 
 ```powershell
@@ -47,3 +55,7 @@ Update documentation in the same pull request as the code. At minimum:
 - record any new storage key and internal schema version.
 
 Code and documentation should describe the same behavior at merge time.
+
+## Handoff and Git
+
+Every completed implementation update must include its affected documentation and tests in the same commit. Stage explicit intended paths, inspect the staged diff, use a descriptive commit message, and push the active feature branch unless the task owner explicitly asks for a local-only change. Never preserve a known-stale result claim merely to avoid changing a report.

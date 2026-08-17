@@ -11,7 +11,7 @@ They share a repository and product identity, but they do not exchange data yet.
 
 ## Current status
 
-The proposal, supporting research, document-generation scripts, and responsive citizen hub frontend are present. The frontend is a self-contained prototype with simulated authentication, station-detected returns, payouts, reports, automatic public-bin routing, support services, and local persistence.
+The proposal, supporting research, document-generation scripts, and responsive citizen hub frontend are present. The frontend is a self-contained prototype with simulated authentication, station-detected returns, payouts, reports, automatic public-bin routing, support services, and local persistence. The admin portal implements the 500-household/20-commercial-unit Focus Area C simulation, safe three-state sensor decisions, OSM/OSRM routing, base/stress evaluation, and mock chronological truck tracking. Physical-build, measured-power, BOM/receipt, camera-classifier, return-station-hardware, and final-presentation evidence remain open.
 
 ## Repository contents
 
@@ -34,6 +34,8 @@ The proposal, supporting research, document-generation scripts, and responsive c
 - [How to operate the admin portal](docs/HOW_TO_OPERATE_ADMIN_PORTAL.md): predictive input, route review, mock dispatch, verification, and troubleshooting
 - [Admin integration contract](docs/ADMIN_INTEGRATION.md): current independent-service boundary and future integration rules
 - [Data preservation contract](docs/DATA_PRESERVATION.md): stored-data and migration safeguards
+- [Competition compliance audit](docs/COMPETITION_COMPLIANCE_AUDIT.md): question-paper coverage, proposal gaps, and remaining deliverables
+- [Focus Area C routing report (PDF)](admin-portal/reports/BinSight_Routing_Subsystem_Report_Improved.pdf): generated competition-facing implementation report
 
 ## Run the applications
 

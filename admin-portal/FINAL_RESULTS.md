@@ -1,99 +1,135 @@
-# BinSight Focus C - locked Subang Jaya results
+# BinSight locked simulation results
 
-## Decision summary
+## Study lock
 
-The capacity result is **33 underground bins at 11 sites**, with three 4.5 m3 bins and one ESP32 at each site. All sites pass both the district-wide sizing calculation and the local three-bin capacity check.
+| Item | Value |
+| --- | --- |
+| Model | Minute-level 30-day terminating SimPy experiment |
+| District | 500 households, 20 commercial units, 33 bins, 11 sites |
+| Policies | Corrected fixed three-day baseline vs. safety-first smart candidate |
+| Scenarios | Base, high demand, traffic, sensor failure, reduced truck capacity |
+| Replications | 30 paired replications per scenario |
+| Total policy runs | 300 |
+| Arrival seed block | Base seed +1,310,000, then +101 per replication |
+| Sensor seed block | Base seed +1,320,000, then +103 per replication |
+| Common randomness | Same arrivals and observation errors within every policy pair |
+| Final tuning boundary | Seed blocks through +1,020,000 were development/audit only |
 
-The revised operational result is promising but still cautious: the safety-constrained smart controller matched fixed collection at zero modeled overflow while reducing route distance, trips, fuel/CO2, stops, and low-fill pickups. Fixed collection every three days remains the field safeguard until real sensor and operator data validate autonomous use.
+The earlier 5.08% distance/fuel saving claim is withdrawn. It was dominated by a fixed-policy day-zero sweep of empty bins. The baseline now first collects after the full three-day interval. Raw and post-warm-up results are both retained; the primary normal-operation comparison uses the equal three-day post-warm-up values.
 
-## Locked 30-day comparison
-
-Positive beneficial effects favor the smart policy. A negative value favors fixed service. Percent change is `n/a` where the fixed mean is zero.
-
-| KPI | Fixed mean | Smart mean | Smart effect | 95% CI for paired beneficial difference | Paired p |
-|---|---:|---:|---:|---:|---:|
-| Overflow incidents | 0.000 | 0.000 | no difference; n/a % | 0.000 to 0.000 incidents | 1.00000 |
-| Full-bin exposure | 0.000 | 0.000 | no difference; n/a % | 0.000 to 0.000 bin-hours | 1.00000 |
-| Spilled overflow waste | 0.000 | 0.000 | no difference; n/a % | 0.000 to 0.000 kg | 1.00000 |
-| Road distance | 551.262 km | 523.279 km | **5.08% better** | 19.662 to 36.303 km | 0.00005 |
-| Collection trips | 19.000 | 17.600 | **7.37% better** | 1.025 to 1.775 trips | 0.00005 |
-| Collection stops | 330.000 | 282.533 | **14.38% better** | 44.652 to 50.281 stops | 0.00005 |
-| Low-fill pickups | 33.367 | 27.800 | **16.68% better** | 2.143 to 8.990 pickups | 0.00275 |
-| Fuel | 248.068 L | 235.476 L | **5.08% better** | 8.848 to 16.337 L | 0.00005 |
-| Tailpipe CO2 | 664.822 kg | 631.075 kg | **5.08% better** | 23.712 to 43.782 kg | 0.00005 |
-| Waste remaining at day 30 | 10,745.281 kg | 7,174.286 kg | **33.23% lower** | 2,852.112 to 4,289.879 kg | 0.00005 |
-| Collected waste | 102,065.438 kg | 105,636.434 kg | **3.50% higher** | 2,852.112 to 4,289.879 kg | 0.00005 |
-| Mean fill at collection | 57.276% | 69.271% | **20.94% better** | 11.407 to 12.583 percentage points | 0.00005 |
-| Truck utilization | 59.687% | 66.906% | **12.09% better** | 5.700 to 8.736 percentage points | 0.00005 |
-| Routing fallbacks | 0.000 | 0.000 | no difference | 0.000 to 0.000 | 1.00000 |
-
-The revised controller achieved the safety constraint in this synthetic holdout while using fewer trips and less road travel. Its emergency override was activated when a bin's predicted overflow deadline entered the 20-hour safety horizon; optional collections were limited by their added route distance. These results support the implementation logic but do not establish real-world municipal savings.
+For lower-is-better metrics, beneficial effect = fixed − smart. For higher-is-better metrics, beneficial effect = smart − fixed. Positive is favorable. Intervals are paired 95% Student-t intervals; p-values use 19,999 paired sign flips.
 
 ## Forecast holdout
 
-The separate synthetic pre-period contains 4,752 training rows and a strictly later 1,188-row holdout. For 48-hour fill growth:
+<!-- FINAL_FORECAST_START -->
 
-- tree-model MAE: **2.527 percentage points**;
-- naive benchmark MAE: **6.952 percentage points**;
-- modeled MAE improvement: **63.65%**.
+The tree model used 4,752 training rows and 1,188 chronological holdout rows. Its 48-hour growth MAE was **2.484 percentage points**, versus **7.646** for the naive recent-growth benchmark: a **67.52% synthetic holdout improvement**. This validates the software against generated data only; it is not field accuracy.
 
-This shows that the implementation can learn the generated temporal process. It is not field validation; real sensor records must replace the synthetic pre-period before deployment claims.
+<!-- FINAL_FORECAST_END -->
 
-## Sizing and siting facts
+## Base scenario
 
-- Demand: 3,603.6 kg/day for 500 households and 20 commercial units.
-- Container: 4.5 m3, modeled at 540 kg nominal mass capacity.
-- Controller site: three bins, 1,620 kg nominal and 1,296 kg usable at 80% design fill.
-- Design interval: three days with 1.25 reserve.
-- Required sites: `ceil(10.43) = 11`; required bins: `11 x 3 = 33`.
-- Site reserved loads: approximately 1,200.0 to 1,259.6 kg, all below 1,296 kg.
-- Provisional depot: 3.06192, 101.55272.
-- Maximum site-to-road snap: 22.1 m.
+### Post-warm-up normal-operation comparison
 
-See `SITING_PLAN.md` for the 11 exact preliminary anchors and mandatory field checks.
+<!-- FINAL_BASE_POST_START -->
 
-## OSM and run provenance
+| Metric | Fixed mean | Smart mean | Smart result vs fixed | Beneficial effect 95% CI | Sign-flip p |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Overflow incidents | 0.000 | 0.067 | 0.067 more; % undefined | -0.161 to 0.028 | 0.498 |
+| Spilled waste | 0.000 kg | 0.755 kg | 0.755 kg more | -1.909 to 0.399 kg | 0.500 |
+| Road distance | 511.730 km | 633.448 km | **23.79% worse** | -138.773 to -104.664 km | <0.001 |
+| Fuel | 413.323 L | 491.458 L | **18.90% worse** | -88.962 to -67.308 L | <0.001 |
+| Tailpipe CO₂ | 1,107.706 kg | 1,317.108 kg | **18.90% worse** | -238.419 to -180.385 kg | <0.001 |
+| Collection trips | 18.000 | 21.167 | **17.59% worse** | -3.964 to -2.370 | <0.001 |
+| Collection stops | 297.000 | 309.600 | **4.24% worse** | -17.740 to -7.460 | <0.001 |
+| Low-fill pickups | 0.567 | 72.033 | 71.467 more | -77.682 to -65.251 | <0.001 |
+| Truck utilization | 63.376% | 54.292% | 9.084 points lower | -10.886 to -7.282 points | <0.001 |
+| Unserved required bins | 0.000 | 0.033 | 0.033 more | -0.102 to 0.035 | 1.000 |
+| Routing fallbacks | 0.000 | 0.000 | Equal | 0.000 to 0.000 | 1.000 |
 
-- Road backend: OSRM table/route services over OpenStreetMap data.
-- Cached service points: depot plus 11 sites.
-- Retrieved: 2026-08-03T02:27:48.857288Z.
-- Cached response SHA-256: `3718c6c6da5de35760cde23fdc15f8a582acc269969b1b289a0463439975af27`.
-- Study: 30 independent paired terminating replications, 720 hours each.
-- Base seed: 7,112,026.
-- Production arrival seeds begin at 8,022,026; sensor seeds begin at 8,032,026.
-- Policies share arrivals and sensor noise within each pair.
-- No route used the deterministic timeout fallback in the final run.
+The smart policy did not improve the normal-demand estimand. Its two total overflow incidents across 30 replications were rare and the paired interval includes zero, but fixed service had none. Distance, fuel, trips, stops, low-fill pickups, and utilization all favor the corrected fixed baseline.
 
-## What to present to judges
+<!-- FINAL_BASE_POST_END -->
 
-The strongest defensible claim is:
+### Raw 30-day comparison
 
-> BinSight produced a fully traced sensor-to-forecast-to-OSM-route prototype and established a locally scaled 33-bin, 11-site design. In a fresh 30-replication synthetic holdout, its revised safety-constrained policy matched fixed service at zero modeled overflow while reducing road distance, fuel, and CO2 by 5.08%. Fixed service remains the field safeguard pending real telemetry and operator validation.
+<!-- FINAL_BASE_RAW_START -->
 
-That is an evidence-based simulation result. Do not claim guaranteed field fuel or CO2 savings from the current thresholds.
+| Metric | Fixed mean | Smart mean | Smart result vs fixed |
+| --- | ---: | ---: | ---: |
+| Overflow incidents | 0.000 | 0.067 | 0.067 more |
+| Road distance | 511.730 km | 664.482 km | 29.85% worse |
+| Fuel | 413.323 L | 516.524 L | 24.97% worse |
+| Collection trips | 18.000 | 22.300 | 23.89% worse |
+| Collection stops | 297.000 | 327.367 | 10.22% worse |
 
-## Next validation gate
+The raw comparison includes smart activity during the artificial empty-start period while the corrected fixed schedule is not yet due. That is why the equal post-warm-up table above is primary. Both versions remain in the artifacts.
 
-Before autonomous routing:
+<!-- FINAL_BASE_RAW_END -->
 
-1. Collect at least 8-12 weeks of calibrated three-bin telemetry and operator route logs.
-2. Replace commercial generation, density, payload, fuel, dwell time, and event factors with observed distributions.
-3. Retain the emergency dispatch constraint and add maximum service interval, crew hours, and disposal/unloading constraints.
-4. Use rolling-origin validation and a new untouched evaluation window.
-5. Require the candidate to be non-inferior on overflow before optimizing distance or stops.
-6. Conduct the site surveys and approvals in `SITING_PLAN.md`.
+## Stress scenarios
+
+<!-- FINAL_STRESS_START -->
+
+Primary post-warm-up means:
+
+| Scenario | Overflow incidents fixed → smart | Spilled kg fixed → smart | Distance km fixed → smart | Fuel L fixed → smart |
+| --- | ---: | ---: | ---: | ---: |
+| High demand (×1.45) | 62.667 → 2.733 | 3,006.703 → 58.828 | 511.080 → 860.166 | 415.874 → 661.606 |
+| Traffic (×1.35) | 0.000 → 0.133 | 0.000 → 1.402 | 511.760 → 632.777 | 505.581 → 610.646 |
+| Sensor failure | 0.000 → 0.167 | 0.000 → 2.874 | 511.431 → 1,190.298 | 413.039 → 832.330 |
+| Truck capacity (×0.65) | 7.133 → 0.100 | 2,099.685 → 1.498 | 552.411 → 731.525 | 438.026 → 550.231 |
+
+Key paired effects:
+
+- **High demand:** smart reduced overflow incidents by 95.64% (effect 59.933; 95% CI 57.945 to 61.921; p<0.001) and spill by 98.04%, but used 68.30% more distance and 59.09% more fuel.
+- **Reduced capacity:** smart reduced overflow incidents by 98.60% (effect 7.033; 95% CI 6.474 to 7.592; p<0.001), spill by 99.93%, and unserved required bins from 9.900 to 0.633 (93.60% better), but used 32.42% more distance and 25.62% more fuel.
+- **Traffic:** smart provided no safety advantage because fixed already had zero overflow; it used 23.65% more distance and 20.78% more fuel.
+- **Sensor failure:** smart averaged 0.167 incidents versus zero for fixed (paired interval -0.339 to 0.006; p=0.124), while distance increased 132.74% and fuel 101.51%. It also generated far more inspection events. This scenario exposes the need for a real inspection-resolution workflow rather than repeated automated routing.
+
+Raw 30-day totals lead to the same direction. For example, high-demand raw overflow was 64.267 fixed versus 2.767 smart, while raw distance was 511.080 versus 927.294 km. All raw values remain in `paired_effects.csv`.
+
+<!-- FINAL_STRESS_END -->
+
+## Interpretation
+
+<!-- FINAL_INTERPRETATION_START -->
+
+1. **Do not claim routine fuel savings.** The corrected normal-demand result conclusively favors fixed service for distance and fuel under the configured assumptions.
+
+2. **The smart policy is an emergency-capacity strategy.** It is valuable when demand rises sharply or effective payload falls, where fixed service overflows. The price is more trips, road distance, fuel, and stops.
+
+3. **Inspection and collection must remain distinct.** Severe data failure causes many inspection states. Automatically dispatching every uncertain bin would be safe-looking but operationally wasteful; ignoring uncertainty would be unsafe. A human/remote inspection process is missing from the simulation.
+
+4. **Co-located/optional batching is retained.** Development trials that tightened sibling and optional pickups reduced low-fill stops but produced more separate trips and higher fuel. Shorter emergency horizons saved fuel but caused materially more overflow. The locked 48-hour gap, 20-hour emergency horizon, and 5 km incremental rule are therefore a safety-first compromise, not a cost optimum.
+
+5. **Next optimization should be a hybrid controller.** Under calibrated field data, retain the efficient fixed schedule in normal conditions and activate forecast-driven emergency routing only when a validated demand/capacity regime warrants it. Pre-register thresholds on development data and evaluate the hybrid on a later untouched period.
+
+<!-- FINAL_INTERPRETATION_END -->
+
+## Model decision
+
+The smart candidate is accepted as a **research and operator decision-support policy**, not as an autonomous replacement for fixed collection. Adoption requires a prospective field trial showing that its overflow protection, inspection workflow, distance, fuel, and false-pickup costs satisfy operator thresholds on calibrated data.
+
+The recommended field sequence is:
+
+1. keep the fixed three-day schedule as the operational safeguard;
+2. run BinSight in shadow mode using calibrated sensor/AI snapshots;
+3. resolve inspection states through an operator workflow;
+4. measure actual overflow, kilometres, litres, service/idle time, sensor outages, and false alerts; and
+5. tune a hybrid rule only on a development period, then evaluate it on a later untouched period.
 
 ## Reproducibility files
 
-- `config.json`
-- `data/subang_jaya_sites.json`
-- `data/subang_jaya_osrm_network.json`
-- `artifacts/replication_metrics.csv`
-- `artifacts/policy_summary.csv`
-- `artifacts/paired_effects.csv`
-- `artifacts/forecast_evaluation.json`
-- `artifacts/seed_manifest.json`
-- `artifacts/run_provenance.json`
-- `DEVELOPMENT_LOG.md`
+- `artifacts/replication_metrics.csv` — one row per policy/replication/scenario.
+- `artifacts/policy_summary.csv` — policy means and intervals.
+- `artifacts/paired_effects.csv` — paired effects, intervals, sign-flip and Shapiro diagnostics.
+- `artifacts/seed_manifest.json` — exact scenario and paired seeds.
+- `artifacts/run_provenance.json` — packages, study type, scenario definitions, and scope.
+- `artifacts/forecast_evaluation.json` — chronological holdout result.
+- `artifacts/representative_route_events.json` — chronological route/service events.
+- `artifacts/representative_routes.geojson` — representative display roads.
 
-All uncertainty statements are conditional on configured assumptions and describe Monte Carlo variability, not real-world causality or parameter uncertainty.
+## Claim boundary
+
+> Under the stated Subang Jaya demand, sensing, underground-bin, vehicle, traffic, and OSM-road assumptions, BinSight produced the reported paired simulation effects. These results are synthetic planning evidence and do not establish municipal fuel, emissions, or overflow performance.

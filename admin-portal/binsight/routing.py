@@ -15,6 +15,143 @@ class RoutePlan:
     solver_method: str
 
 
+def _routing_demand_kg(value: float) -> int:
+    """Match the integer, upward-rounded demand consumed by OR-Tools."""
+    return max(0, int(math.ceil(float(value))))
+
+
+def select_capacity_feasible(
+    candidates: list[int],
+    demands_kg: np.ndarray,
+    truck_capacity_kg: float,
+    max_trips: int,
+) -> tuple[list[int], list[int]]:
+    """Preserve candidate priority while guaranteeing an explicit trip packing."""
+    if truck_capacity_kg <= 0 or max_trips < 1:
+        raise ValueError("Truck capacity and trip count must be positive")
+    integer_capacity = int(math.floor(truck_capacity_kg))
+    loads = [0] * max_trips
+    selected: list[int] = []
+    unserved: list[int] = []
+    for index in dict.fromkeys(int(value) for value in candidates):
+        demand = _routing_demand_kg(demands_kg[index])
+        feasible = [
+            vehicle
+            for vehicle in range(max_trips)
+            if loads[vehicle] + demand <= integer_capacity
+        ]
+        if not feasible:
+            unserved.append(index)
+            continue
+        vehicle = min(
+            feasible,
+            key=lambda item: (integer_capacity - loads[item] - demand, item),
+        )
+        loads[vehicle] += demand
+        selected.append(index)
+    return selected, unserved
+
+
+def _exact_capacity_buckets(
+    selected: list[int],
+    demands_kg: np.ndarray,
+    truck_capacity_kg: float,
+    max_trips: int,
+) -> list[list[int]] | None:
+    ordered = sorted(selected, key=lambda index: (-float(demands_kg[index]), index))
+    buckets: list[list[int]] = [[] for _ in range(max_trips)]
+    integer_capacity = int(math.floor(truck_capacity_kg))
+    loads = [0] * max_trips
+
+    def assign(position: int) -> bool:
+        if position >= len(ordered):
+            return True
+        index = ordered[position]
+        demand = _routing_demand_kg(demands_kg[index])
+        tried_loads: set[int] = set()
+        vehicles = sorted(
+            range(max_trips),
+            key=lambda vehicle: (integer_capacity - loads[vehicle] - demand, vehicle),
+        )
+        for vehicle in vehicles:
+            if loads[vehicle] in tried_loads:
+                continue
+            tried_loads.add(loads[vehicle])
+            if loads[vehicle] + demand > integer_capacity:
+                continue
+            buckets[vehicle].append(index)
+            loads[vehicle] += demand
+            if assign(position + 1):
+                return True
+            loads[vehicle] -= demand
+            buckets[vehicle].pop()
+        return False
+
+    return buckets if assign(0) else None
+
+
+def greedy_proxy_distance_m(
+    selected: list[int],
+    demands_kg: np.ndarray,
+    distance_matrix_m: np.ndarray,
+    truck_capacity_kg: float,
+    max_trips: int,
+) -> float:
+    """Fast deterministic distance proxy used only for optional-stop preselection."""
+    unvisited = set(selected)
+    total_distance = 0.0
+    trips = 0
+    while unvisited and trips < max_trips:
+        current_location = 0
+        load = 0
+        served_this_trip = 0
+        while True:
+            feasible = [
+                index
+                for index in unvisited
+                if load + _routing_demand_kg(demands_kg[index])
+                <= int(math.floor(truck_capacity_kg))
+            ]
+            if not feasible:
+                break
+            next_bin = min(
+                feasible,
+                key=lambda index: (distance_matrix_m[current_location, index + 1], index),
+            )
+            total_distance += float(distance_matrix_m[current_location, next_bin + 1])
+            load += _routing_demand_kg(demands_kg[next_bin])
+            current_location = next_bin + 1
+            unvisited.remove(next_bin)
+            served_this_trip += 1
+        if served_this_trip == 0:
+            return float("inf")
+        total_distance += float(distance_matrix_m[current_location, 0])
+        trips += 1
+    return total_distance if not unvisited else float("inf")
+
+
+def incremental_proxy_distance_m(
+    selected: list[int],
+    candidate: int,
+    demands_kg: np.ndarray,
+    distance_matrix_m: np.ndarray,
+    truck_capacity_kg: float,
+    max_trips: int,
+) -> tuple[float, float]:
+    """Return proposal distance and added distance for one optional collection."""
+    base = greedy_proxy_distance_m(
+        selected, demands_kg, distance_matrix_m, truck_capacity_kg, max_trips
+    )
+    proposal = greedy_proxy_distance_m(
+        selected + [candidate],
+        demands_kg,
+        distance_matrix_m,
+        truck_capacity_kg,
+        max_trips,
+    )
+    return proposal, max(0.0, proposal - base)
+
+
 def _fallback_routes(
     selected: list[int],
     demands_kg: np.ndarray,
@@ -23,23 +160,11 @@ def _fallback_routes(
     max_trips: int,
 ) -> RoutePlan:
     """Deterministic capacity-feasible construction for OR-Tools timeouts."""
-    buckets: list[list[int]] = [[] for _ in range(max_trips)]
-    loads = [0.0] * max_trips
-    for bin_index in sorted(selected, key=lambda index: (-float(demands_kg[index]), index)):
-        demand = max(0.0, float(demands_kg[bin_index]))
-        feasible = [
-            vehicle
-            for vehicle in range(max_trips)
-            if loads[vehicle] + demand <= truck_capacity_kg + 1e-9
-        ]
-        if not feasible:
-            raise RuntimeError("Deterministic fallback could not pack the selected waste")
-        vehicle = min(
-            feasible,
-            key=lambda item: (truck_capacity_kg - loads[item] - demand, item),
-        )
-        buckets[vehicle].append(bin_index)
-        loads[vehicle] += demand
+    buckets = _exact_capacity_buckets(
+        selected, demands_kg, truck_capacity_kg, max_trips
+    )
+    if buckets is None:
+        raise RuntimeError("Deterministic fallback could not pack the selected waste")
 
     routes: list[list[int]] = []
     served: list[int] = []
@@ -80,7 +205,7 @@ def solve_routes(
         return RoutePlan(routes=[], distance_m=0, served_bin_indices=[], solver_method="none")
     locations = [0] + [index + 1 for index in selected]
     matrix = full_matrix_m[np.ix_(locations, locations)].astype(np.int64)
-    demand_values = [0] + [max(0, int(math.ceil(float(demands_kg[index])))) for index in selected]
+    demand_values = [0] + [_routing_demand_kg(demands_kg[index]) for index in selected]
     vehicle_count = max_trips
     if sum(demand_values) > vehicle_count * truck_capacity_kg:
         raise ValueError("Selected waste exceeds configured daily trip capacity")

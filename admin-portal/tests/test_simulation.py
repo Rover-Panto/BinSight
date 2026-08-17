@@ -8,6 +8,7 @@ from binsight.simulation import (
     _risk_levels,
     _time_to_overflow_hours,
 )
+from binsight.routing import select_capacity_feasible
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,3 +72,14 @@ def test_colocated_optional_bin_adds_no_proxy_road_distance():
     )
     assert proposal == 200.0
     assert added == 0.0
+
+
+def test_capacity_selection_checks_trip_partition_not_only_total_mass():
+    selected, unserved = select_capacity_feasible(
+        [0, 1, 2],
+        np.array([6.0, 6.0, 6.0]),
+        truck_capacity_kg=10.0,
+        max_trips=2,
+    )
+    assert selected == [0, 1]
+    assert unserved == [2]

@@ -12,12 +12,25 @@ The ESP32 fires ultrasonic sensors sequentially to limit acoustic cross-talk, ta
 ## MQTT
 
 - Topic: `binsight/v1/telemetry/<controller_id>`
-- QoS expected by the Raspberry Pi: 1
+- Current ESP32 client publish level: QoS 0 (`PubSubClient` publish API)
+- Raspberry Pi subscription request: QoS 1 where the broker/client supports it; this cannot upgrade a QoS 0 publication already sent by the ESP32
 - Payload: UTF-8 JSON matching `hardware/telemetry.schema.json`
 - Default interval: 15 minutes
 - Production: use broker authentication and TLS; never place credentials in firmware source control.
 
-The gateway uses the maximum of calibrated ultrasonic fill and pressure-derived mass fill as the conservative routing value. Both estimates remain stored. A difference above 20 percentage points is flagged rather than silently averaged away.
+The firmware sets a 1,024-byte MQTT buffer. The checked maximum three-bin JSON message is 555 bytes and the complete MQTT packet is 616 bytes, leaving buffer headroom. The controller serializes once, verifies serialization length, attempts each publish up to three times with backoff, and retains up to four unsent messages in a local RAM queue. Serial logs distinguish connection, serialization, publish, retry, queue, and queue-overflow failures.
+
+These measures prevent silent truncation and reduce transient loss, but QoS 0 has no broker acknowledgement and a RAM queue is lost on power failure. A field deployment that requires at-least-once telemetry must migrate to an ESP32 MQTT library with acknowledged QoS 1 publish, add durable local storage where appropriate, and test duplicate handling at the gateway.
+
+The gateway stores both calibrated estimates and flags a difference above 20 percentage points rather than silently averaging it away. The planning simulator and route-input adapter preserve missing/low-confidence states, calculate conservative uncertainty, and may request inspection. In the simulation, one available sensor receives a 7.5-point margin; broader low-confidence or aged evidence receives 15 points. When both sensors are absent, a last-valid value may be aged conservatively; without one, inspection is required and no false collection load is fabricated. Uncertainty must never be converted into a reassuring zero.
+
+The predictive-AI routing snapshot uses:
+
+```text
+timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence_flag
+```
+
+There must be one row for each of the 33 bins with a shared timezone-aware timestamp. Snapshot freshness, future timestamps, duplicate IDs, sensor ranges, missing data, sensor disagreement, and risk/confidence values are validated before routing.
 
 ## Calibration gate
 

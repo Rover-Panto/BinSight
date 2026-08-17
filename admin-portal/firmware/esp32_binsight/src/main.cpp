@@ -13,6 +13,11 @@ constexpr char kTopic[] = "binsight/v1/telemetry/ESP32-001";
 constexpr uint32_t kPublishIntervalMs = 15UL * 60UL * 1000UL;
 constexpr uint8_t kBinCount = 3;
 constexpr uint8_t kUltrasonicSamples = 5;
+constexpr size_t kMqttBufferSize = 1024;
+constexpr size_t kPayloadCapacity = 896;
+constexpr uint8_t kPendingQueueDepth = 4;
+constexpr uint8_t kPublishRetries = 3;
+constexpr uint32_t kPublishBackoffMs = 250;
 
 // Echo lines from 5 V ultrasonic modules require a divider/level shifter to 3.3 V.
 constexpr uint8_t kTrigPins[kBinCount] = {16, 18, 25};
@@ -24,6 +29,16 @@ WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 uint32_t sequenceNumber = 0;
 uint32_t lastPublishMs = 0;
+
+struct PendingReading {
+  char payload[kPayloadCapacity];
+  size_t length;
+  uint32_t sequence;
+};
+
+PendingReading pendingReadings[kPendingQueueDepth];
+uint8_t pendingHead = 0;
+uint8_t pendingCount = 0;
 
 template <typename T, size_t N>
 void sortSmall(T (&values)[N], uint8_t used) {
@@ -80,17 +95,26 @@ void connectWifi() {
   while (WiFi.status() != WL_CONNECTED && millis() - started < 20000UL) {
     delay(250);
   }
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WIFI_CONNECTION_FAILED timeout_ms=20000");
+  }
 }
 
 bool connectMqtt() {
   if (mqttClient.connected()) {
     return true;
   }
+  bool connected = false;
   if (BINSIGHT_MQTT_USERNAME[0] != '\0') {
-    return mqttClient.connect(
+    connected = mqttClient.connect(
         kControllerId, BINSIGHT_MQTT_USERNAME, BINSIGHT_MQTT_PASSWORD);
+  } else {
+    connected = mqttClient.connect(kControllerId);
   }
-  return mqttClient.connect(kControllerId);
+  if (!connected) {
+    Serial.printf("MQTT_CONNECTION_FAILED state=%d\n", mqttClient.state());
+  }
+  return connected;
 }
 
 String utcTimestamp() {
@@ -103,11 +127,80 @@ String utcTimestamp() {
   return String(timestamp);
 }
 
+bool enqueueReading(const char *payload, size_t length, uint32_t sequence) {
+  if (length == 0 || length >= kPayloadCapacity) {
+    Serial.printf("MQTT_QUEUE_REJECTED sequence=%lu length=%u capacity=%u\n",
+                  static_cast<unsigned long>(sequence),
+                  static_cast<unsigned int>(length),
+                  static_cast<unsigned int>(kPayloadCapacity));
+    return false;
+  }
+  if (pendingCount >= kPendingQueueDepth) {
+    Serial.printf("MQTT_QUEUE_FULL sequence=%lu depth=%u reading_preserved=false\n",
+                  static_cast<unsigned long>(sequence), pendingCount);
+    return false;
+  }
+  const uint8_t tail = (pendingHead + pendingCount) % kPendingQueueDepth;
+  memcpy(pendingReadings[tail].payload, payload, length);
+  pendingReadings[tail].payload[length] = '\0';
+  pendingReadings[tail].length = length;
+  pendingReadings[tail].sequence = sequence;
+  ++pendingCount;
+  return true;
+}
+
+bool publishQueuedReading(const PendingReading &reading) {
+  if (!mqttClient.connected()) {
+    Serial.printf("MQTT_PUBLISH_DEFERRED sequence=%lu reason=not_connected\n",
+                  static_cast<unsigned long>(reading.sequence));
+    return false;
+  }
+  for (uint8_t attempt = 1; attempt <= kPublishRetries; ++attempt) {
+    // PubSubClient's publish API sends at QoS 0. The Boolean result confirms
+    // only that the packet was accepted for transmission by this client.
+    const bool published = mqttClient.publish(
+        kTopic,
+        reinterpret_cast<const uint8_t *>(reading.payload),
+        static_cast<unsigned int>(reading.length),
+        false);
+    if (published) {
+      Serial.printf("MQTT_PUBLISH_OK sequence=%lu length=%u attempt=%u qos=0\n",
+                    static_cast<unsigned long>(reading.sequence),
+                    static_cast<unsigned int>(reading.length), attempt);
+      return true;
+    }
+    Serial.printf("MQTT_PUBLISH_FAILED sequence=%lu attempt=%u state=%d\n",
+                  static_cast<unsigned long>(reading.sequence), attempt,
+                  mqttClient.state());
+    if (attempt < kPublishRetries) {
+      delay(kPublishBackoffMs * attempt);
+      if (!mqttClient.connected()) {
+        connectMqtt();
+      }
+    }
+  }
+  return false;
+}
+
+void flushPendingReadings() {
+  while (pendingCount > 0) {
+    PendingReading &reading = pendingReadings[pendingHead];
+    if (!publishQueuedReading(reading)) {
+      Serial.printf("MQTT_READING_RETAINED sequence=%lu queue_depth=%u\n",
+                    static_cast<unsigned long>(reading.sequence), pendingCount);
+      return;
+    }
+    pendingHead = (pendingHead + 1) % kPendingQueueDepth;
+    --pendingCount;
+  }
+}
+
 void sampleAndPublish() {
   JsonDocument document;
   document["schema_version"] = "1.0";
   document["controller_id"] = kControllerId;
-  document["sequence"] = sequenceNumber++;
+  const uint32_t readingSequence = sequenceNumber++;
+  document["sequence"] = readingSequence;
   document["captured_at_utc"] = utcTimestamp();
   document["firmware_version"] = kFirmwareVersion;
   document["wifi_rssi_dbm"] = WiFi.RSSI();
@@ -125,14 +218,25 @@ void sampleAndPublish() {
     }
     row["pressure_adc"] = pressureAdc;
   }
-  char payload[1536];
-  const size_t length = serializeJson(document, payload, sizeof(payload));
-  if (length == 0 || length >= sizeof(payload)) {
-    Serial.println("Telemetry serialization failed");
+  const size_t measuredLength = measureJson(document);
+  if (measuredLength == 0 || measuredLength >= kPayloadCapacity) {
+    Serial.printf("TELEMETRY_BUFFER_FAILED sequence=%lu measured=%u capacity=%u\n",
+                  static_cast<unsigned long>(readingSequence),
+                  static_cast<unsigned int>(measuredLength),
+                  static_cast<unsigned int>(kPayloadCapacity));
     return;
   }
-  if (!mqttClient.publish(kTopic, payload, false)) {
-    Serial.println("MQTT publish failed");
+  char payload[kPayloadCapacity];
+  const size_t serializedLength = serializeJson(document, payload, sizeof(payload));
+  if (serializedLength != measuredLength || serializedLength >= sizeof(payload)) {
+    Serial.printf("TELEMETRY_SERIALIZATION_FAILED sequence=%lu measured=%u serialized=%u\n",
+                  static_cast<unsigned long>(readingSequence),
+                  static_cast<unsigned int>(measuredLength),
+                  static_cast<unsigned int>(serializedLength));
+    return;
+  }
+  if (enqueueReading(payload, serializedLength, readingSequence)) {
+    flushPendingReadings();
   }
 }
 }  // namespace
@@ -148,6 +252,13 @@ void setup() {
   connectWifi();
   configTime(0, 0, "pool.ntp.org", "time.google.com");
   mqttClient.setServer(BINSIGHT_MQTT_HOST, BINSIGHT_MQTT_PORT);
+  if (!mqttClient.setBufferSize(kMqttBufferSize)) {
+    Serial.printf("MQTT_BUFFER_CONFIGURATION_FAILED requested=%u\n",
+                  static_cast<unsigned int>(kMqttBufferSize));
+  } else {
+    Serial.printf("MQTT_BUFFER_READY bytes=%u\n",
+                  static_cast<unsigned int>(kMqttBufferSize));
+  }
   connectMqtt();
   sampleAndPublish();
   lastPublishMs = millis();
@@ -159,6 +270,7 @@ void loop() {
   }
   if (WiFi.status() == WL_CONNECTED && connectMqtt()) {
     mqttClient.loop();
+    flushPendingReadings();
   }
   if (millis() - lastPublishMs >= kPublishIntervalMs) {
     sampleAndPublish();

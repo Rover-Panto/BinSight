@@ -2,88 +2,119 @@
 
 ## System boundary
 
-The model is a terminating 30-day planning experiment for 33 underground bins at 11 three-bin controller sites serving exactly 500 households and 20 commercial units. It includes stochastic waste generation, six-hourly noisy observations, dispatch decisions, vehicle payload, OSM-road routing, collections, and physical overflow. It excludes traffic, crew-hour rules, queueing at disposal facilities, unloading time, precipitation, illegal dumping, mechanical failure, embodied emissions, and capital cost.
+The model is a terminating 30-day stochastic planning experiment for 33 underground bins at 11 three-bin sites serving 500 households and 20 commercial units. It includes hourly waste generation, six-hourly sensing, forecast/decision logic, road routing, travel, collection service, depot unloading, turnaround, traffic effects, payload-dependent fuel, and physical overflow while the vehicle is busy.
 
-## Units and configuration
+It does not model crew shifts, disposal-facility queues, weather, illegal dumping, mechanical failure, embodied emissions, capital cost, or measured Malaysian truck telemetry.
 
-| Quantity | Unit | Locked convention |
-|---|---:|---|
-| Clock | hour | 0 through 719; events at hour 720 are outside the horizon |
-| Waste | kg | non-negative hourly arrival |
-| Bin volume | m3 | 4.5 per underground bin |
-| Bin mass capacity | kg | 4.5 x assumed 120 kg/m3 = 540 |
-| Site usable capacity | kg | 3 x 540 x 80% = 1,296 |
-| Road distance | metre | OSRM fastest-route road distance over OSM data |
-| Truck payload | kg | conservative 9,000 kg model assumption |
-| Fuel | litre | road km x 0.45 L/km assumption |
-| Tailpipe CO2 | kg | fuel x 2.68 kg CO2/L assumption |
+## Units and timing
 
-All bins start empty. This initial condition is part of the estimand, so no warm-up period is discarded. Remaining contents at hour 720 are reported as `uncollected_kg_at_horizon`.
+| Quantity | Unit | Convention |
+| --- | ---: | --- |
+| Simulation clock | minute | SimPy processes execute through the 30-day horizon |
+| Waste | kg | Non-negative hourly arrivals continue during travel/service |
+| Bin volume | m³ | 4.5 per underground bin |
+| Nominal bin mass capacity | kg | 4.5 × 120 kg/m³ = 540 kg |
+| Road distance | m | OSRM fastest-route distance over OpenStreetMap data |
+| Road duration | s | OSRM fastest-route duration before traffic multiplier |
+| Truck payload | kg | 9,000 kg prototype assumption |
+| Fuel | L | Driving components plus service/depot idling |
+| Tailpipe CO₂ | kg | Fuel × 2.68 kg/L approximation |
+
+Every bin starts empty. Raw metrics include the full 30 days. Post-warm-up metrics exclude the first three days for both policies, preventing either policy from gaining an advantage from the artificial empty start. Waste is removed only when service at that bin completes—not when a route is planned or a truck departs. Trips that extend beyond the horizon are recorded as unfinished rather than erased.
 
 ## Demand and capacity
 
-Residential demand is 7.03 kg/household/day, derived from 1.90 kg/person/day and 3.7 persons/household. Commercial demand is the editable 4.43 kg/unit/day assumption. Total mean generation is 3,603.6 kg/day.
+Residential mean generation is 7.03 kg/household/day, from 1.90 kg/person/day and 3.7 people/household. Commercial mean generation is the editable assumption of 4.43 kg/unit/day. Total configured mean generation is 3,603.6 kg/day.
 
-Eleven sites are required by the district calculation in `SITING_PLAN.md`. `load_site_plan` also validates every site separately against its 1,296 kg three-day reserved capacity. The program fails rather than silently accept an overloaded site allocation.
+Hourly gamma draws follow residential and commercial diurnal curves, with weekend and declared event-day multipliers. The same arrival tensor is supplied to the paired fixed and smart run. A bin stores no more than 540 kg: excess mass becomes `overflow_spilled_kg`, a below-to-capacity crossing becomes an incident, and time at capacity contributes `overflow_bin_hours`.
+
+`SITING_PLAN.md` proves the district count and checks each site's three-day reserved capacity. Loading fails if the plan no longer conserves all 500 households and 20 commercial units.
 
 ## Spatial model
 
-The OSRM service table contains the depot plus 11 sites. Requested WGS84 coordinates are retained for provenance; routing uses the snapped road-service coordinates. The 12 x 12 site matrix is expanded to a 34 x 34 depot-plus-bin matrix by repeating each site's row/column for its three co-located bins. Route geometries are fetched only for representative routes and cached.
+OSRM's Table service provides a 12 × 12 matrix for the depot and 11 sites. Each cell is the distance or duration of the fastest road route from one ordered location to another. The code expands both matrices to 34 × 34—depot plus 33 bins—by reusing a site's row and column for its three genuinely co-located bins. It does not move the bins or invent a short road between them.
 
-OSRM table distance is the distance of its fastest road route, not a straight-line or necessarily geometrically shortest path. Public OSRM availability is outside the model; cached inputs support ordinary reruns.
+Routes are therefore vectors of matrix indices during optimization and road-coordinate polylines only during display. The map uses 11 consolidated markers, each with the state of all three bins. Public OSRM/tiles are prototype dependencies; committed matrices allow simulation reruns without refreshing the public router.
 
-## Stochastic arrivals and sensors
+## Hidden state and sensor observations
 
-Hourly arrivals are gamma-distributed around residential and commercial diurnal curves. Weekend and declared event-day factors modify the mean. The gamma draw is non-negative. Excess above physical 540 kg capacity is not stored: the bin is capped and the excess becomes `overflow_spilled_kg`. An incident is a crossing from below capacity to above capacity; every hour at capacity contributes one `overflow_bin_hour`.
+The physical fill/mass arrays are private simulation state. At each sensing time, a separate seeded observation model creates ultrasonic and load-derived estimates with configurable:
 
-The simulation adds independent Gaussian observation error with a configurable 2 percentage-point standard deviation every six hours. Arrival and noise arrays are generated before policy execution. Both policies in a replication receive exactly the same arrays; different replications use different seeds.
+- random noise;
+- per-bin bias and drift;
+- outliers;
+- missing readings;
+- disagreement checks; and
+- confidence and uncertainty bounds.
+
+The fixed and smart policies receive the same observation realization within a pair. Dispatch and forecast functions receive observations and observation history, not hidden mass. Hidden state is used only to generate forecast targets and measure physical outcomes. Automated leakage tests fail if a hidden field is exposed to the prediction interface.
+
+The conservative fused estimate uses the available sensors and a one-sided 95% uncertainty bound (`z = 1.645`). A single available sensor uses a 7.5-point margin; general low-confidence/aged evidence uses 15 points. When both sensors are missing, a recent last-valid reading is aged with conservative growth; without one, the state is inspection and no collection load is invented. Missing, stale, future-dated, low-confidence, or disagreeing data is never treated as reassuring. An imminent current/aged-fill emergency may still produce `COLLECTION_REQUIRED` with operator review, but a low-confidence forecast alone cannot command a truck.
 
 ## Forecast model
 
-The predictor is a histogram gradient-boosting regressor trained on a separate 45-day synthetic pre-period. Features include current fill, recent fill history, time cycles, and residential/commercial allocation. The final 20% of timestamps form a chronological holdout. A naive rolling-growth forecast is reported beside model MAE. The prediction target is 48-hour fill growth; an upper estimate is used for risk selection.
+The histogram gradient-boosting regressor is trained on a separate 45-day synthetic pre-period. Features contain observed fill/weight, confidence, observed growth history, site allocation, and time cycles. The target is hidden 48-hour fill growth. The last 20% of timestamps forms a chronological holdout; a naive recent-growth forecast is reported as a benchmark. Model selection does not use the 30-day evaluation outcomes.
 
 ## Collection policies
 
-**Fixed baseline:** at 06:00 every third day, every bin is selected. The baseline is road-routed and capacity constrained, so the smart alternative is not compared with an intentionally inefficient route.
+**Fixed baseline.** Every bin becomes due at 06:00 after each complete three-day interval. There is no day-zero sweep of empty bins. The fixed policy uses the same depot, vehicle, trip limit, chronological execution, and road model as the smart policy. If its due load exceeds the remaining daily capacity, candidate order is preserved and excess bins are deferred and counted as unserved.
 
-**Smart candidate:** at 06:00 and 18:00, conservative 48-hour growth is converted into a predicted time to overflow and a `low`/`medium`/`high`/`critical` risk level. A 48-hour minimum dispatch gap limits repeated departures, but a critical bin inside the 20-hour emergency horizon overrides that gap. High and critical bins are mandatory subject to daily capacity. When a selected bin causes a site visit, useful siblings at the same three-bin site are included first because their road increment is zero. Other medium-risk bins are admitted only if the capacity-aware route proxy stays within 30 km and the bin adds no more than 5 km. Critical routes may exceed the soft budget rather than discard imminent-risk waste.
+**Smart candidate.** Decisions occur at 06:00 and 18:00. Collection is required for configured fill, predicted-overflow, high-risk, or critical triggers. A 48-hour dispatch gap limits churn, while a critical 20-hour emergency may override it. Selected-site siblings are considered before other optional bins. A nearby optional bin is accepted only if it fits vehicle capacity, stays within the soft 30 km planning budget, and adds no more than 5 km to the route proxy. This is an incremental road-cost rule; it is not a 5 km radius around a critical bin.
 
-The final results show this candidate should not autonomously replace the fixed schedule. It remains in the code to expose the trade-off and support the next safety-constrained design.
+The maximum of two trips is enforced across the entire calendar day. It is not reset at the evening decision.
 
-## Routing
+## Routing and chronological execution
 
-OR-Tools solves capacity-constrained depot tours using up to two daily trips, a 9,000 kg payload, asymmetric OSM-road distances, and a 250 ms solve limit. A fixed vehicle-departure cost encourages consolidation.
+OR-Tools solves asymmetric, capacity-constrained depot tours using the cached road-distance matrix, up to two trips, a 9,000 kg payload, and a 250 ms solve limit. A fixed departure cost encourages consolidation. Candidate preselection uses the same upward-rounded integer demands as OR-Tools, so it cannot pass a nominally feasible load that the solver rejects by rounding.
 
-If OR-Tools returns no solution within the time limit, a deterministic fallback first packs bins by descending demand into capacity-feasible trips, then orders each trip by nearest road distance. The `routing_fallbacks` KPI records every such dispatch. The final 30-replication run used the fallback zero times for both policies.
+If OR-Tools returns no solution, a deterministic fallback exactly partitions the selected bins into capacity-feasible buckets and orders each bucket by nearest road distance. Every route begins and ends at the depot.
 
-## Experimental design and inference
+Trip execution is sequential. For every leg, OSRM duration is multiplied by a time-of-day traffic factor. The truck then pauses eight minutes per bin; the bin is emptied at the end of that pause. At the depot it pauses 20 minutes to unload, plus 10 minutes of turnaround before another trip. Route events preserve planned and actual timestamps for map playback.
 
-The independent experimental unit is one complete paired 30-day replication, not an hour or a bin. Thirty pairs use a production seed block disjoint from exploratory development. For each KPI:
+## Fuel and CO₂ model
 
-- lower-is-better beneficial effect = fixed minus smart;
-- higher-is-better beneficial effect = smart minus fixed.
+Driving fuel is decomposed into:
 
-Positive effects are always favorable. The project reports policy means, paired mean effect, a 95% Student-t interval across the 30 differences, a 19,999-draw two-sided sign-flip p-value, and a Shapiro-Wilk diagnostic. If the fixed mean is zero, percentage change is undefined and is reported as `n/a`; the absolute difference remains available.
+1. base road fuel: distance × 0.45 L/km;
+2. traffic penalty: a time-band multiplier applied to base driving fuel; and
+3. payload penalty: linearly up to 15% extra fuel at full payload.
 
-The intervals quantify Monte Carlo uncertainty only. Parameter uncertainty, geographic sampling error, and causal field effects are not included.
+Collection and depot pauses add idle fuel at 3.0 L/hour. Total fuel is the sum of those components; CO₂ is total fuel × 2.68 kg/L. The distance rate, traffic factors, payload penalty, and idle rate are configurable prototype assumptions and must be calibrated with a real collection vehicle. The CO₂ conversion approximates the US EPA diesel factor of 10,180 g CO₂ per US gallon (about 2.69 kg/L).
+
+## Experimental design
+
+The independent unit is one complete paired 30-day replication. Thirty pairs are run in each condition:
+
+| Scenario | Change from base |
+| --- | --- |
+| Base | Configured demand, traffic, sensing, and 9,000 kg capacity |
+| High demand | Waste arrivals × 1.45 |
+| Traffic | Travel/fuel traffic multiplier × 1.35 |
+| Sensor failure | 18% missing and 8% outlier probability |
+| Truck capacity | Payload capacity × 0.65 |
+
+Within each replication and scenario, both policies share arrivals and sensor randomness. Across scenarios, the same base arrival seed is scaled where applicable. The production seed block is disjoint from development runs and is saved in `artifacts/seed_manifest.json`.
+
+For lower-is-better metrics, beneficial effect = fixed − smart. For higher-is-better metrics, beneficial effect = smart − fixed. Positive is always favorable. Reports contain policy means, paired mean effect, 95% Student-t interval, 19,999-draw paired sign-flip p-value, and a Shapiro-Wilk diagnostic. Percentage change is `n/a` when the fixed mean is zero.
+
+The intervals describe Monte Carlo uncertainty under configured assumptions only; they do not include parameter, geographic, or causal field uncertainty.
 
 ## Verification contract
 
-- Configuration requires exactly three bins per controller and 33 bins total.
-- Site counts conserve exactly 500 households and 20 commercial units.
-- District and each individual site pass the declared capacity formula.
-- All requested coordinates are valid WGS84 and snap within 250 m of a drive service.
-- Waste arrivals are non-negative and reproducible for a fixed seed.
-- Each route starts and ends at the depot, serves every selected bin once, and respects payload.
-- Fixed and smart policies share arrivals and sensor noise within each pair.
-- Replication IDs/counts match before paired analysis.
-- Cached service inputs, package versions, configuration, and seeds are retained.
-- The controller payload contains exactly three bins with unique channels and message IDs.
+- Exactly 33 bins, 11 sites, and three bins per controller.
+- Exactly 500 households and 20 commercial units conserved.
+- Valid site capacity and WGS84 coordinates.
+- Same arrivals and observation noise in each policy pair.
+- No hidden physical state in dispatch/forecast features.
+- Fixed first service after the complete interval and equal warm-up treatment.
+- No bin emptied before service completion.
+- Daily trip count, route capacity, depot endpoints, and integer demand consistency.
+- Stale/missing/disagreeing data produces safe three-state behavior.
+- Eleven markers with three-bin popups and bounded maps at desktop, tablet, and mobile widths.
+- Seeds, configuration, package versions, matrices, events, and results retained.
 
 ## Permitted claim
 
-Use this wording pattern:
+> Under the stated Subang Jaya demand, sensor, underground-bin, vehicle, traffic, and OSM-road assumptions, the modeled policy produced [effect and interval] relative to the fixed schedule across 30 paired replications.
 
-> Under the stated Subang Jaya waste, underground-bin, sensor, vehicle, and OSM-road assumptions, the modeled policy produced [effect and interval] relative to the fixed schedule across 30 paired replications.
-
-Do not state that BinSight will reduce municipal fuel, emissions, or overflow until the inputs and outcomes are validated with field measurements.
+Do not state that BinSight will reduce municipal overflow, fuel, or emissions until field inputs and outcomes are measured.

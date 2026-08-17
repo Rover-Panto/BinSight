@@ -20,7 +20,9 @@ def main() -> None:
     run.add_argument("--replications", type=int, default=None)
     args = parser.parse_args()
     if args.command == "prepare":
-        config, service_network, _, bins, _ = prepare_project(project_root(), args.refresh_map)
+        config, service_network, _, bins, _, _ = prepare_project(
+            project_root(), args.refresh_map
+        )
         print(
             f"Prepared {config.pilot.label}: {service_network.service_count} OSM-routed "
             f"service points, {len(bins)} bins."

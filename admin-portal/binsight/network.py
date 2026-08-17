@@ -174,6 +174,16 @@ def expand_bin_distance_matrix(
     return service_network.distance_matrix_m[np.ix_(indices, indices)].copy()
 
 
+def expand_bin_duration_matrix(
+    service_network: ServiceNetwork,
+    bin_service_indices: Iterable[int],
+) -> np.ndarray:
+    indices = [0] + [int(index) for index in bin_service_indices]
+    if any(index < 0 or index >= service_network.service_count for index in indices):
+        raise ValueError("Bin service index is outside the OSRM service network")
+    return service_network.duration_matrix_s[np.ix_(indices, indices)].copy()
+
+
 def route_coordinates(
     service_network: ServiceNetwork,
     service_indices: list[int],

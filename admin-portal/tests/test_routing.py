@@ -1,6 +1,6 @@
 import numpy as np
 
-from binsight.routing import _fallback_routes, solve_routes
+from binsight.routing import _fallback_routes, select_capacity_feasible, solve_routes
 
 
 def test_capacity_routes_start_and_end_at_depot():
@@ -24,6 +24,14 @@ def test_empty_selection_has_no_route():
     plan = solve_routes([], np.zeros(2), np.zeros((3, 3), dtype=int), 100.0, 1, 150)
     assert plan.routes == []
     assert plan.distance_m == 0
+
+
+def test_preselection_uses_same_upward_rounding_as_solver():
+    demands = np.array([50.01, 49.01])
+    selected, rejected = select_capacity_feasible([0, 1], demands, 100.0, 1)
+
+    assert selected == [0]
+    assert rejected == [1]
 
 
 def test_deterministic_fallback_respects_capacity_and_serves_every_bin():

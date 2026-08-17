@@ -20,7 +20,10 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 180000,
     });
-    const mapFrame = page.locator("iframe").first();
+    const operationsTab = page.getByRole("tab", { name: "Operations" });
+    await operationsTab.waitFor({ timeout: 180000 });
+    await operationsTab.click();
+    const mapFrame = page.locator("iframe:visible").first();
     await mapFrame.waitFor({ state: "visible", timeout: 180000 });
     await page.waitForTimeout(8000);
     await mapFrame.screenshot({ path: path.resolve(output) });

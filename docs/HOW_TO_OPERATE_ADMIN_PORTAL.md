@@ -1,149 +1,145 @@
-# How to Operate the Admin Portal
+# How to operate the admin portal
 
-Use this guide to turn one complete predictive-AI snapshot into a reviewed, capacity-feasible collection route and a local mock dispatch. For colors, layouts, states, and implementation details, see the [Admin Portal Design System Reference](ADMIN_PORTAL_DESIGN_SYSTEM.md).
+Use this guide to turn one predictive-AI snapshot into a reviewed, capacity-feasible collection plan and a local mock dispatch. The portal is a prototype: it does not authenticate an operator, contact a real vehicle, or claim measured municipal performance.
 
-## Prerequisites
+## Start the portal
 
-- Windows with Python 3.12.
-- The repository checked out locally.
-- The admin portal installed with `Setup-BinSight-Admin.cmd`.
-- All committed artifacts present under `admin-portal/artifacts/`.
-
-Start the portal from the repository root:
+From the repository root:
 
 ```powershell
 .\Start-BinSight-Admin.cmd
 ```
 
-Open `http://127.0.0.1:8501/`. The **Route input** destination should be selected first and should show **Waiting for a bin snapshot**.
+Open `http://127.0.0.1:8501/`. Four destinations are available:
 
-## Prepare the predictive snapshot
+| Destination | Purpose |
+| --- | --- |
+| Route input | Validate a 33-bin snapshot and build a collection/inspection decision |
+| Operations | Review base/stress simulation KPIs and representative routes |
+| Mock live tracking | Replay a representative truck route and service timeline |
+| Dispatch log | Review locally recorded mock dispatch payloads |
 
-Submit exactly one row for each bin from `UGB-001` through `UGB-033`. Every row must use the same ISO 8601 timestamp with a timezone.
+## Prepare the snapshot
 
-| Field | Type and constraint | Example |
+Submit one row for every bin from `UGB-001` through `UGB-033`. All rows use the same timezone-aware timestamp.
+
+| Field | Requirement | Example |
 | --- | --- | --- |
-| `timestamp` | ISO 8601 timestamp with timezone; identical in all 33 rows | `2026-08-17T10:00:00+08:00` |
-| `bin_id` | Each ID `UGB-001` to `UGB-033` exactly once | `UGB-001` |
-| `fill_pct` | Number from 0 to 100 | `82.4` |
-| `weight_kg` | Number from 0 to 1,500 | `442.8` |
-| `time_to_overflow_hours` | Number greater than or equal to zero | `30` |
+| `timestamp` | ISO 8601 with timezone; shared, fresh, not materially future-dated | `2026-08-17T10:00:00+08:00` |
+| `bin_id` | Every ID exactly once | `UGB-001` |
+| `fill_pct` | 0–100 ultrasonic estimate, or missing under degraded-sensor handling | `82.4` |
+| `weight_kg` | 0–1,500 kg load estimate, or missing under degraded-sensor handling | `442.8` |
+| `time_to_overflow_hours` | Predictive estimate ≥ 0 | `30` |
 | `risk_level` | `low`, `medium`, `high`, or `critical` | `high` |
-| `confidence_flag` | Boolean `true` or `false` | `true` |
-
-CSV example:
+| `confidence_flag` | Boolean | `true` |
 
 ```csv
 timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence_flag
 2026-08-17T10:00:00+08:00,UGB-001,82.4,442.8,30,high,true
 ```
 
-The **Required input format** panel in the portal provides a blank 33-bin CSV and a complete working JSON example.
+The **Required input format** panel provides a blank template and a working JSON example. Upload CSV/JSON, paste JSON, or use the built-in demo.
 
-## Build and review a route
+## Read the decision
 
-1. Select one input method: **Upload CSV or JSON**, **Paste JSON**, or **Use built-in demo**.
+Select **Check bins and build collection route**. The result is one of three states:
 
-2. Provide the data. The built-in demo is useful for a presentation because it includes critical, high-risk, co-located, nearby, and low-confidence examples.
+- **Collection required** — at least one bin crosses a fill, overflow-time, high-risk, or critical trigger. Low-confidence urgent bins remain selected and are flagged for review.
+- **Inspection required** — the system cannot safely declare the site clear because data is stale, missing, low confidence, or inconsistent, but no trustworthy urgent trigger currently requires collection.
+- **No collection required** — all required fields are sufficiently trustworthy and no collection trigger is active.
 
-3. Select **Check bins and build collection route**.
+The audit table shows the current reading, last-valid reading and age where used, conservative upper fill/weight, risk, reason, and selected state. Never override an inspection warning merely to create a demonstration route.
 
-4. Read the decision state:
+## Review a collection route
 
-   - **Bin collection required** means at least one bin is high/critical risk, is predicted to overflow within 48 hours, or is at least 65% full.
-   - **No collection required** means no current bin crosses those configured triggers, so the portal does not create a truck route.
+When collection is required:
 
-5. If collection is required, review all four summary values: selected bins, truck trips, road distance, and planned load.
+1. Check selected bins, trips, road distance, planned load, and all warnings.
+2. Confirm that every trip begins and ends at `DEPOT`.
+3. Confirm each trip is within the 9,000 kg payload and that no more than two trips are planned for the calendar day.
+4. Inspect the 11 site markers. Each popup lists all three co-located bins; the badge reports how many need attention.
+5. Use the layer control to distinguish route, site status, and truck layers.
+6. Treat an unavailable required bin or a capacity warning as a blocked plan requiring an operator/fleet decision.
 
-6. Inspect the route map and selection table. Red bins are required; amber bins are useful co-located pickups; teal bins are efficient nearby pickups; gray bins can wait.
-
-7. Resolve every warning before mock dispatch:
-
-   - A low-confidence reading requires operator review.
-   - A measured weight above 540 kg indicates a nominal-capacity issue.
-   - High fill with near-zero weight indicates a likely sensor problem.
-   - Required bins beyond daily truck capacity block the mock-send control.
-
-8. Confirm each trip starts and ends at `DEPOT` and remains within the 9,000 kg truck payload. The planner permits at most two trips for the snapshot.
+The optional-stop rule accepts useful siblings first and then a nearby candidate only when its **incremental road-route cost** is no more than 5 km, the complete plan stays within the soft distance budget, and capacity remains feasible. It is not a 5 km circle around a critical bin.
 
 ## Record a mock dispatch
 
-Select **Send mock route to garbage truck** only after reviewing the map, warnings, and loads.
-
-The button writes one JSON line to:
+Select **Send mock route to garbage truck** only after review. The action appends one JSON line to:
 
 ```text
 admin-portal/data/mock_truck_dispatches.jsonl
 ```
 
-It does not contact a truck, driver, municipal system, MQTT broker, or external API. A successful action displays the mock vehicle `MOCK-TRUCK-01` and a generated dispatch ID.
+This is a local audit record only. It does not publish MQTT, send GPS coordinates, notify a driver, or call a municipal service. Open **Dispatch log** to inspect or download the payload.
 
-Open **Dispatch log** to review the record, download the latest JSON payload, or inspect the full payload in the page.
+## Use mock live tracking
+
+Open **Mock live tracking** and select a scenario, policy, and representative dispatch. The map replays the saved minute-by-minute chronology:
+
+- the truck moves along road geometry during travel;
+- it pauses at each bin for the configured service duration;
+- the site's state becomes completed only when service finishes;
+- it returns to the depot for unloading and turnaround; and
+- play/pause, reset, slider, and speed controls change only the replay.
+
+The tracking view is not live GPS. With reduced-motion enabled, pulsing animation is removed and manual timeline controls remain available.
 
 ## Review simulation evidence
 
-Open **Operations** to inspect the current 30-day simulation artifacts:
+Open **Operations** and choose a scenario and metric scope:
 
-- KPI cards report change relative to the fixed policy in each metric's beneficial direction.
-- The map compares representative fixed and smart road routes.
-- Red dots identify individual bins selected in the representative smart event.
-- Forecast validation reports tree-model and naive-model mean absolute error (MAE); lower is better.
-- The paired table shows fixed and smart means, confidence-interval bounds, and paired sign-flip p-values.
+- **Raw** includes the entire terminating 30-day run.
+- **Post warm-up** excludes the first three days equally for both policies.
 
-Treat these values as configured simulation evidence, not measured field performance.
+KPI cards and the paired table show the fixed and smart means, beneficial-direction effect, 95% interval, and sign-flip result. Positive effects are favorable; negative effects mean the smart policy was worse for that metric. Base and stress scenarios must not be averaged into one claim.
+
+The forecast panel reports 48-hour holdout mean absolute error (MAE) in percentage points; lower is better. Simulation outcomes remain synthetic planning evidence.
 
 ## Verification
 
-Run the Python test suite from `admin-portal/`:
+Run the Python suite from `admin-portal/`:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-To repeat the browser workflow, first start the portal. Install the citizen-app Node dependencies, then expose pnpm's Playwright package to the standalone QA script:
+With the portal running, execute both browser workflows:
 
 ```powershell
-$qaOutput = ".\artifacts\ui-qa-local"
-New-Item -ItemType Directory -Force -Path $qaOutput | Out-Null
 $env:NODE_PATH = (Resolve-Path ..\web\node_modules\.pnpm\node_modules).Path
 $env:DASHBOARD_URL = "http://127.0.0.1:8501"
 $env:BROWSER_EXECUTABLE = "C:\Program Files\Google\Chrome\Application\chrome.exe"
-node .\scripts\qa_dispatch_ui.js $qaOutput
+node .\scripts\qa_dispatch_ui.js .\artifacts\ui-qa-local
+node .\scripts\qa_maps_tracking.js .\artifacts\ui-qa-maps
 ```
 
-The script checks the demo route, mock send, dispatch log, Operations page, browser errors, and horizontal overflow at 1440x900, 768x1024, and 390x844. It restores the dispatch log after the run.
+The checks cover the demo decision/dispatch workflow, 11 consolidated markers, three-bin popup contents, bounds/zoom/no-wrap behavior, tracking movement and service completion, reduced motion, browser errors, and horizontal overflow at 1440×900, 768×1024, and 390×844.
 
 ## Troubleshooting
 
-### The page asks for project artifacts
-
-Generate them from `admin-portal/`:
+### Project artifacts are missing
 
 ```powershell
 .\.venv\Scripts\python.exe -m binsight.cli run --replications 30
 ```
 
-### The snapshot is rejected
+### Snapshot rejected
 
-- Confirm there are exactly 33 rows.
-- Remove duplicate bin IDs and add any missing ID.
-- Use one identical timestamp in every row.
-- Include an explicit timezone such as `+08:00` or `Z`.
-- Keep fill, weight, and overflow-time values inside their accepted ranges.
-- Use only the four risk labels and Boolean confidence values.
+Check the 33 unique IDs, shared timezone-aware timestamp, timestamp freshness, ranges, risk labels, and Boolean confidence values. Missing sensor values are permitted only through the safe degraded-data path; missing predictive fields are rejected.
 
-### The route preview uses straight lines
+### Straight route line appears
 
-OSRM route geometry was unavailable. The displayed stop order and distance still come from the cached OSM road matrix; the preview line alone has fallen back.
+OSRM display geometry was unavailable. The stop order, distance, and duration still come from the cached road matrices; only the visual line fell back.
 
-### No route was created
+### Mock dispatch disabled
 
-If the state is **No collection required**, the submitted values did not cross a required-service trigger. Check the snapshot values; do not raise them merely to force a route outside a demonstration.
+A required bin is unserved, daily payload/trip capacity is exceeded, or the plan has a blocking validation error. The prototype deliberately does not add a truck or bin to bypass the budget.
 
-### Mock dispatch is disabled
+### Map will not pan outside Subang Jaya
 
-At least one required bin could not fit within the configured daily capacity. Review the warning and adjust real fleet availability or operating constraints before treating the plan as dispatchable.
+This is intentional. Use **Reset map** to return to the pilot extent. The minimum/maximum zoom are also bounded.
 
-### The browser QA script cannot find Playwright
+### Playwright cannot be found
 
-Run `pnpm install` in `web/`, then set `NODE_PATH` exactly as shown in the verification command. Node.js must also be available on `PATH`. If Chrome is installed elsewhere, change `BROWSER_EXECUTABLE` to that executable; alternatively install Playwright's Chromium browser and omit the variable.
+Run `pnpm install` in `web/`, set `NODE_PATH` as shown, and verify Chrome's executable path. QA captures are local artifacts and are not committed.
