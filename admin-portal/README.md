@@ -87,6 +87,8 @@ Open `firmware/esp32_binsight` in PlatformIO, copy `include/secrets.example.h` t
 
 ## Key files
 
+- `../docs/ADMIN_PORTAL_DESIGN_SYSTEM.md` - UI tokens, layouts, states, accessibility, QA evidence, and limitations.
+- `../docs/HOW_TO_OPERATE_ADMIN_PORTAL.md` - operator workflow, input contract, verification, and troubleshooting.
 - `SITING_PLAN.md` - count, capacity proof, and locations.
 - `ROUTE_DISPLAY.md` - route-map legend and captured dashboard preview.
 - `RESEARCH_BRIEF.md` - evidence and assumptions.

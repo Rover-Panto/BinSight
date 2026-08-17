@@ -41,7 +41,9 @@ The `feature/admin-operations-portal` branch adds the collaborator's routing and
 
 The applications do not exchange data yet. The admin portal does not import or write the citizen store, and the existing citizen route map remains unchanged. A later integration can expose an authenticated `/admin` gateway or shared API after the data contract and role model are agreed.
 
-The admin portal currently provides simulation results, predictive-AI CSV/JSON input, collection-required decisions, OpenStreetMap/OSRM route previews, and a local mock truck-dispatch audit. All operational outputs remain labelled as prototype or simulation data.
+The admin portal currently opens on a route-input command surface and provides predictive-AI CSV/JSON input, collection-required decisions, OpenStreetMap/OSRM route previews, simulation results, and a local mock truck-dispatch audit. Its responsive interface uses desktop/tablet tabs and a three-destination mobile bottom navigation. All operational outputs remain labelled as prototype or simulation data.
+
+See `ADMIN_PORTAL_DESIGN_SYSTEM.md` for the implemented visual and responsive contract, and `HOW_TO_OPERATE_ADMIN_PORTAL.md` for the operator workflow and verification commands.
 
 ## Source of truth
 

@@ -27,6 +27,14 @@ The proposal, supporting research, document-generation scripts, and responsive c
 - `Start-BinSight-Admin.cmd`: starts only the admin portal after setup
 - `Start-BinSight-All.cmd`: starts both independent applications
 
+## Documentation
+
+- [Project state](docs/PROJECT_STATE.md): current routes, boundaries, and sources of truth
+- [Admin portal design system](docs/ADMIN_PORTAL_DESIGN_SYSTEM.md): visual tokens, responsive rules, states, accessibility, QA evidence, and prototype limits
+- [How to operate the admin portal](docs/HOW_TO_OPERATE_ADMIN_PORTAL.md): predictive input, route review, mock dispatch, verification, and troubleshooting
+- [Admin integration contract](docs/ADMIN_INTEGRATION.md): current independent-service boundary and future integration rules
+- [Data preservation contract](docs/DATA_PRESERVATION.md): stored-data and migration safeguards
+
 ## Run the applications
 
 Citizen frontend only:
