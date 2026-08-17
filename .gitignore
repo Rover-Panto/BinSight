@@ -1,0 +1,30 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Frontend dependencies and builds
+node_modules/
+dist/
+build/
+.vite/
+
+# Temporary files and rendered previews
+tmp/
+work/pdfs/
+~$*
+
+# Local reference material not owned by this project
+codex-skills/
+output/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
