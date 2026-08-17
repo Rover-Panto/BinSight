@@ -35,6 +35,13 @@ pnpm test:e2e
 pnpm build
 ```
 
+If Playwright's bundled browser cannot be downloaded, the test configuration can use an installed Chrome without changing the committed default:
+
+```powershell
+$env:PLAYWRIGHT_CHROME_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+pnpm test:e2e
+```
+
 Playwright covers the full login-to-payout and issue-reporting journeys at desktop and mobile sizes. The visual suite also checks the 1440x900, 768x1024 and 390x844 layouts for horizontal overflow.
 
 ## Prototype controls

@@ -37,15 +37,19 @@ There is no collection-schedule route. BinSight describes public-bin servicing a
 
 ## Admin work
 
-The route-optimisation and KPI dashboard is planned collaborator work. It has not merged into `main` at the date above. The collaborator should follow [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [DATA_PRESERVATION.md](DATA_PRESERVATION.md).
+The `feature/admin-operations-portal` branch adds the collaborator's routing and KPI prototype under `admin-portal/`. In this first integration stage it runs as an independent Streamlit service on port 8501 while the citizen React application remains on port 5173.
 
-The admin implementation should use `/admin` as its route prefix and keep admin state outside the citizen store. The first pull request must record its final route map, state model, fixtures, KPI formulas, and tests in this directory.
+The applications do not exchange data yet. The admin portal does not import or write the citizen store, and the existing citizen route map remains unchanged. A later integration can expose an authenticated `/admin` gateway or shared API after the data contract and role model are agreed.
+
+The admin portal currently provides simulation results, predictive-AI CSV/JSON input, collection-required decisions, OpenStreetMap/OSRM route previews, and a local mock truck-dispatch audit. All operational outputs remain labelled as prototype or simulation data.
 
 ## Source of truth
 
 - `web/src/model.ts`: citizen domain types and default demonstration data
 - `web/src/store.tsx`: citizen persistence and migrations
 - `web/src/App.tsx`: active route map
+- `admin-portal/app.py`: independent operations portal entry point
+- `admin-portal/binsight/dispatch.py`: predictive snapshot validation and mock dispatch contract
 - `web/tests/`: tested browser workflows
 - `BinSight_UI_Design_Language.txt`: shared visual and interaction rules
 - `docs/`: integration contracts and current implementation status

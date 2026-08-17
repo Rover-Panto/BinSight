@@ -1,0 +1,182 @@
+[
+  {
+    "replication": 0,
+    "arrival_seed": 8022026,
+    "sensor_seed": 8032026,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 1,
+    "arrival_seed": 8022127,
+    "sensor_seed": 8032129,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 2,
+    "arrival_seed": 8022228,
+    "sensor_seed": 8032232,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 3,
+    "arrival_seed": 8022329,
+    "sensor_seed": 8032335,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 4,
+    "arrival_seed": 8022430,
+    "sensor_seed": 8032438,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 5,
+    "arrival_seed": 8022531,
+    "sensor_seed": 8032541,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 6,
+    "arrival_seed": 8022632,
+    "sensor_seed": 8032644,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 7,
+    "arrival_seed": 8022733,
+    "sensor_seed": 8032747,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 8,
+    "arrival_seed": 8022834,
+    "sensor_seed": 8032850,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 9,
+    "arrival_seed": 8022935,
+    "sensor_seed": 8032953,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 10,
+    "arrival_seed": 8023036,
+    "sensor_seed": 8033056,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 11,
+    "arrival_seed": 8023137,
+    "sensor_seed": 8033159,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 12,
+    "arrival_seed": 8023238,
+    "sensor_seed": 8033262,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 13,
+    "arrival_seed": 8023339,
+    "sensor_seed": 8033365,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 14,
+    "arrival_seed": 8023440,
+    "sensor_seed": 8033468,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 15,
+    "arrival_seed": 8023541,
+    "sensor_seed": 8033571,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 16,
+    "arrival_seed": 8023642,
+    "sensor_seed": 8033674,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 17,
+    "arrival_seed": 8023743,
+    "sensor_seed": 8033777,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 18,
+    "arrival_seed": 8023844,
+    "sensor_seed": 8033880,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 19,
+    "arrival_seed": 8023945,
+    "sensor_seed": 8033983,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 20,
+    "arrival_seed": 8024046,
+    "sensor_seed": 8034086,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 21,
+    "arrival_seed": 8024147,
+    "sensor_seed": 8034189,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 22,
+    "arrival_seed": 8024248,
+    "sensor_seed": 8034292,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 23,
+    "arrival_seed": 8024349,
+    "sensor_seed": 8034395,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 24,
+    "arrival_seed": 8024450,
+    "sensor_seed": 8034498,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 25,
+    "arrival_seed": 8024551,
+    "sensor_seed": 8034601,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 26,
+    "arrival_seed": 8024652,
+    "sensor_seed": 8034704,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 27,
+    "arrival_seed": 8024753,
+    "sensor_seed": 8034807,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 28,
+    "arrival_seed": 8024854,
+    "sensor_seed": 8034910,
+    "policies_share_arrivals_and_sensor_noise": true
+  },
+  {
+    "replication": 29,
+    "arrival_seed": 8024955,
+    "sensor_seed": 8035013,
+    "policies_share_arrivals_and_sensor_noise": true
+  }
+]

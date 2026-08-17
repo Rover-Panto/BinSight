@@ -1,0 +1,22 @@
+{
+  "study_type": "terminating 30-day stochastic simulation",
+  "comparison": "paired common-random-number fixed vs smart policies",
+  "replications": 30,
+  "base_seed": 7112026,
+  "time_unit": "hour",
+  "horizon_hours": 720,
+  "warm_up": "none; initial empty-bin condition is part of the estimand",
+  "inference_scope": "Monte Carlo uncertainty under configured assumptions, not real-world causality",
+  "road_backend": "OSRM table/route services over OpenStreetMap data",
+  "packages": {
+    "simpy": "4.1.2",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.17.0",
+    "pandas": "2.3.3",
+    "numpy": "2.3.5",
+    "ortools": "9.14.6206",
+    "requests": "2.32.5",
+    "folium": "0.20.0",
+    "streamlit": "1.49.1"
+  }
+}

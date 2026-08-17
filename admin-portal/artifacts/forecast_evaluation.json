@@ -1,0 +1,9 @@
+{
+  "training_rows": 4752.0,
+  "holdout_rows": 1188.0,
+  "chronological_cutoff_hour": 864.0,
+  "forecast_horizon_hours": 48.0,
+  "model_mae_growth_pct_horizon": 2.5270942835607055,
+  "naive_mae_growth_pct_horizon": 6.952020052165511,
+  "model_improvement_pct": 63.649496626904416
+}

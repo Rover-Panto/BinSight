@@ -15,11 +15,23 @@ Use `/admin` as the route prefix. Recommended routes:
 | `/admin/kpis` | KPI definitions, comparison windows, and trends |
 | `/admin/reports` | Citizen reports relevant to operations |
 
+## Phase 1 independent-service boundary
+
+The first collaborator integration keeps the existing Streamlit portal under `admin-portal/` and serves it at `http://127.0.0.1:8501/`. The React citizen frontend continues at `http://127.0.0.1:5173/`. This is a temporary monorepo boundary, not the final `/admin` deployment architecture.
+
+- Either application can start, stop, test, and build without the other.
+- No citizen route, mobile-navigation item, store type, or persistence migration is changed.
+- No cross-application API, iframe, proxy, authentication handoff, or shared browser storage is introduced.
+- The existing `/admin` route plan remains the target for a later authenticated gateway or React admin shell.
+- Streamlit outputs must continue to identify simulations and mock truck dispatches accurately.
+
+The current simulation uses underground-bin IDs `UGB-001` through `UGB-033` and a Boolean `confidence_flag`. These remain internal to the independent portal in phase 1. Before a shared API is introduced, add an explicit adapter to the repository-wide `BIN-###` identifier and categorical confidence contract; do not silently rename historical simulation records.
+
 Do not add admin links to the citizen mobile navigation. Use a separate admin shell and a role gate. A mock role is acceptable for the prototype, but the interface must label it as simulated access.
 
 ## Code boundary
 
-Place admin code under `web/src/admin/`:
+For a future integrated React admin shell, place admin code under `web/src/admin/`:
 
 ```text
 web/src/admin/

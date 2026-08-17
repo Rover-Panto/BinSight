@@ -1,0 +1,90 @@
+[
+  {
+    "site_id": "SJ-01",
+    "label": "SS12 residential cluster",
+    "latitude": 3.0754,
+    "longitude": 101.5755,
+    "households": 46,
+    "commercial_units": 1
+  },
+  {
+    "site_id": "SJ-02",
+    "label": "SS13 residential cluster",
+    "latitude": 3.0765,
+    "longitude": 101.5844,
+    "households": 46,
+    "commercial_units": 1
+  },
+  {
+    "site_id": "SJ-03",
+    "label": "SS14 residential cluster",
+    "latitude": 3.0710,
+    "longitude": 101.5877,
+    "households": 46,
+    "commercial_units": 1
+  },
+  {
+    "site_id": "SJ-04",
+    "label": "SS15 commercial-residential cluster",
+    "latitude": 3.0763,
+    "longitude": 101.5888,
+    "households": 44,
+    "commercial_units": 6
+  },
+  {
+    "site_id": "SJ-05",
+    "label": "SS17 residential cluster",
+    "latitude": 3.0678,
+    "longitude": 101.5787,
+    "households": 46,
+    "commercial_units": 1
+  },
+  {
+    "site_id": "SJ-06",
+    "label": "SS18 residential cluster",
+    "latitude": 3.0662,
+    "longitude": 101.5744,
+    "households": 46,
+    "commercial_units": 1
+  },
+  {
+    "site_id": "SJ-07",
+    "label": "SS19 residential cluster",
+    "latitude": 3.0820,
+    "longitude": 101.5793,
+    "households": 46,
+    "commercial_units": 1
+  },
+  {
+    "site_id": "SJ-08",
+    "label": "USJ 1 mixed-use cluster",
+    "latitude": 3.0590,
+    "longitude": 101.5887,
+    "households": 45,
+    "commercial_units": 2
+  },
+  {
+    "site_id": "SJ-09",
+    "label": "USJ 2 residential cluster",
+    "latitude": 3.0580,
+    "longitude": 101.5815,
+    "households": 46,
+    "commercial_units": 1
+  },
+  {
+    "site_id": "SJ-10",
+    "label": "USJ 4 residential cluster",
+    "latitude": 3.0465,
+    "longitude": 101.5800,
+    "households": 46,
+    "commercial_units": 1
+  },
+  {
+    "site_id": "SJ-11",
+    "label": "Bandar Sunway mixed-use cluster",
+    "latitude": 3.0739,
+    "longitude": 101.6073,
+    "households": 43,
+    "commercial_units": 4
+  }
+]
