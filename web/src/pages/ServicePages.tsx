@@ -2,35 +2,35 @@ import {
   AlertOctagon,
   ArrowRight,
   BatteryCharging,
-  BellRing,
-  CalendarCheck,
-  CalendarDays,
   Camera,
   Check,
   ChevronRight,
+  CircleHelp,
   Clock3,
+  Cpu,
   FlaskConical,
   ImagePlus,
   Info,
   ListFilter,
+  Leaf,
   LocateFixed,
   MapPin,
   MapPinned,
   Navigation,
-  PackageCheck,
   PackageOpen,
   Recycle,
   Search,
-  SlidersHorizontal,
+  Sofa,
   Star,
   TriangleAlert,
+  Trash2,
   Truck,
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState, Field, InlineNotice, PageHeading, SectionHeading, StatusBadge } from '../components/UI'
-import { disposalItems, formatDateTime, reportCategories, reportStatuses, serviceLocations } from '../model'
+import { classifyDisposal, disposalCategories, formatDateTime, reportCategories, reportStatuses, serviceLocations } from '../model'
 import { useStore } from '../store'
 
 const statusTone = (status: string) => status === 'Resolved' ? 'success' : status === 'Assigned' ? 'warning' : 'info'
@@ -178,31 +178,63 @@ export function ReportDetailPage() {
 
 export function ServicesPage() {
   const services = [
-    { to: '/schedule', icon: CalendarDays, label: 'Collection schedule', detail: 'Garbage, recycling and organic pickup dates', meta: 'Next: Wednesday' },
     { to: '/locations', icon: MapPinned, label: 'Drop-off locations', detail: 'Return, recycling, e-waste and hazardous-waste sites', meta: '4 nearby' },
     { to: '/bulky-pickup', icon: Truck, label: 'Bulky-item pickup', detail: 'Book a simulated collection for large household items', meta: 'Booking available' },
-    { to: '/guide', icon: Recycle, label: 'Sorting guide', detail: 'Search what belongs in each waste stream', meta: `${disposalItems.length} common items` },
+    { to: '/guide', icon: Recycle, label: 'Disposal helper', detail: 'Match an item to a broad waste stream', meta: '7 waste streams' },
+    { to: '/report', icon: TriangleAlert, label: 'Report a waste issue', detail: 'Overflow, illegal dumping, damaged bins or hazards', meta: 'Report online' },
   ]
-  return <div className="page-stack"><PageHeading title="Local waste services" description="Collection information, disposal locations and resident service requests." /><div className="service-directory">{services.map(({ to, icon: Icon, label, detail, meta }, index) => <Link key={to} to={to}><span className="service-number">0{index + 1}</span><span className="service-icon"><Icon /></span><span><strong>{label}</strong><small>{detail}</small></span><StatusBadge tone="neutral">{meta}</StatusBadge><ArrowRight /></Link>)}</div><InlineNotice title="Demonstration service area">Dates, locations and bookings are fictional and provided for interface testing only.</InlineNotice></div>
-}
-
-export function SchedulePage() {
-  const { data, updateSettings } = useStore()
-  const collections = [
-    { type: 'Garbage', date: 'Wednesday, 19 August', time: 'Before 7:00 AM', tone: 'general' },
-    { type: 'Recycling', date: 'Thursday, 20 August', time: 'Earlier service this week', tone: 'recycle' },
-    { type: 'Organic', date: 'Saturday, 22 August', time: 'Before 8:00 AM', tone: 'organic' },
-  ]
-  return <div className="page-stack"><PageHeading title="Collection schedule" description="Demonstration schedule for Jalan Universiti, Petaling Jaya." actions={<button className="button secondary" type="button" onClick={() => updateSettings({ reminders: !data.settings.reminders })}><BellRing /> {data.settings.reminders ? 'Reminders on' : 'Enable reminders'}</button>} /><section className="schedule-lead"><div><span className="eyebrow inverse">Next collection</span><h2>Garbage · Wednesday</h2><p>Set out before 7:00 AM</p></div><strong>02<small>days</small></strong></section><div className="schedule-list">{collections.map((entry, index) => <article key={entry.type}><span className={`schedule-color ${entry.tone}`} /><span><small>0{index + 1}</small><strong>{entry.type}</strong></span><span><strong>{entry.date}</strong><small>{entry.time}</small></span><CalendarCheck /></article>)}</div><InlineNotice tone="warning" title="Temporary service change">Recycling collection starts two hours earlier this Thursday because of scheduled road maintenance.</InlineNotice><section><SectionHeading title="Preparation guidance" /><div className="guidance-grid"><div><Recycle /><strong>Keep recycling clean and dry</strong><p>Loose items should not contain food or liquid.</p></div><div><Clock3 /><strong>Use the correct set-out time</strong><p>Place bins outside no earlier than the evening before.</p></div><div><PackageCheck /><strong>Keep access clear</strong><p>Leave space around bins for safe collection.</p></div></div></section></div>
+  return <div className="page-stack"><PageHeading title="Waste services" description="Find a disposal point, arrange a bulky-item pickup or report a local problem." /><div className="service-directory">{services.map(({ to, icon: Icon, label, detail, meta }, index) => <Link key={to} to={to}><span className="service-number">0{index + 1}</span><span className="service-icon"><Icon /></span><span><strong>{label}</strong><small>{detail}</small></span><StatusBadge tone="neutral">{meta}</StatusBadge><ArrowRight /></Link>)}</div><InlineNotice title="Automatic public-bin collection">Sensor readings and route priority determine when public bins are serviced. Residents do not need to follow a fixed timetable.</InlineNotice></div>
 }
 
 export function SortingGuidePage() {
   const [params] = useSearchParams()
   const [query, setQuery] = useState(params.get('q') ?? '')
-  const [group, setGroup] = useState('All')
-  const groups = ['All', ...Array.from(new Set(disposalItems.map((entry) => entry.group)))]
-  const results = disposalItems.filter((entry) => (group === 'All' || entry.group === group) && `${entry.item} ${entry.destination} ${entry.group}`.toLowerCase().includes(query.toLowerCase()))
-  return <div className="page-stack"><PageHeading title="What goes where?" description="Search common household items before placing them in a bin or taking them to a facility." /><div className="guide-search"><Search /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search cans, batteries, oil…" aria-label="Search disposal guide" /><span>{results.length} results</span></div><div className="filter-bar guide-filters"><SlidersHorizontal /><span>Material</span>{groups.map((entry) => <button key={entry} className={group === entry ? 'active' : ''} type="button" onClick={() => setGroup(entry)}>{entry}</button>)}</div>{results.length > 0 ? <div className="sorting-results"><div className="table-head"><span>Item</span><span>Where it goes</span><span>Preparation</span><span>Type</span></div>{results.map((entry) => <article key={entry.item}><span className="sorting-icon">{entry.group === 'Hazardous' ? <BatteryCharging /> : <Recycle />}</span><strong>{entry.item}</strong><span>{entry.destination}</span><p>{entry.preparation}</p><StatusBadge tone={entry.group === 'Hazardous' ? 'warning' : 'neutral'}>{entry.group}</StatusBadge></article>)}</div> : <EmptyState icon={<Search />} title="No matching item" detail="Try a broader name or contact the BinSight Assistant for disposal guidance." action={<Link className="button secondary" to="/chat">Ask the assistant</Link>} />}</div>
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const match = classifyDisposal(query)
+  const selected = query.trim() ? match : disposalCategories.find((category) => category.id === selectedId) ?? null
+  const categoryIcon = (id: string) => id === 'hazardous' ? <BatteryCharging /> : id === 'electronics' ? <Cpu /> : id === 'organic' ? <Leaf /> : id === 'bulky' ? <Sofa /> : id === 'general' ? <Trash2 /> : <Recycle />
+  const destinationLink = selected?.id === 'returns' ? '/return' : selected?.id === 'bulky' ? '/bulky-pickup' : '/locations'
+
+  return (
+    <div className="page-stack disposal-page">
+      <PageHeading title="Where should this go?" description="Describe the item in everyday words, or choose the closest waste stream." />
+      <div className="disposal-finder">
+        <Search />
+        <input autoFocus value={query} onChange={(event) => { setQuery(event.target.value); setSelectedId(null) }} placeholder="For example: broken phone" aria-label="Describe an item for disposal guidance" />
+        {query && <button className="icon-button" type="button" onClick={() => setQuery('')} aria-label="Clear item description"><X /></button>}
+      </div>
+
+      {query.trim() && !match && (
+        <section className="uncertain-result" aria-live="polite">
+          <span><CircleHelp /></span>
+          <div><span className="eyebrow">Needs a closer look</span><h2>We cannot place that item confidently.</h2><p>Choose a broad waste stream below, or ask support before putting it in a public bin.</p></div>
+          <Link className="button secondary" to="/chat">Ask BinSight <ArrowRight /></Link>
+        </section>
+      )}
+
+      {selected && (
+        <section className={`disposal-result ${selected.tone}`} aria-live="polite">
+          <span className="disposal-result-icon">{categoryIcon(selected.id)}</span>
+          <div className="disposal-result-copy"><span className="eyebrow">Best match</span><h2>{selected.title}</h2><p>{selected.examples}</p></div>
+          <div className="disposal-destination"><small>Take it to</small><strong>{selected.destination}</strong><p>{selected.guidance}</p></div>
+          <Link className="button primary" to={destinationLink}>{selected.id === 'returns' ? 'Start a return' : selected.id === 'bulky' ? 'Book pickup' : 'Find a location'} <ArrowRight /></Link>
+        </section>
+      )}
+
+      <section>
+        <SectionHeading title="Waste streams" detail="Choose the closest category when the item name is uncertain." />
+        <div className="disposal-category-grid">
+          {disposalCategories.map((category) => (
+            <button key={category.id} className={selected?.id === category.id ? 'active' : ''} type="button" onClick={() => { setQuery(''); setSelectedId(category.id) }}>
+              <span className={`category-icon ${category.tone}`}>{categoryIcon(category.id)}</span>
+              <span><strong>{category.title}</strong><small>{category.destination}</small></span>
+              <ChevronRight />
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
 }
 
 export function LocationsPage() {

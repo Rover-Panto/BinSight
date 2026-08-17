@@ -8,7 +8,7 @@ async function login(page: Page) {
     await page.getByLabel(`OTP digit ${index + 1}`).fill(digit)
   }
   await page.getByRole('button', { name: /verify and continue/i }).click()
-  await expect(page.getByRole('heading', { name: /good afternoon/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /dispose, return or report/i })).toBeVisible()
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -30,8 +30,18 @@ test('captures responsive visual QA surfaces', async ({ page }, testInfo) => {
   await expectNoHorizontalOverflow(page)
   await page.screenshot({ path: 'test-results/visual/home-desktop.png' })
 
+  await page.goto('/guide?q=broken%20phone')
+  await expectNoHorizontalOverflow(page)
+  await page.screenshot({ path: 'test-results/visual/disposal-desktop.png' })
+
+  await page.goto('/account')
+  await expectNoHorizontalOverflow(page)
+  await page.screenshot({ path: 'test-results/visual/account-desktop.png' })
+  await page.locator('.local-server-panel').scrollIntoViewIfNeeded()
+  await page.locator('.local-server-panel').screenshot({ path: 'test-results/visual/server-control-desktop.png' })
+
   await page.setViewportSize({ width: 768, height: 1024 })
-  await page.reload()
+  await page.goto('/')
   await expectNoHorizontalOverflow(page)
   await page.screenshot({ path: 'test-results/visual/home-tablet.png' })
 
@@ -40,11 +50,15 @@ test('captures responsive visual QA surfaces', async ({ page }, testInfo) => {
   await expectNoHorizontalOverflow(page)
   await page.screenshot({ path: 'test-results/visual/home-mobile.png' })
 
-  await page.getByRole('button', { name: /start return/i }).click()
+  await page.getByRole('button', { name: /return a container/i }).click()
   await expectNoHorizontalOverflow(page)
   await page.screenshot({ path: 'test-results/visual/return-mobile.png' })
 
   await page.goto('/report')
   await expectNoHorizontalOverflow(page)
   await page.screenshot({ path: 'test-results/visual/report-mobile.png' })
+
+  await page.goto('/guide?q=broken%20phone')
+  await expectNoHorizontalOverflow(page)
+  await page.screenshot({ path: 'test-results/visual/disposal-mobile.png' })
 })

@@ -4,7 +4,7 @@ BinSight is MON BLUE's engineering proposal for a smart waste-sensing system and
 
 ## Current status
 
-The proposal, supporting research, document-generation scripts, and responsive citizen hub frontend are present. The frontend is a self-contained prototype with simulated authentication, returns, payouts, reports, schedules, support services, and local persistence.
+The proposal, supporting research, document-generation scripts, and responsive citizen hub frontend are present. The frontend is a self-contained prototype with simulated authentication, station-detected returns, payouts, reports, automatic public-bin routing, support services, and local persistence.
 
 ## Repository contents
 
@@ -17,7 +17,7 @@ The proposal, supporting research, document-generation scripts, and responsive c
 
 ## Planned citizen hub
 
-The interface covers National ID and mock OTP login, beverage returns at RM0.20 per accepted item, Bank Transfer and E-Wallet payout methods, waste issue reporting, collection information, disposal guidance, locations, FAQ, scripted chat, notifications, and mock contact details.
+The interface covers National ID and mock OTP login, beverage returns at RM0.20 per accepted item, Bank Transfer and E-Wallet payout methods, waste issue reporting, category-based disposal guidance, locations, FAQ, scripted chat, notifications, and mock contact details.
 
 All identities, payouts, service reports, and contact details in the prototype will be simulated.
 

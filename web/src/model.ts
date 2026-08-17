@@ -54,15 +54,16 @@ export interface AppNotification {
 }
 
 export interface AppSettings {
-  reminders: boolean
+  nearbyBinAlerts: boolean
   serviceAlerts: boolean
+  nextItemType: ItemType
   nextItemOutcome: ItemResult
   rejectedReason: string
   failNextPayment: boolean
 }
 
 export interface AppData {
-  version: 1
+  version: 2
   auth: {
     authenticated: boolean
     userId: string | null
@@ -105,7 +106,7 @@ const hoursAgo = (hours: number) =>
   new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString()
 
 export const createDefaultData = (): AppData => ({
-  version: 1,
+  version: 2,
   auth: { authenticated: false, userId: null },
   returns: [
     {
@@ -193,8 +194,8 @@ export const createDefaultData = (): AppData => ({
     },
     {
       id: 'note-2',
-      title: 'Recycling collection change',
-      detail: 'Thursday collection will begin two hours earlier this week.',
+      title: 'Smart-bin service update',
+      detail: 'A nearby public bin was added to the next priority collection route.',
       createdAt: hoursAgo(20),
       read: false,
       kind: 'service',
@@ -209,28 +210,98 @@ export const createDefaultData = (): AppData => ({
     },
   ],
   settings: {
-    reminders: true,
+    nearbyBinAlerts: true,
     serviceAlerts: true,
+    nextItemType: 'Can',
     nextItemOutcome: 'accepted',
     rejectedReason: rejectedReasons[0],
     failNextPayment: false,
   },
 })
 
-export const disposalItems = [
-  { item: 'Aluminium drink can', destination: 'Return station', preparation: 'Empty. Keep the barcode and deposit mark readable.', group: 'Packaging' },
-  { item: 'Plastic drink bottle', destination: 'Return station', preparation: 'Empty. Do not crush the bottle.', group: 'Packaging' },
-  { item: 'Glass bottle', destination: 'Glass recycling point', preparation: 'Rinse and remove the cap.', group: 'Glass' },
-  { item: 'Cardboard box', destination: 'Recycling bin', preparation: 'Flatten and keep dry.', group: 'Paper' },
-  { item: 'Food scraps', destination: 'Organic waste', preparation: 'Remove packaging and liquids.', group: 'Organics' },
-  { item: 'Household battery', destination: 'Battery drop-off', preparation: 'Tape exposed terminals.', group: 'Hazardous' },
-  { item: 'Mobile phone', destination: 'E-waste point', preparation: 'Remove personal data and accessories.', group: 'Electronics' },
-  { item: 'Light bulb', destination: 'Hazardous-waste facility', preparation: 'Wrap securely. Do not place in glass recycling.', group: 'Hazardous' },
-  { item: 'Clothing', destination: 'Textile donation point', preparation: 'Clean and bag dry items.', group: 'Textiles' },
-  { item: 'Used cooking oil', destination: 'Oil recovery point', preparation: 'Cool and seal in a labelled container.', group: 'Hazardous' },
-  { item: 'Sofa', destination: 'Bulky-item pickup', preparation: 'Book a collection before placing outside.', group: 'Bulky items' },
-  { item: 'Disposable diaper', destination: 'General waste', preparation: 'Seal securely in a bag.', group: 'General waste' },
+export interface DisposalCategory {
+  id: string
+  title: string
+  destination: string
+  guidance: string
+  examples: string
+  keywords: string[]
+  tone: 'blue' | 'green' | 'amber' | 'red' | 'graphite'
+}
+
+export const disposalCategories: DisposalCategory[] = [
+  {
+    id: 'returns',
+    title: 'Deposit containers',
+    destination: 'Beverage return station',
+    guidance: 'Empty the container and keep its barcode and deposit mark readable. Do not crush it.',
+    examples: 'Aluminium drink cans and eligible plastic drink bottles',
+    keywords: ['aluminium can', 'aluminum can', 'drink can', 'soda can', 'soft drink can', 'plastic drink bottle', 'water bottle', 'beverage bottle', 'deposit container'],
+    tone: 'blue',
+  },
+  {
+    id: 'recycling',
+    title: 'Dry recyclables',
+    destination: 'Community recycling point',
+    guidance: 'Keep items empty, clean and dry. Separate materials when the facility requires it.',
+    examples: 'Paper, cardboard, metal, glass and rigid plastic packaging',
+    keywords: ['paper', 'newspaper', 'magazine', 'cardboard', 'box', 'glass bottle', 'glass jar', 'metal tin', 'steel can', 'plastic tub', 'plastic packaging'],
+    tone: 'green',
+  },
+  {
+    id: 'organic',
+    title: 'Food and garden material',
+    destination: 'Organic waste point',
+    guidance: 'Remove packaging, liquids and non-compostable material before disposal.',
+    examples: 'Food scraps, fruit peel, leaves and small garden cuttings',
+    keywords: ['food', 'scrap', 'fruit', 'vegetable', 'peel', 'coffee ground', 'tea bag', 'leaf', 'leaves', 'garden', 'grass', 'branch'],
+    tone: 'green',
+  },
+  {
+    id: 'electronics',
+    title: 'Electrical and electronic items',
+    destination: 'E-waste collection point',
+    guidance: 'Remove personal data where possible. Keep damaged devices dry and separate from household bins.',
+    examples: 'Phones, cables, chargers, computers and small appliances',
+    keywords: ['phone', 'mobile', 'laptop', 'computer', 'tablet', 'charger', 'cable', 'headphone', 'earbud', 'camera', 'electronic', 'e-waste', 'appliance', 'toaster', 'kettle'],
+    tone: 'blue',
+  },
+  {
+    id: 'hazardous',
+    title: 'Hazardous household waste',
+    destination: 'Special-handling facility',
+    guidance: 'Do not open, mix or pour the material away. Secure it in its original container where possible.',
+    examples: 'Batteries, lamps, paint, chemicals, oil, medicine and sharps',
+    keywords: ['battery', 'bulb', 'lamp', 'paint', 'chemical', 'solvent', 'pesticide', 'oil', 'medicine', 'medication', 'needle', 'sharp', 'aerosol'],
+    tone: 'red',
+  },
+  {
+    id: 'bulky',
+    title: 'Large household items',
+    destination: 'Bulky-item pickup',
+    guidance: 'Book a pickup before moving the item outside. Keep walkways and emergency access clear.',
+    examples: 'Furniture, mattresses and large appliances',
+    keywords: ['sofa', 'couch', 'chair', 'table', 'desk', 'wardrobe', 'cabinet', 'mattress', 'bed', 'fridge', 'refrigerator', 'washing machine', 'large appliance', 'furniture'],
+    tone: 'amber',
+  },
+  {
+    id: 'general',
+    title: 'General waste',
+    destination: 'General waste bin',
+    guidance: 'Bag loose or unhygienic material securely. Do not include batteries, chemicals or recyclable containers.',
+    examples: 'Diapers, contaminated packaging, ceramics and sweepings',
+    keywords: ['diaper', 'nappy', 'ceramic', 'broken plate', 'broken cup', 'contaminated packaging', 'vacuum dust', 'sweeping', 'tissue', 'sanitary'],
+    tone: 'graphite',
+  },
 ]
+
+export const classifyDisposal = (query: string) => {
+  const normalized = query.trim().toLowerCase()
+  if (normalized.length < 2) return null
+  return disposalCategories.find((category) =>
+    category.keywords.some((keyword) => normalized.includes(keyword)),
+  ) ?? null
+}
 
 export const serviceLocations = [
   { id: 'loc-1', name: 'BinSight Central Return Point', type: 'Return station', distance: 0.8, hours: '07:00–22:00', materials: 'Cans and plastic bottles', x: 35, y: 32 },
@@ -244,7 +315,7 @@ export const faqItems = [
   { category: 'Returns', question: 'Why was my item rejected?', answer: 'Common reasons include an unreadable barcode, missing deposit mark, a crushed container or an unsupported material.' },
   { category: 'Payouts', question: 'How much is each accepted item worth?', answer: 'Each accepted item adds 20 sen, displayed as RM0.20, to the session payout.' },
   { category: 'Payouts', question: 'Where can the payout be sent?', answer: 'Choose a saved Bank Transfer or E-Wallet method. All prototype payouts are simulated.' },
-  { category: 'Collections', question: 'How do reminders work?', answer: 'Enable reminders in Account to receive a mock alert before garbage, recycling and organic collection.' },
+  { category: 'Collections', question: 'When are public bins collected?', answer: 'BinSight does not publish a fixed collection timetable. Sensor readings and route priority determine when a public bin is added to a collection route.' },
   { category: 'Reporting', question: 'What information makes a useful report?', answer: 'Include a precise location, a clear description, the time observed and photos when it is safe to take them.' },
   { category: 'Recycling', question: 'Where do batteries go?', answer: 'Take household batteries to a battery or e-waste drop-off point. Tape exposed terminals first.' },
   { category: 'Account', question: 'Can I remove a payout method?', answer: 'Yes. Open Payout Methods in Account and confirm removal. Add a method before requesting another payout.' },
@@ -267,4 +338,3 @@ export const getSessionTotal = (session: ReturnSession) =>
 
 export const createReference = (prefix: string) =>
   `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`
-

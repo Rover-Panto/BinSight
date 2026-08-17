@@ -22,7 +22,7 @@ describe('BinSight frontend', () => {
       await user.type(screen.getByLabelText(`OTP digit ${index}`), String(index))
     }
     await user.click(screen.getByRole('button', { name: /verify and continue/i }))
-    expect(await screen.findByRole('heading', { name: /good afternoon/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /dispose, return or report/i })).toBeInTheDocument()
     const stored = localStorage.getItem('binsight-demo-v1') ?? ''
     expect(stored).toContain('authenticated')
     expect(stored).not.toContain('DEMO123456')
@@ -39,7 +39,6 @@ describe('BinSight frontend', () => {
     const user = userEvent.setup()
     renderApp('/return/BS-TEST')
     await user.click(screen.getAllByRole('button', { name: /^add item$/i })[0])
-    await user.click(screen.getByRole('button', { name: /add can/i }))
     expect(await screen.findByRole('heading', { name: /barcode could not be read/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /add another item/i })).toBeInTheDocument()
     expect(screen.getAllByText('RM0.00').length).toBeGreaterThan(0)

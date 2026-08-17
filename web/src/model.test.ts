@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, getSessionTotal, type ReturnSession } from './model'
+import { classifyDisposal, formatMoney, getSessionTotal, type ReturnSession } from './model'
 
 describe('return value calculation', () => {
   it('adds RM0.20 for accepted items and nothing for rejected items', () => {
@@ -15,5 +15,17 @@ describe('return value calculation', () => {
     }
     expect(getSessionTotal(session)).toBe(40)
     expect(formatMoney(getSessionTotal(session))).toBe('RM0.40')
+  })
+})
+
+describe('disposal guidance', () => {
+  it('matches everyday item descriptions to broad waste streams', () => {
+    expect(classifyDisposal('a broken mobile phone')?.id).toBe('electronics')
+    expect(classifyDisposal('an old household battery')?.id).toBe('hazardous')
+    expect(classifyDisposal('glass bottle')?.id).toBe('recycling')
+  })
+
+  it('returns no confident match for an unknown description', () => {
+    expect(classifyDisposal('mystery composite object')).toBeNull()
   })
 })

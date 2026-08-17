@@ -24,8 +24,26 @@ const loadData = (): AppData => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (!stored) return createDefaultData()
-    const parsed = JSON.parse(stored) as AppData
-    return parsed.version === 1 ? parsed : createDefaultData()
+    const parsed = JSON.parse(stored) as Omit<AppData, 'version' | 'settings'> & {
+      version: number
+      settings: Partial<AppSettings> & { reminders?: boolean }
+    }
+    if (parsed.version === 2) return parsed as AppData
+    if (parsed.version === 1) {
+      const defaults = createDefaultData()
+      return {
+        ...defaults,
+        ...parsed,
+        version: 2,
+        settings: {
+          ...defaults.settings,
+          ...parsed.settings,
+          nearbyBinAlerts: parsed.settings.reminders ?? true,
+          nextItemType: parsed.settings.nextItemType ?? 'Can',
+        },
+      }
+    }
+    return createDefaultData()
   } catch {
     return createDefaultData()
   }
@@ -45,7 +63,7 @@ interface StoreValue {
   login: () => void
   logout: () => void
   createReturn: () => string
-  addItem: (sessionId: string, type: ItemType) => void
+  addItem: (sessionId: string) => void
   retryItem: (sessionId: string, type: ItemType) => void
   finishReturn: (sessionId: string) => void
   payReturn: (sessionId: string, methodId: string) => { ok: boolean; transactionId?: string }
@@ -102,12 +120,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }))
       return id
     },
-    addItem: (sessionId, type) =>
+    addItem: (sessionId) =>
       setData((current) => {
         const result = current.settings.nextItemOutcome
         const event = {
           id: crypto.randomUUID(),
-          type,
+          type: current.settings.nextItemType,
           result,
           reason: result === 'rejected' ? current.settings.rejectedReason : undefined,
           valueCents: result === 'accepted' ? 20 : 0,

@@ -2,22 +2,22 @@ import {
   ArrowRight,
   Banknote,
   Bell,
-  CalendarDays,
   Check,
   ChevronRight,
   CreditCard,
   FlaskConical,
   History,
   Landmark,
-  LocateFixed,
   LogOut,
   Mail,
-  MapPin,
+  MapPinned,
   PackageSearch,
+  Power,
   Plus,
   Recycle,
   RotateCcw,
   Search,
+  Server,
   ShieldCheck,
   Smartphone,
   Trash2,
@@ -46,55 +46,40 @@ export function HomePage() {
   return (
     <div className="page-stack home-page">
       <PageHeading
-        eyebrow="Monday, 17 August"
-        title="Good afternoon"
-        description="Your next services, return activity and local waste updates in one place."
-        actions={<StatusBadge tone="info"><span className="live-dot" /> District services online</StatusBadge>}
+        title="Dispose, return or report"
+        description="Tell BinSight what you need to get rid of, or choose a direct action."
       />
 
-      <section className="home-lead-grid">
-        <div className="return-command">
-          <div className="command-index">RETURN / 20 SEN</div>
-          <Recycle aria-hidden="true" />
-          <div>
-            <span className="eyebrow inverse">Beverage return</span>
-            <h2>Return cans and bottles</h2>
-            <p>Each accepted container adds RM0.20 to your simulated payout.</p>
-          </div>
-          <button className="button light" type="button" onClick={startReturn}>Start return <ArrowRight aria-hidden="true" /></button>
-          <div className="command-lines" aria-hidden="true"><i /><i /><i /></div>
-        </div>
-
-        <div className="next-collection surface-panel">
-          <div className="panel-kicker"><CalendarDays aria-hidden="true" /><span>Next collection</span><strong>2 days</strong></div>
-          <h2>Recycling · Thursday</h2>
-          <p>Place clean, dry items at the collection point before 7:00 AM.</p>
-          <div className="collection-strip">
-            <span><i className="bin-swatch general" /> Garbage <strong>Wed</strong></span>
-            <span><i className="bin-swatch recycle" /> Recycling <strong>Thu</strong></span>
-            <span><i className="bin-swatch organic" /> Organic <strong>Sat</strong></span>
-          </div>
-          <Link className="text-link" to="/schedule">View full schedule <ArrowRight aria-hidden="true" /></Link>
-        </div>
-      </section>
-
-      <section className="service-alert" aria-label="Service alert">
-        <TriangleAlert aria-hidden="true" />
-        <div><strong>Recycling collection begins earlier this Thursday</strong><span>Set bins out by 7:00 AM due to scheduled road maintenance.</span></div>
-        <Link to="/notifications">Details <ChevronRight aria-hidden="true" /></Link>
-      </section>
-
-      <section>
-        <SectionHeading title="What do you need to do?" detail="Direct access to the most common resident services." />
-        <div className="action-rows">
-          <Link to="/report" className="action-row danger-accent"><span className="action-icon"><TriangleAlert /></span><span><strong>Report a waste issue</strong><small>Overflow, illegal dumping, missed collection or damaged bins</small></span><ArrowRight /></Link>
-          <form className="disposal-search" onSubmit={search}>
+      <section className="resident-start">
+        <div className="resident-start-main">
+          <span className="eyebrow inverse">Start here</span>
+          <h2>What are you getting rid of?</h2>
+          <p>Describe the item in everyday words. BinSight will suggest the right waste stream.</p>
+          <form className="resident-search" onSubmit={search}>
             <Search aria-hidden="true" />
-            <label htmlFor="home-disposal-search"><strong>How do I dispose of this?</strong><span>Search cans, batteries, electronics and more</span></label>
-            <input id="home-disposal-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search an item" />
-            <button className="icon-button dark" type="submit" aria-label="Search sorting guide"><ArrowRight /></button>
+            <input aria-label="Describe an item to dispose of" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="For example: broken phone" />
+            <button className="icon-button light" type="submit" aria-label="Find disposal guidance"><ArrowRight /></button>
           </form>
+          <div className="resident-actions">
+            <button className="button light" type="button" onClick={startReturn}><Recycle /> Return a container</button>
+            <Link className="button outline-light" to="/report"><TriangleAlert /> Report a problem</Link>
+          </div>
         </div>
+        <aside className="nearest-point">
+          <span className="nearest-icon"><MapPinned /></span>
+          <div>
+            <small>0.8 km away</small>
+            <h2>BinSight Central Return Point</h2>
+            <p>Open until 10:00 PM</p>
+            <span className="availability"><i /> Accepting cans and plastic drink bottles</span>
+          </div>
+          <Link className="text-link inverse-link" to="/locations">Other locations <ArrowRight /></Link>
+        </aside>
+      </section>
+
+      <section className="automatic-routing-note">
+        <Server aria-hidden="true" />
+        <div><strong>Public-bin collection runs automatically</strong><span>Fill readings and route priority determine when a bin is serviced, so residents do not need a collection timetable.</span></div>
       </section>
 
       <section className="dashboard-columns">
@@ -122,11 +107,6 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="nearby-strip">
-        <div className="mini-map" aria-hidden="true"><i className="road road-one" /><i className="road road-two" /><span className="map-pin primary"><MapPin /></span><span className="map-pin secondary"><Recycle /></span></div>
-        <div><span className="eyebrow">Nearest return point · 0.8 km</span><h2>BinSight Central Return Point</h2><p>Open today until 10:00 PM · Cans and plastic bottles</p></div>
-        <Link className="button secondary" to="/locations">View locations <LocateFixed /></Link>
-      </section>
     </div>
   )
 }
@@ -153,6 +133,24 @@ export function AccountPage() {
   const { data, logout, resetDemo, updateSettings } = useStore()
   const navigate = useNavigate()
   const [confirmReset, setConfirmReset] = useState(false)
+  const [confirmStop, setConfirmStop] = useState(false)
+  const [serverState, setServerState] = useState<'running' | 'stopping' | 'stopped' | 'error'>('running')
+
+  const stopLocalServer = async () => {
+    setServerState('stopping')
+    try {
+      const response = await fetch('/__binsight/stop', {
+        method: 'POST',
+        headers: { 'X-BinSight-Control': 'stop' },
+      })
+      if (!response.ok) throw new Error('Server control is unavailable')
+      setServerState('stopped')
+      setConfirmStop(false)
+    } catch {
+      setServerState('error')
+      setConfirmStop(false)
+    }
+  }
 
   return (
     <div className="page-stack narrow-page">
@@ -176,8 +174,8 @@ export function AccountPage() {
       <section>
         <SectionHeading title="Notifications" />
         <div className="preference-panel">
-          <label><span><strong>Collection reminders</strong><small>Receive a mock reminder before collection day.</small></span><input type="checkbox" checked={data.settings.reminders} onChange={(event) => updateSettings({ reminders: event.target.checked })} /><i /></label>
-          <label><span><strong>Service alerts</strong><small>Changes to schedules and local facilities.</small></span><input type="checkbox" checked={data.settings.serviceAlerts} onChange={(event) => updateSettings({ serviceAlerts: event.target.checked })} /><i /></label>
+          <label><span><strong>Nearby-bin alerts</strong><small>Availability and service changes for nearby public bins and return points.</small></span><input type="checkbox" checked={data.settings.nearbyBinAlerts} onChange={(event) => updateSettings({ nearbyBinAlerts: event.target.checked })} /><i /></label>
+          <label><span><strong>Service alerts</strong><small>Facility closures, report updates and important local notices.</small></span><input type="checkbox" checked={data.settings.serviceAlerts} onChange={(event) => updateSettings({ serviceAlerts: event.target.checked })} /><i /></label>
         </div>
       </section>
 
@@ -185,6 +183,12 @@ export function AccountPage() {
         <summary><FlaskConical /> Demo controls <span>For prototype testing only</span><ChevronRight /></summary>
         <div>
           <InlineNotice title="Controlled simulation">These options make return and payment states predictable during a presentation.</InlineNotice>
+          <Field label="Next detected item">
+            <select value={data.settings.nextItemType} onChange={(event) => updateSettings({ nextItemType: event.target.value as 'Can' | 'Bottle' })}>
+              <option value="Can">Can</option>
+              <option value="Bottle">Bottle</option>
+            </select>
+          </Field>
           <Field label="Next return item result">
             <select value={data.settings.nextItemOutcome} onChange={(event) => updateSettings({ nextItemOutcome: event.target.value as 'accepted' | 'rejected' })}>
               <option value="accepted">Accepted</option>
@@ -202,6 +206,20 @@ export function AccountPage() {
         </div>
       </details>
 
+      {import.meta.env.DEV && (
+        <section className={`local-server-panel ${serverState}`}>
+          <div className="server-status-icon"><Server /></div>
+          <div>
+            <span className="eyebrow">Local prototype server</span>
+            <h2>{serverState === 'stopped' ? 'Server stopped' : serverState === 'error' ? 'Server control unavailable' : 'Running on this computer'}</h2>
+            <p>{serverState === 'stopped' ? 'This loaded page may remain visible, but it will not reload until BinSight is started again.' : 'Stop the local server when you are finished to release the process running on this computer.'}</p>
+            <code>Start-BinSight.cmd</code>
+            <small>Double-click this file in the project folder to start BinSight again.</small>
+          </div>
+          {serverState !== 'stopped' && <button className="button secondary" type="button" disabled={serverState === 'stopping'} onClick={() => setConfirmStop(true)}><Power /> {serverState === 'stopping' ? 'Stopping server' : 'Stop local server'}</button>}
+        </section>
+      )}
+
       <section className="account-actions">
         <button className="button secondary" type="button" onClick={() => setConfirmReset(true)}><RotateCcw /> Reset demo data</button>
         <button className="button danger" type="button" onClick={() => { logout(); navigate('/login') }}><LogOut /> Sign out</button>
@@ -209,6 +227,12 @@ export function AccountPage() {
       {confirmReset && (
         <Modal title="Reset demonstration data?" description="This restores the original sessions, reports, methods and settings." onClose={() => setConfirmReset(false)}>
           <div className="modal-actions"><button className="button ghost" type="button" onClick={() => setConfirmReset(false)}>Cancel</button><button className="button danger" type="button" onClick={() => { resetDemo(); setConfirmReset(false) }}><RotateCcw /> Reset data</button></div>
+        </Modal>
+      )}
+      {confirmStop && (
+        <Modal title="Stop the local BinSight server?" description="This ends the development server running on this computer." onClose={() => setConfirmStop(false)}>
+          <InlineNotice tone="warning" title="How to start it again">Double-click Start-BinSight.cmd in the project folder. The browser page cannot restart a server after it has stopped.</InlineNotice>
+          <div className="modal-actions"><button className="button ghost" type="button" onClick={() => setConfirmStop(false)}>Cancel</button><button className="button danger" type="button" onClick={stopLocalServer}><Power /> Stop server</button></div>
         </Modal>
       )}
     </div>

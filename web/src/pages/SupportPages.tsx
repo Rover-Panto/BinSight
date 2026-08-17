@@ -28,7 +28,7 @@ export function FAQPage() {
   const results = faqItems.filter((item) => (category === 'All' || item.category === category) && `${item.question} ${item.answer}`.toLowerCase().includes(query.toLowerCase()))
   return (
     <div className="page-stack narrow-page">
-      <PageHeading title="Frequently asked questions" description="Answers about returns, payouts, collection services and account privacy." />
+      <PageHeading title="Frequently asked questions" description="Answers about returns, payouts, automatic bin servicing and account privacy." />
       <div className="faq-search"><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search questions" aria-label="Search frequently asked questions" /></div>
       <div className="faq-categories" role="tablist" aria-label="FAQ category">{categories.map((entry) => <button key={entry} type="button" className={category === entry ? 'active' : ''} onClick={() => setCategory(entry)}>{entry}</button>)}</div>
       {results.length ? <div className="faq-list">{results.map((item) => <details key={item.question}><summary><span><small>{item.category}</small><strong>{item.question}</strong></span><ChevronDown /></summary><p>{item.answer}</p></details>)}</div> : <EmptyState icon={<Search />} title="No matching answer" detail="Try another phrase or ask the BinSight Assistant." action={<Link className="button secondary" to="/chat">Open chat</Link>} />}
@@ -46,7 +46,7 @@ interface ChatMessage {
 
 const suggestions = [
   'Which containers can I return?',
-  'When is my next collection?',
+  'How are public bins collected?',
   'Where do batteries go?',
   'What is the status of WR-2461?',
 ]
@@ -54,19 +54,19 @@ const suggestions = [
 function getScriptedReply(input: string) {
   const text = input.toLowerCase()
   if (text.includes('container') || text.includes('return') || text.includes('bottle') || text.includes('can')) return 'The prototype accepts eligible aluminium cans and plastic drink bottles. Containers should be empty, uncrushed and have a readable barcode and deposit mark. Each accepted item adds RM0.20.'
-  if (text.includes('collection') || text.includes('pickup day')) return 'The next demonstration collection is garbage on Wednesday, followed by recycling on Thursday and organic waste on Saturday. Open Collection Schedule for preparation times.'
+  if (text.includes('collection') || text.includes('pickup day') || text.includes('public bin')) return 'BinSight public bins use automatic routing. Fill readings and service priority determine when each bin is added to a route, so there is no fixed resident collection timetable.'
   if (text.includes('battery') || text.includes('electronic') || text.includes('e-waste')) return 'Batteries should go to a battery or e-waste drop-off point, not a household bin. Tape exposed terminals and use Locations to find the nearest demonstration facility.'
   if (text.includes('wr-2461') || text.includes('report status')) return 'Report WR-2461 is Assigned. A mock collection crew has been notified. You can view its full status timeline under My Reports.'
   if (text.includes('payout') || text.includes('money') || text.includes('bank') || text.includes('wallet')) return 'Simulated payouts can be sent to a saved Bank Transfer or E-Wallet method. Open Activity History for completed return receipts.'
   if (text.includes('human') || text.includes('contact') || text.includes('support')) return 'I am an automated demonstration assistant. For further help, open Contact to view the fictional hotline, email and service hours.'
   if (text.includes('hazard') || text.includes('sharp') || text.includes('chemical')) return 'Do not touch hazardous material or discarded sharps. Move away from immediate danger and contact emergency services when necessary. You can submit a non-urgent waste report when it is safe.'
-  return 'I can help with return eligibility, RM0.20 payouts, collection dates, sorting guidance and report tracking. Try asking what to do with a specific item, or open Contact for additional demonstration support.'
+  return 'I can help with return eligibility, RM0.20 payouts, disposal guidance, automatic bin servicing and report tracking. Try describing the item you need to discard, or open Contact for additional demonstration support.'
 }
 
 export function ChatPage() {
   const { data } = useStore()
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 'welcome', role: 'assistant', text: 'Hello. I am the BinSight Assistant. I can help with returns, disposal guidance, collection dates and report tracking.', createdAt: new Date().toISOString() },
+    { id: 'welcome', role: 'assistant', text: 'Hello. I am the BinSight Assistant. I can help with returns, disposal guidance, automatic bin servicing and report tracking.', createdAt: new Date().toISOString() },
   ])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
@@ -102,7 +102,7 @@ export function ChatPage() {
         </section>
         <aside className="chat-context">
           <span className="eyebrow">Useful context</span>
-          <div><strong>Next collection</strong><span>Garbage · Wednesday</span></div>
+          <div><strong>Public-bin service</strong><span>Automatic routing active</span></div>
           <div><strong>Open report</strong><span>{activeReport ? `${activeReport.id} · ${activeReport.status}` : 'No open reports'}</span></div>
           <div><strong>Return rate</strong><span>RM0.20 per accepted item</span></div>
           <Link to="/faq"><MessageCircleMore /> Browse FAQ <ArrowRight /></Link>

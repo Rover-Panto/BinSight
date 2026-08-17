@@ -13,10 +13,16 @@ The entered National ID and OTP are never written to local storage. A generated 
 
 ## Run locally
 
+From the project folder, double-click `Start-BinSight.cmd`. It starts the localhost server and opens the site in a browser. Dependencies must already be installed.
+
+For command-line development:
+
 ```powershell
 pnpm install
 pnpm dev
 ```
+
+The `Account` page includes a `Stop local server` control for the development server. After stopping it, use `Start-BinSight.cmd` to start it again; a browser cannot restart a process that has already exited.
 
 ## Verification
 
@@ -27,8 +33,8 @@ pnpm test:e2e
 pnpm build
 ```
 
-Playwright covers the full login-to-payout and issue-reporting journeys at desktop and mobile sizes. The visual suite also checks the 1440×900, 768×1024 and 390×844 layouts for horizontal overflow.
+Playwright covers the full login-to-payout and issue-reporting journeys at desktop and mobile sizes. The visual suite also checks the 1440x900, 768x1024 and 390x844 layouts for horizontal overflow.
 
 ## Prototype controls
 
-Open `Account` and expand `Demo controls` to force accepted or rejected return items and simulate one failed payment. `Reset demo data` restores the original sessions, reports, methods, notifications and settings.
+Open `Account` and expand `Demo controls` to choose the next station-detected item, force an accepted or rejected result, and simulate one failed payment. `Reset demo data` restores the original sessions, reports, methods, notifications and settings.

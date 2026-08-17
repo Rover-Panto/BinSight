@@ -11,14 +11,15 @@ import {
   ReceiptText,
   Recycle,
   Redo2,
+  ScanLine,
   ShieldCheck,
   Smartphone,
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { EmptyState, InlineNotice, Modal, PageHeading, SectionHeading, StatusBadge } from '../components/UI'
-import { formatDateTime, formatMoney, getSessionTotal, type ItemType } from '../model'
+import { EmptyState, InlineNotice, PageHeading, SectionHeading, StatusBadge } from '../components/UI'
+import { formatDateTime, formatMoney, getSessionTotal } from '../model'
 import { useStore } from '../store'
 
 export function ReturnLandingPage() {
@@ -40,14 +41,14 @@ export function ReturnLandingPage() {
       ) : (
         <section className="return-start-panel">
           <div className="return-machine-visual" aria-hidden="true"><span>BIN / SIGHT</span><div><Recycle /><i /></div><small>READY</small></div>
-          <div><span className="eyebrow">Return station simulator</span><h2>Ready to return containers?</h2><p>No camera or QR access is used. Start a session, choose each item, then send the simulated payout to a saved method.</p><button className="button primary" type="button" onClick={begin}>Start return <ArrowRight /></button></div>
+          <div><span className="eyebrow">Return station simulator</span><h2>Ready to return containers?</h2><p>No camera or QR access is used in this mock-up. Start a session, insert one item at a time, and let the station identify whether it can be accepted.</p><button className="button primary" type="button" onClick={begin}>Start return <ArrowRight /></button></div>
         </section>
       )}
       <section>
         <SectionHeading title="How it works" />
         <ol className="process-steps">
           <li><span>01</span><div><strong>Start a session</strong><p>A return reference is generated on this device.</p></div></li>
-          <li><span>02</span><div><strong>Add cans or bottles</strong><p>Accepted items add RM0.20. Rejected items add no value.</p></div></li>
+          <li><span>02</span><div><strong>Insert one container</strong><p>The station identifies the item and confirms whether it is accepted.</p></div></li>
           <li><span>03</span><div><strong>Choose payout</strong><p>Use a mock Bank Transfer or E-Wallet method.</p></div></li>
         </ol>
       </section>
@@ -67,8 +68,7 @@ export function ReturnSessionPage() {
   const { id } = useParams()
   const { data, addItem, retryItem, finishReturn } = useStore()
   const navigate = useNavigate()
-  const [adding, setAdding] = useState(false)
-  const [selectedType, setSelectedType] = useState<ItemType>('Can')
+  const [inspecting, setInspecting] = useState(false)
   const session = data.returns.find((entry) => entry.id === id)
 
   if (!session) return <Navigate to="/return" replace />
@@ -87,15 +87,19 @@ export function ReturnSessionPage() {
     return (
       <div className="page-stack narrow-page">
         <PageHeading eyebrow="Completed return" title={session.id} description="Simulated transaction receipt" />
-        <Receipt sessionId={session.id} total={total} method={method?.maskedIdentifier ?? 'Saved payout method'} transactionId={session.transactionId ?? 'TXN-DEMO'} paidAt={session.paidAt ?? session.createdAt} />
+        <Receipt sessionId={session.id} total={total} itemCount={acceptedEvents.length} method={method?.maskedIdentifier ?? 'Saved payout method'} transactionId={session.transactionId ?? 'TXN-DEMO'} paidAt={session.paidAt ?? session.createdAt} />
         <div className="center-actions"><Link className="button primary" to="/return">Return another item <Recycle /></Link><Link className="button secondary" to="/history">View activity</Link></div>
       </div>
     )
   }
 
-  const submitItem = () => {
-    addItem(session.id, selectedType)
-    setAdding(false)
+  const inspectItem = () => {
+    if (inspecting) return
+    setInspecting(true)
+    window.setTimeout(() => {
+      addItem(session.id)
+      setInspecting(false)
+    }, 850)
   }
 
   const finish = () => {
@@ -106,7 +110,7 @@ export function ReturnSessionPage() {
 
   return (
     <div className="page-stack return-session-page">
-      <PageHeading eyebrow="Active return session" title={session.id} description="Add one container at a time. Counts update only after acceptance." actions={<StatusBadge tone="success"><span className="live-dot" /> Station ready</StatusBadge>} />
+      <PageHeading eyebrow="Active return session" title={session.id} description="Insert one container at a time. The station identifies it before the session is updated." actions={<StatusBadge tone="success"><span className="live-dot" /> Station ready</StatusBadge>} />
       <section className="session-console">
         <div className="session-totals">
           <span><small>Cans</small><strong>{canCount}</strong></span>
@@ -118,24 +122,32 @@ export function ReturnSessionPage() {
         <div className="session-rate"><span>RATE / ITEM</span><strong>RM0.20</strong><small>Simulated value</small></div>
       </section>
 
-      {latest?.result === 'accepted' && (
+      {inspecting && (
+        <section className="result-panel inspecting" aria-live="polite">
+          <span className="result-icon"><ScanLine /></span>
+          <div><span className="eyebrow">Inspection in progress</span><h2>Checking the container</h2><p>The station is identifying the item and validating its return eligibility.</p></div>
+          <span className="inspection-pulse" aria-hidden="true"><i /><i /><i /></span>
+        </section>
+      )}
+
+      {!inspecting && latest?.result === 'accepted' && (
         <section className="result-panel accepted" aria-live="polite">
           <span className="result-icon"><Check /></span>
           <div><span className="eyebrow">Item accepted</span><h2>{latest.type} accepted · +RM0.20</h2><p>The container has been added to session {session.id}.</p></div>
-          <div className="result-actions"><button className="button primary" type="button" onClick={() => setAdding(true)}><Plus /> Add another item</button><button className="button secondary" type="button" onClick={finish}>Finish return</button></div>
+          <div className="result-actions"><button className="button primary" type="button" onClick={inspectItem}><Plus /> Add another item</button><button className="button secondary" type="button" onClick={finish}>Finish return</button></div>
         </section>
       )}
 
-      {latest?.result === 'rejected' && (
+      {!inspecting && latest?.result === 'rejected' && (
         <section className="result-panel rejected" aria-live="assertive">
           <span className="result-icon"><X /></span>
           <div><span className="eyebrow">Item not accepted</span><h2>{latest.reason}</h2><p>No item or payout value was added. Remove the container before continuing.</p></div>
-          <div className="result-actions"><button className="button primary" type="button" onClick={() => setAdding(true)}><Plus /> Add another item</button>{recoverable && <button className="button secondary" type="button" onClick={() => retryItem(session.id, latest.type)}><Redo2 /> Try this item again</button>}{acceptedEvents.length > 0 && <button className="text-button" type="button" onClick={finish}>Finish return</button>}</div>
+          <div className="result-actions"><button className="button primary" type="button" onClick={inspectItem}><Plus /> Add another item</button>{recoverable && <button className="button secondary" type="button" onClick={() => retryItem(session.id, latest.type)}><Redo2 /> Try this item again</button>}{acceptedEvents.length > 0 && <button className="text-button" type="button" onClick={finish}>Finish return</button>}</div>
         </section>
       )}
 
-      {!latest && (
-        <EmptyState icon={<PackageOpen />} title="No items added yet" detail="Use Add item to enter the first can or bottle in this simulated session." action={<button className="button primary" type="button" onClick={() => setAdding(true)}><Plus /> Add item</button>} />
+      {!latest && !inspecting && (
+        <EmptyState icon={<PackageOpen />} title="Ready for the first container" detail="Place one container into the return opening. The station will identify it and check eligibility." action={<button className="button primary" type="button" onClick={inspectItem}><Plus /> Add item</button>} />
       )}
 
       <section>
@@ -156,20 +168,9 @@ export function ReturnSessionPage() {
       </section>
 
       <div className="session-sticky-actions">
-        <button className="button primary" type="button" onClick={() => setAdding(true)}><Plus /> Add item</button>
-        <button className="button secondary" type="button" onClick={finish} disabled={acceptedEvents.length === 0}>Finish return</button>
+        <button className="button primary" type="button" onClick={inspectItem} disabled={inspecting}><Plus /> {inspecting ? 'Checking item' : 'Add item'}</button>
+        <button className="button secondary" type="button" onClick={finish} disabled={acceptedEvents.length === 0 || inspecting}>Finish return</button>
       </div>
-
-      {adding && (
-        <Modal title="Add an item" description="Choose the container being placed into the return station." onClose={() => setAdding(false)}>
-          <div className="item-selector" role="radiogroup" aria-label="Container type">
-            <label><input type="radio" name="item-type" checked={selectedType === 'Can'} onChange={() => setSelectedType('Can')} /><span><Recycle /><strong>Can</strong><small>Aluminium beverage container</small></span></label>
-            <label><input type="radio" name="item-type" checked={selectedType === 'Bottle'} onChange={() => setSelectedType('Bottle')} /><span><BottleWine /><strong>Bottle</strong><small>Plastic beverage container</small></span></label>
-          </div>
-          <InlineNotice title="Simulated inspection">The result follows the concealed Demo Controls under Account.</InlineNotice>
-          <div className="modal-actions"><button className="button ghost" type="button" onClick={() => setAdding(false)}>Cancel</button><button className="button primary" type="button" onClick={submitItem}>Add {selectedType.toLowerCase()} <ArrowRight /></button></div>
-        </Modal>
-      )}
     </div>
   )
 }
@@ -200,7 +201,7 @@ export function PayoutPage() {
     return (
       <div className="page-stack narrow-page">
         <PageHeading eyebrow="Payment complete" title={`${formatMoney(total)} sent`} description="The simulated payout has been recorded." />
-        <Receipt sessionId={session.id} total={total} method={method?.maskedIdentifier ?? 'Saved payout method'} transactionId={session.transactionId ?? 'TXN-DEMO'} paidAt={session.paidAt ?? session.createdAt} />
+        <Receipt sessionId={session.id} total={total} itemCount={session.events.filter((event) => event.result === 'accepted').length} method={method?.maskedIdentifier ?? 'Saved payout method'} transactionId={session.transactionId ?? 'TXN-DEMO'} paidAt={session.paidAt ?? session.createdAt} />
         <div className="center-actions"><Link className="button primary" to="/return">Done <CheckCircle2 /></Link><Link className="button secondary" to="/history">View history</Link></div>
         {showToast && <div className="toast success" role="status"><CheckCircle2 /><span><strong>Money sent</strong>{formatMoney(total)} sent successfully.</span><button className="icon-button" onClick={() => setShowToast(false)} aria-label="Dismiss notification"><X /></button></div>}
       </div>
@@ -260,10 +261,10 @@ export function PayoutPage() {
   )
 }
 
-function Receipt({ sessionId, total, method, transactionId, paidAt }: { sessionId: string; total: number; method: string; transactionId: string; paidAt: string }) {
+function Receipt({ sessionId, total, itemCount, method, transactionId, paidAt }: { sessionId: string; total: number; itemCount: number; method: string; transactionId: string; paidAt: string }) {
   return (
     <article className="receipt-panel">
-      <div className="receipt-success"><span><Check /></span><small>Payment complete</small><strong>{formatMoney(total)}</strong><p>Sent to {method}</p></div>
+      <div className="receipt-success"><span><Check /></span><small>Payment complete</small><strong>{formatMoney(total)}</strong><h2>Thank you for helping keep your community clean.</h2><p>{itemCount} {itemCount === 1 ? 'container has' : 'containers have'} been recorded for recycling.</p><small>Sent to {method}</small></div>
       <div className="receipt-details">
         <span><small>Return session</small><strong className="mono">{sessionId}</strong></span>
         <span><small>Transaction reference</small><strong className="mono">{transactionId}</strong></span>

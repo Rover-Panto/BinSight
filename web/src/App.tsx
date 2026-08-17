@@ -5,7 +5,7 @@ import { AppShell } from './components/AppShell'
 import { LoginPage, VerifyPage } from './pages/AuthPages'
 import { AccountPage, HistoryPage, HomePage, NotificationsPage, PayoutMethodsPage } from './pages/HomeAccountPages'
 import { PayoutPage, ReturnLandingPage, ReturnSessionPage } from './pages/ReturnPages'
-import { BulkyPickupPage, LocationsPage, ReportDetailPage, ReportIssuePage, ReportsPage, SchedulePage, ServicesPage, SortingGuidePage } from './pages/ServicePages'
+import { BulkyPickupPage, LocationsPage, ReportDetailPage, ReportIssuePage, ReportsPage, ServicesPage, SortingGuidePage } from './pages/ServicePages'
 import { ChatPage, ContactPage, FAQPage } from './pages/SupportPages'
 import { useStore } from './store'
 
@@ -50,7 +50,6 @@ export default function App() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="reports/:id" element={<ReportDetailPage />} />
           <Route path="services" element={<ServicesPage />} />
-          <Route path="schedule" element={<SchedulePage />} />
           <Route path="guide" element={<SortingGuidePage />} />
           <Route path="locations" element={<LocationsPage />} />
           <Route path="bulky-pickup" element={<BulkyPickupPage />} />
