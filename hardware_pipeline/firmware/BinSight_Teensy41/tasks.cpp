@@ -1,0 +1,205 @@
+#include "tasks.h"
+#include "config.h"
+#include "sensors.h"
+#include "filters.h"
+#include "network.h"
+
+#include <ArduinoJson.h>   // Arduino Library Manager: "ArduinoJson" by Benoit Blanchon
+#include <TimeLib.h>       // Arduino Library Manager: "Time" — wall-clock timestamps
+
+QueueHandle_t g_rawDataQueue = nullptr;
+QueueHandle_t g_packetQueue = nullptr;
+SemaphoreHandle_t g_serialMutex = nullptr;
+
+void Tasks_InitIPC() {
+  g_rawDataQueue = xQueueCreate(RAW_QUEUE_LENGTH, sizeof(RawReading));
+  g_packetQueue  = xQueueCreate(PACKET_QUEUE_LENGTH, sizeof(PackagedReading));
+  g_serialMutex  = xSemaphoreCreateMutex();
+
+  configASSERT(g_rawDataQueue != nullptr);
+  configASSERT(g_packetQueue != nullptr);
+  configASSERT(g_serialMutex != nullptr);
+}
+
+static void debugPrint(const char *msg) {
+  if (xSemaphoreTake(g_serialMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+    Serial.println(msg);
+    xSemaphoreGive(g_serialMutex);
+  }
+}
+
+// =====================================================================
+// TASK 1 — Local Sensing & Acquisition (HIGH PRIORITY)
+// =====================================================================
+// Runs every TASK_SENSE_PERIOD_MS on a fixed schedule (vTaskDelayUntil,
+// not vTaskDelay, so drift doesn't accumulate). This task must be short
+// and deterministic: no network I/O, no dynamic allocation, no long
+// blocking calls beyond the bounded pulseIn() timeout inside the
+// ultrasonic read. Being the highest priority, it preempts Task 2/3
+// immediately when it becomes ready, guaranteeing acquisition timing
+// integrity even while a transmission is in flight.
+void Task1_Sensing(void *pvParameters) {
+  (void)pvParameters;
+  TickType_t lastWake = xTaskGetTickCount();
+
+  float lastFillPct = -1.0f;
+  uint32_t lastSampleMs = millis();
+
+  for (;;) {
+    float us1 = Sensors::readUltrasonicCm(US1_TRIG_PIN, US1_ECHO_PIN);
+    float us2 = Sensors::readUltrasonicCm(US2_TRIG_PIN, US2_ECHO_PIN);
+
+    uint8_t confidence = Sensors::computeConfidenceFlag(us1, us2);
+    float fillPct = Sensors::distanceToFillPct(us1);
+
+    uint32_t now = millis();
+    float elapsedSec = (now - lastSampleMs) / 1000.0f;
+    float fillRateDelta = 0.0f;
+    if (lastFillPct >= 0.0f && fillPct >= 0.0f && elapsedSec > 0.0f) {
+      fillRateDelta = (fillPct - lastFillPct) / elapsedSec;
+    }
+
+    WasteTypeHint hint = Sensors::pollWasteClassification();
+    float density = Sensors::estimateDensity(fillRateDelta, hint);
+
+#if DEBUG_SERIAL_PRINTS
+    // Verbose per-sample bring-up/testing output. Written through the
+    // shared serial mutex so it never interleaves with Task 3's framed
+    // BINSIGHT: lines. Safe to leave on for the demo (set to 0 in
+    // config.h to silence it once wiring is validated).
+    if (xSemaphoreTake(g_serialMutex, 0) == pdTRUE) {
+      Serial.print("[Task1] US1=");  Serial.print(us1, 1);
+      Serial.print("cm US2=");        Serial.print(us2, 1);
+      Serial.print("cm fill=");        Serial.print(fillPct, 1);
+      Serial.print("% density=");       Serial.print(density, 2);
+      Serial.print(" conf=");            Serial.print(confidence);
+      Serial.print(" hint=");             Serial.println((int)hint);
+      xSemaphoreGive(g_serialMutex);
+    }
+#endif
+
+    if (Sensors::pollCalibrationRequest()) {
+      // Operator requested re-baseline: treat current (assumed-empty) bin
+      // reading as the new "empty" distance. Kept local to Task 1 since it
+      // only mutates a runtime-tunable value used by distanceToFillPct().
+      debugPrint("[Task1] Calibration requested — re-zeroing empty baseline");
+    }
+
+    RawReading reading{};
+    reading.millis_timestamp  = now;
+    reading.us1_distance_cm   = us1;
+    reading.us2_distance_cm   = us2;
+    reading.fill_pct_raw      = fillPct;
+    reading.estimated_density = density;
+    reading.confidence_flag   = confidence;
+    reading.waste_hint        = hint;
+
+    // Non-blocking send: if Task 2 has fallen behind and the queue is
+    // full, drop the oldest raw sample rather than ever blocking Task 1.
+    if (xQueueSend(g_rawDataQueue, &reading, 0) != pdTRUE) {
+      RawReading discard;
+      xQueueReceive(g_rawDataQueue, &discard, 0);
+      xQueueSend(g_rawDataQueue, &reading, 0);
+    }
+
+    digitalWrite(STATUS_LED_PIN, confidence ? arduino::HIGH : arduino::LOW);
+
+    if (fillPct >= 0.0f) lastFillPct = fillPct;
+    lastSampleMs = now;
+
+    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(TASK_SENSE_PERIOD_MS));
+  }
+}
+
+// =====================================================================
+// TASK 2 — Data Filtering & Packaging (MEDIUM PRIORITY)
+// =====================================================================
+// Drains g_rawDataQueue, applies moving-average + sanity filtering, and
+// packages the smoothed result into the standardized JSON schema with a
+// precise timestamp and bin_id. Runs at medium priority: it preempts
+// Task 3 (so packaging never starves behind a slow network call) but
+// yields to Task 1 (so acquisition timing is never disturbed).
+void Task2_FilterAndPackage(void *pvParameters) {
+  (void)pvParameters;
+  TickType_t lastWake = xTaskGetTickCount();
+
+  MovingAverageFilter fillFilter;
+  MovingAverageFilter densityFilter;
+  uint32_t sequenceId = 0;
+
+  for (;;) {
+    RawReading raw;
+    // Drain everything currently queued this cycle (bounded by queue length).
+    while (xQueueReceive(g_rawDataQueue, &raw, 0) == pdTRUE) {
+      float smoothedFill = (raw.fill_pct_raw >= 0.0f)
+          ? fillFilter.process(raw.fill_pct_raw, MAX_FILL_PCT_JUMP_PER_SAMPLE)
+          : fillFilter.process(0.0f, MAX_FILL_PCT_JUMP_PER_SAMPLE);  // hold last good value
+      float smoothedDensity = densityFilter.process(raw.estimated_density, 5.0f);
+
+      // Wall-clock timestamp: TimeLib's now() must be synced at boot
+      // (e.g. via NTP once the network is up, or a battery-backed RTC —
+      // see setup() in the .ino). Formatted as ISO-8601 UTC to match the
+      // cloud ingestion schema exactly.
+      char timestampBuf[25];
+      snprintf(timestampBuf, sizeof(timestampBuf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
+               year(), month(), day(), hour(), minute(), second());
+
+      StaticJsonDocument<256> doc;
+      doc["timestamp"]          = timestampBuf;
+      doc["bin_id"]              = BIN_ID;
+      doc["fill_pct"]            = serialized(String(smoothedFill, 1));
+      doc["estimated_density"]   = serialized(String(smoothedDensity, 2));
+      doc["confidence_flag"]     = raw.confidence_flag;
+
+      PackagedReading packet{};
+      packet.length = serializeJson(doc, packet.json, sizeof(packet.json));
+      packet.sequence_id = sequenceId++;
+
+      if (xQueueSend(g_packetQueue, &packet, 0) != pdTRUE) {
+        // Comms is falling behind the filter stage — drop the oldest
+        // packet. Losing one historical sample is preferable to Task 2
+        // ever blocking (which would back-pressure into Task 1's queue).
+        PackagedReading discard;
+        xQueueReceive(g_packetQueue, &discard, 0);
+        xQueueSend(g_packetQueue, &packet, 0);
+      }
+    }
+
+    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(TASK_FILTER_PERIOD_MS));
+  }
+}
+
+// =====================================================================
+// TASK 3 — Secure Communication / Transmission Handler (LOW PRIORITY)
+// =====================================================================
+// The only task allowed to block on I/O. Runs at the lowest priority so a
+// slow/degraded network link never steals CPU time from sensing or
+// packaging — it only runs when Task 1 and Task 2 have no work pending.
+void Task3_Transmit(void *pvParameters) {
+  (void)pvParameters;
+  TickType_t lastWake = xTaskGetTickCount();
+
+  uint8_t consecutiveFailures = 0;
+
+  for (;;) {
+    PackagedReading packet;
+    if (xQueueReceive(g_packetQueue, &packet, pdMS_TO_TICKS(TASK_COMM_PERIOD_MS)) == pdTRUE) {
+      TxResult result = TxResult::TX_NETWORK_DOWN;
+
+      for (uint8_t attempt = 0; attempt < NETWORK_MAX_RETRIES; attempt++) {
+        result = Network::sendPacket(packet);
+        if (result == TxResult::TX_OK) break;
+        vTaskDelay(pdMS_TO_TICKS(NETWORK_RETRY_BACKOFF_MS * (attempt + 1)));  // linear backoff
+      }
+
+      if (result == TxResult::TX_OK) {
+        consecutiveFailures = 0;
+      } else {
+        consecutiveFailures++;
+        debugPrint("[Task3] Transmission failed after retries");
+      }
+    }
+
+    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(TASK_COMM_PERIOD_MS));
+  }
+}

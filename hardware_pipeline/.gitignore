@@ -1,0 +1,9 @@
+﻿# Local virtual environments (root .gitignore already covers these; kept
+# here too so this subtree is self-documenting on its own).
+.venv/
+__pycache__/
+
+# Local SQLite database and generated exports — never commit.
+*.db
+*.sqlite3
+bin_telemetry_for_ml.csv
