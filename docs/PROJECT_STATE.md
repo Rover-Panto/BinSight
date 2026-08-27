@@ -41,7 +41,7 @@ The `feature/admin-operations-portal` branch adds the collaborator's routing and
 
 The applications do not exchange data yet. The admin portal does not import or write the citizen store, and the existing citizen route map remains unchanged. A later integration can expose an authenticated `/admin` gateway or shared API after the data contract and role model are agreed.
 
-The admin portal opens on a route-input command surface and supports legacy predictive CSV/JSON plus the versioned telemetry-routing 2.1 replay contract. It provides collection, inspection, defer/wait, or no-collection decisions; OpenStreetMap/OSRM route previews; versioned simulation evidence; chronological mock tracking; and a durable draft/accept/complete/cancel plan audit. The dynamic trip-value model jointly chooses optional pickups and routes while keeping emergency/service-level stops mandatory. It enforces mass, compacted volume, waste-stream compatibility, route duration and shared daily trips, and exposes avoided loss, route cost and net value.
+The admin portal opens on a route-input command surface and supports legacy predictive CSV/JSON plus the versioned telemetry-routing 2.1 replay contract. A separate read-only adapter now converts PR #2 historical fill readings into complete 6/24/48/168-hour probabilistic snapshots with explicit ID mapping, reset/outlier handling, hierarchical fallbacks, controlled retraining and model provenance. It provides collection, inspection, defer/wait, or no-collection decisions; OpenStreetMap/OSRM route previews; versioned simulation evidence; chronological mock tracking; and a durable draft/accept/complete/cancel plan audit. The dynamic trip-value model jointly chooses optional pickups and routes while keeping emergency/service-level stops mandatory. It enforces mass, compacted volume, waste-stream compatibility, route duration and shared daily trips, and exposes avoided loss, route cost and net value.
 
 Telemetry observations, routing plans and citizen records remain separate. Live hardware input is disabled until the producer branch passes identity, UTC, replay, acknowledgement, quality and outage contract checks. Fixture/replay success is not physical Wi-Fi or sensor validation.
 
@@ -59,6 +59,7 @@ See `ADMIN_PORTAL_DESIGN_SYSTEM.md` for the implemented visual and responsive co
 - `admin-portal/app.py`: independent operations portal entry point
 - `admin-portal/binsight/dispatch.py`: predictive snapshot validation and mock dispatch contract
 - `admin-portal/binsight/telemetry_adapter.py` and `registry.py`: versioned producer-event normalization and stable hardware/canonical IDs
+- `admin-portal/binsight/pr2_forecasting.py`: PR #2 history cleaning, online adaptation, probabilistic forecasting, snapshot alignment and rolling-origin evaluation
 - `admin-portal/binsight/planner.py` and `planning_store.py`: browser-independent evaluation, controlled runner and immutable route lifecycle
 - `admin-portal/binsight/routing.py`: prize-collecting mass/volume/time route solver
 - `admin-portal/binsight/observations.py`: simulated sensor errors, confidence, uncertainty, and leakage boundary

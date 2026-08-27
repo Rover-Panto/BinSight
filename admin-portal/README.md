@@ -68,6 +68,20 @@ timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence
 
 The dispatcher never silently converts an uncertain record into a safe record. Stale, low-confidence, missing, or disagreeing readings can produce `INSPECTION_REQUIRED`; imminent risk still produces `COLLECTION_REQUIRED` with an operator-review warning. Accepted last-valid observations are persisted locally and aged conservatively.
 
+### PR #2 historical forecasting adapter
+
+The read-only adapter can turn PR #2's per-bin history API or an exported JSON/CSV history into the complete predictive snapshot above. It explicitly maps hardware IDs, accumulates API history in a routing-owned cache, detects collection resets and sensor jumps, learns gated calendar/event patterns, emits probabilistic 6/24/48/168-hour fill forecasts, and validates the result before it is written. Pseudo-density remains context only and `weight_kg` stays null without calibration. See [PR2_FORECASTING_ADAPTER.md](PR2_FORECASTING_ADAPTER.md) for the equations, thresholds, fallback hierarchy, evaluation and limitations.
+
+```powershell
+.\.venv\Scripts\python.exe -m binsight.cli forecast-pr2 `
+  --history .\path\to\pr2-history.json `
+  --profile competition-simulation `
+  --decision-at 2026-08-28T12:00:00+00:00 `
+  --output .\data\pr2-predictive-snapshot.json
+```
+
+Use `--api-base` instead of `--history` for the PR #2 API and set `BINSIGHT_PR2_API_KEY`. API mode persists model state and the append-only local history cache under `data/`; it never writes the producer database.
+
 Every proposal is first stored as an immutable `DRAFT` in `data/routing_plans.sqlite3`. An operator must accept or cancel it. Sending an accepted mock route creates at most one transactional mock-dispatch record for that plan. It does not contact a truck, driver app, MQTT broker, or municipal API. The old JSONL file remains read-only historical audit input.
 
 ## Planner commands
@@ -104,6 +118,7 @@ For MQTT mode, set `BINSIGHT_MQTT_HOST`, `BINSIGHT_MQTT_PORT`, `BINSIGHT_MQTT_US
 - [SITING_PLAN.md](SITING_PLAN.md) — capacity equation and preliminary coordinates.
 - [METHODS.md](METHODS.md) — simulation, observation, forecast, routing, fuel, and inference method.
 - [DYNAMIC_ROUTING_MODEL.md](DYNAMIC_ROUTING_MODEL.md) — exact v2 objective, provisional weights, constraints and deferral rule.
+- [PR2_FORECASTING_ADAPTER.md](PR2_FORECASTING_ADAPTER.md) — PR #2 history bridge, mathematical forecast, online adaptation and acceptance evidence.
 - [FINAL_RESULTS.md](FINAL_RESULTS.md) — locked 30-pair base and stress results.
 - [ROUTING_REPORT.md](ROUTING_REPORT.md) — complete Focus Area C implementation report.
 - [Historical v1 routing report (DOCX)](reports/BinSight_Routing_Subsystem_Report_Improved.docx) and [PDF](reports/BinSight_Routing_Subsystem_Report_Improved.pdf) — retained generated evidence for the retired threshold/legacy-topology version; not current v2 documentation.

@@ -3,7 +3,7 @@
 Contract version: **2.1**  
 Registry schema: **1.0**  
 Routing plan schema: **2.0**  
-Status: fixture/replay integration ready; physical producer acceptance pending
+Status: fixture/replay and PR #2 history-adapter integration ready; physical producer acceptance pending
 
 ## Ownership and live gate
 
@@ -20,6 +20,8 @@ The canonical files are:
 - `admin-portal/tests/fixtures/telemetry_v2_valid.json`: consumer acceptance fixture.
 - `admin-portal/binsight/telemetry_adapter.py`: normalization and replay-order rules.
 - `admin-portal/binsight/telemetry_client.py`: read-only API boundary.
+- `admin-portal/binsight/pr2_forecasting.py`: PR #2 history cleaning, adaptive forecast, complete snapshot alignment and evaluation.
+- `admin-portal/config/pr2_forecasting.json`: explicit PR #2 ID maps and forecast policy.
 
 ## Three representations
 
@@ -93,6 +95,16 @@ Physical controller topology is not inferred from simulated co-location. The sim
 Existing seven-column CSV/JSON remains supported as `legacy` input. Its shared timestamp remains the observation time of every row. Legacy input does not gain producer event identities, clock-health evidence, calibration provenance or per-bin timestamps.
 
 The legacy ESP32/MQTT demonstration payload is now schema 1.1 and adds `boot_id`. Schema 1.0 is accepted as `LEGACY-UNSCOPED` only for migration; it cannot prove reboot-safe identity.
+
+## Current PR #2 history bridge
+
+PR #2's current API is not a telemetry-routing 2.1 producer. Its history response contains `timestamp`, `bin_id`, `fill_pct`, `estimated_density`, `confidence_flag`, and `ingested_at`. The routing-owned forecasting adapter reads that response without mutating the producer, preserves acquisition and ingestion time separately, requires both to be at or before the decision cutoff, explicitly maps `bin_XX` to `UGB-###`, and creates a complete PR #1 snapshot at one decision cutoff.
+
+The bridge treats PR #2's dashboard overflow badge only as a current-fill threshold; it does not consume it as a forecast. It retains pseudo-density as context, sets `estimated_density_used=false`, and emits null `weight_kg` because no calibrated mass conversion exists.
+
+Because the PR #2 history endpoint caps each bin at 2,000 readings, API mode uses an append-only routing-owned SQLite cache. Exact retries are idempotent; contradictory same-bin/same-time readings are refused and never overwrite prior evidence. This cache is a consumer accommodation, not proof of durable producer replay or a replacement for PR #2's unresolved event-identity requirements.
+
+Forecast output includes expected/lower/upper fill and overflow probability at 6, 24, 48, and 168 hours, interpolated conservative time to overflow, risk/confidence, observation age, quality flags, model version, and model/data cutoffs. Missing bins remain explicit unavailable records. The output is passed through the existing PR #1 validator before routing. Mathematical details and synthetic rolling-origin acceptance evidence are in `admin-portal/PR2_FORECASTING_ADAPTER.md`.
 
 ## Producer requirements still pending
 

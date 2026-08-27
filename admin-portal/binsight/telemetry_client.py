@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -85,3 +86,63 @@ class TelemetryClient:
             partial=bool(payload.get("partial", False)),
         )
 
+    def fetch_pr2_history(self, source_bin_id: str, *, limit: int = 2000) -> list[dict[str, Any]]:
+        """Read one PR #2 history without writing to the producer database."""
+        if not source_bin_id.strip():
+            raise ValueError("source_bin_id cannot be blank")
+        if limit < 1 or limit > 2000:
+            raise ValueError("PR #2 history limit must be in 1..2000")
+        encoded = quote(source_bin_id, safe="")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/telemetry/{encoded}/history",
+                params={"limit": limit},
+                headers={"X-API-Key": self.api_key, "Accept": "application/json"},
+                timeout=self.timeout_seconds,
+                verify=self.verify_tls,
+            )
+        except requests.Timeout as exc:
+            raise TelemetryUnavailableError(
+                f"PR #2 history request timed out for {source_bin_id}"
+            ) from exc
+        except requests.RequestException as exc:
+            raise TelemetryUnavailableError(
+                f"PR #2 history network failure for {source_bin_id}: {exc}"
+            ) from exc
+        if response.status_code in (401, 403):
+            raise TelemetryAuthenticationError("PR #2 API rejected the configured credentials")
+        if response.status_code == 404:
+            return []
+        if response.status_code == 503:
+            raise TelemetryUnavailableError("PR #2 API is temporarily unavailable (HTTP 503)")
+        if not response.ok:
+            raise TelemetryUnavailableError(
+                f"PR #2 history API returned HTTP {response.status_code} for {source_bin_id}"
+            )
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise TelemetryPayloadError("PR #2 history API did not return valid JSON") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("readings"), list):
+            raise TelemetryPayloadError("PR #2 history response must contain a readings array")
+        readings: list[dict[str, Any]] = []
+        for position, raw in enumerate(payload["readings"]):
+            if not isinstance(raw, dict):
+                raise TelemetryPayloadError(
+                    f"PR #2 history reading {position} for {source_bin_id} is not an object"
+                )
+            row = dict(raw)
+            if str(row.get("bin_id") or "") != source_bin_id:
+                raise TelemetryPayloadError(
+                    f"PR #2 history for {source_bin_id} contained bin_id {row.get('bin_id')}"
+                )
+            readings.append(row)
+        return readings
+
+    def fetch_pr2_histories(
+        self, source_bin_ids: list[str] | tuple[str, ...], *, limit: int = 2000
+    ) -> list[dict[str, Any]]:
+        readings: list[dict[str, Any]] = []
+        for source_bin_id in source_bin_ids:
+            readings.extend(self.fetch_pr2_history(source_bin_id, limit=limit))
+        return readings

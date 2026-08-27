@@ -8,11 +8,11 @@ Contract: telemetry-routing 2.1, registry 1.0, route-plan 2.0
 
 This file tracks the GitHub routing handoff and owner clarification. “Software complete” means deterministic local tests/replay passed; it does not mean that physical sensors, Wi-Fi, the ingestion producer or a truck were verified.
 
-## C01–C30 acceptance matrix
+## C01–C36 acceptance matrix
 
 | ID | Status | Evidence or remaining gate |
 | --- | --- | --- |
-| C01 | Complete | Current Python suite: 84 passed. Existing stale/missing/critical/capacity/chronology cases plus demand, pairing, stream and lifecycle regressions are retained. |
+| C01 | Complete | Current Python suite: 97 passed. Existing stale/missing/critical/capacity/chronology cases plus PR #2 forecast, demand, pairing, stream and lifecycle regressions are retained. |
 | C02 | Complete | Legacy input and schema 2.0/2.1 normalize; unknown versions, malformed/non-finite values, non-fill events and unknown history schemas fail without reset. |
 | C03 | Complete | `BinRegistry` checks explicit IDs, duplicates/conflicts, coordinates, order and matrix dimensions. |
 | C04 | Complete | Separate `physical-pilot` three-bin (one general, two recycling-return fill channels) and `competition-simulation` 33-bin profiles; simulation sizing remains strict. |
@@ -42,6 +42,12 @@ This file tracks the GitHub routing handoff and owner clarification. “Software
 | C28 | Complete | No citizen code or storage key changed; citizen lint, 7 unit tests, production build and responsive E2E (7 passed, 1 intentional visual skip) passed. |
 | C29 | Complete | Streamlit desktop/tablet/mobile browser QA passed with no console/page errors or horizontal overflow; approval-before-dispatch and audit-log paths passed. |
 | C30 | Physical blocked | No physical Wi-Fi/end-to-end validation is claimed. Outage recovery and module details require hardware evidence. |
+| C31 | Complete | PR #2 history is cleaned without future leakage: impossible values and contradictory duplicates are excluded, resets split growth segments, gaps remain explicit, and isolated ultrasonic jumps cannot create critical alerts. |
+| C32 | Complete | Every configured bin receives one shared-cutoff record with explicit PR #2-to-PR #1 ID mapping, actual observation age, null missing evidence, model version/cutoff, and validator-compatible risk/confidence. |
+| C33 | Complete | Adaptive 6/24/48/168-hour distribution forecasts combine recent rates, gated calendar/event patterns, site/area fallbacks, online residual updates, scheduled/drift retraining and interpolated conservative threshold crossing. |
+| C34 | Complete | `estimated_density` remains labelled context, is excluded from the model, and never becomes measured `weight_kg`; absent calibration emits null. |
+| C35 | Complete | Chronological rolling-origin evaluation compares current fill, last rate, prior week and seasonal-average baselines; it reports MAE, TTO error, precision/recall, Brier/calibration, interval coverage, false triggers and missed overflows by all five requested regimes. |
+| C36 | Producer blocked | The read-only client and append-only consumer cache work with PR #2's current 2,000-row endpoint, but the current one-bin/two-second branch cannot itself supply the owner-specified three-channel long history needed for field seasonal validation. |
 
 ## Producer blockers R1–R10
 
@@ -67,3 +73,7 @@ The shared Teensy/PR #2 ESP32-C3 relay produces `fill_observation` events for ex
 ## Live-integration decision
 
 `live_integration_enabled` remains `false`. Fixture/replay integration is ready for review, but C26, C27 and C30 plus the R1–R10 producer gates prevent any claim of physical integration, sensor accuracy, Wi-Fi reliability, real dispatch or municipal savings.
+
+## PR #2 forecast acceptance evidence
+
+The committed deterministic 33-bin fixture uses four chronological rolling origins and includes normal, event, sparse-history, sensor-failure and distribution-drift slices. It is acceptance evidence, not field performance. Overall fill MAE is 0.935, 1.352, 2.140 and 3.509 percentage points at 6, 24, 48 and 168 hours respectively, versus 1.521, 4.946, 9.500 and 26.174 for current-fill-only. At 48 hours, precision is 0.933, recall is 0.737, Brier score is 0.0308, false-trigger rate is 6.7%, missed-overflow rate is 26.3%, and central-band coverage is 81.4%. Seven-day coverage falls to 66.3%, and the small drift slice is materially worse; both are explicit follow-up items. Full numbers and calibration bins are in `admin-portal/artifacts/pr2_forecast_adapter_evaluation.json`.

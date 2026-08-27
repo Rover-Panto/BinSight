@@ -12,4 +12,5 @@ data/planner-control/
 data/mock_truck_dispatches.jsonl
 data/last_valid_sensor_readings.json
 data/last_valid_sensor_readings.json.lock
+data/pr2_forecast_state_*.json
 artifacts/ui-qa-*/

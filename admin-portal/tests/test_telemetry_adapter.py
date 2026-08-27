@@ -13,6 +13,7 @@ from binsight.telemetry_adapter import normalize_telemetry_envelope
 from binsight.telemetry_client import (
     TelemetryAuthenticationError,
     TelemetryClient,
+    TelemetryPayloadError,
     TelemetryUnavailableError,
 )
 
@@ -171,3 +172,30 @@ def test_partial_fetch_stays_explicitly_incomplete():
     result = normalize_telemetry_envelope(payload, _registry(), "physical-pilot")
     assert not result.coverage_complete
     assert not result.frame["coverage_complete"].any()
+
+
+def test_client_reads_pr2_history_and_rejects_cross_bin_payloads():
+    reading = {
+        "id": 1,
+        "timestamp": "2026-08-27T07:00:00Z",
+        "bin_id": "bin_01",
+        "fill_pct": 42.0,
+        "estimated_density": 1.4,
+        "confidence_flag": 1,
+        "ingested_at": "2026-08-27T07:00:03Z",
+    }
+    client = TelemetryClient(
+        "https://telemetry.example",
+        "test-key",
+        session=_Session(_Response(200, {"bin_id": "bin_01", "count": 1, "readings": [reading]})),
+    )
+    assert client.fetch_pr2_history("bin_01") == [reading]
+
+    wrong = dict(reading, bin_id="bin_02")
+    client = TelemetryClient(
+        "https://telemetry.example",
+        "test-key",
+        session=_Session(_Response(200, {"bin_id": "bin_01", "count": 1, "readings": [wrong]})),
+    )
+    with pytest.raises(TelemetryPayloadError, match="contained bin_id"):
+        client.fetch_pr2_history("bin_01")

@@ -18,11 +18,24 @@ from .dispatch import (
     make_demo_snapshot,
     parse_snapshot_bytes,
     update_last_valid_readings_file,
+    validate_snapshot,
 )
 from .pipeline import prepare_project, run_experiment
 from .planner import ControlledPlanningRunner, PlanningService
 from .planning_store import PlanningStore
+from .pr2_forecasting import (
+    AdaptivePR2ForecastAdapter,
+    PR2HistoryCache,
+    PR2ForecastConfig,
+    load_forecast_events,
+    load_model_state,
+    load_pr2_history_file,
+    rolling_origin_backtest,
+    save_model_state,
+    snapshot_json,
+)
 from .registry import BinRegistry
+from .telemetry_client import TelemetryClient
 
 
 def project_root() -> Path:
@@ -94,6 +107,18 @@ def _evaluate_once(snapshot_path: str | None, profile_id: str):
     return result
 
 
+def _parse_cli_timestamp(value: str | None) -> datetime:
+    if value is None:
+        return datetime.now(timezone.utc).replace(microsecond=0)
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("--decision-at must be an ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("--decision-at must include a timezone")
+    return parsed.astimezone(timezone.utc).replace(microsecond=0)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="BinSight Focus C OSM routing simulation")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -112,6 +137,44 @@ def main() -> None:
         "--artifact-set",
         default=None,
         help="Write changed-policy evidence to a versioned artifacts subdirectory",
+    )
+    forecast = subparsers.add_parser(
+        "forecast-pr2",
+        help="Convert PR #2 history into a complete predictive routing snapshot",
+    )
+    source = forecast.add_mutually_exclusive_group(required=True)
+    source.add_argument("--history", help="PR #2 JSON/CSV history export")
+    source.add_argument("--api-base", help="Read configured bin histories from the PR #2 API")
+    forecast.add_argument(
+        "--profile",
+        choices=("competition-simulation", "physical-pilot"),
+        default="competition-simulation",
+    )
+    forecast.add_argument("--decision-at", default=None, help="Timezone-aware snapshot cutoff")
+    forecast.add_argument("--events", default=None, help="Optional known event-calendar JSON")
+    forecast.add_argument("--state", default=None, help="Optional adaptive model-state JSON")
+    forecast.add_argument(
+        "--history-cache",
+        default=None,
+        help="Optional routing-owned SQLite cache; API mode uses a local default",
+    )
+    forecast.add_argument("--output", required=True, help="Output predictive snapshot JSON")
+    forecast.add_argument(
+        "--api-key-env",
+        default="BINSIGHT_PR2_API_KEY",
+        help="Environment variable containing the PR #2 read credential",
+    )
+    forecast.add_argument("--history-limit", type=int, default=2000)
+    forecast.add_argument(
+        "--backtest-origin",
+        action="append",
+        default=[],
+        help="Optional repeatable chronological evaluation origin",
+    )
+    forecast.add_argument(
+        "--evaluation-output",
+        default=None,
+        help="Write rolling-origin metrics when --backtest-origin is supplied",
     )
     preview = subparsers.add_parser("plan-once", help="Create one durable route proposal")
     preview.add_argument("--snapshot", default=None, help="CSV/JSON snapshot or telemetry replay")
@@ -159,6 +222,112 @@ def main() -> None:
         )
         print(f"Completed. Results: {result['artifacts_dir']}")
         print(result["effects"][["metric", "beneficial_change_pct_vs_fixed"]].to_string(index=False))
+        return
+    if args.command == "forecast-pr2":
+        root = project_root()
+        config, bins, _, _ = _planning_inputs(args.profile)
+        adapter_config = PR2ForecastConfig.load(root / "config" / "pr2_forecasting.json")
+        decision_at = _parse_cli_timestamp(args.decision_at)
+        state_path = (
+            Path(args.state)
+            if args.state
+            else (
+                root / "data" / f"pr2_forecast_state_{args.profile}.json"
+                if args.api_base
+                else None
+            )
+        )
+        adapter = AdaptivePR2ForecastAdapter(
+            adapter_config,
+            bins,
+            args.profile,
+            model_state=load_model_state(state_path),
+        )
+        if args.history:
+            readings = load_pr2_history_file(args.history)
+        else:
+            api_key = os.getenv(args.api_key_env, "")
+            if not api_key:
+                raise ValueError(
+                    f"Set {args.api_key_env} before reading the PR #2 API"
+                )
+            client = TelemetryClient(args.api_base, api_key)
+            readings = client.fetch_pr2_histories(
+                tuple(adapter.source_to_canonical), limit=args.history_limit
+            )
+        cache_path = (
+            Path(args.history_cache)
+            if args.history_cache
+            else (
+                root / "data" / f"pr2_forecast_history_{args.profile}.sqlite3"
+                if args.api_base
+                else None
+            )
+        )
+        cache_counts = None
+        if cache_path is not None:
+            cache = PR2HistoryCache(cache_path, adapter.source_to_canonical)
+            try:
+                cache_counts = cache.ingest(readings)
+                readings = cache.load(decision_at)
+            finally:
+                cache.close()
+        result = adapter.build_snapshot(
+            readings,
+            decision_at,
+            events=load_forecast_events(args.events),
+        )
+        validate_snapshot(
+            result.frame,
+            bins["bin_id"],
+            config.operations.crane_lift_limit_kg,
+            now_utc=decision_at,
+            stale_after_hours=config.sensor.stale_after_hours,
+            offline_after_hours=config.sensor.live_offline_after_minutes / 60.0,
+        )
+        output = Path(args.output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(snapshot_json(result), indent=2, allow_nan=False),
+            encoding="utf-8",
+        )
+        if state_path is not None:
+            save_model_state(state_path, result.model_state)
+        if args.backtest_origin:
+            if not args.evaluation_output:
+                raise ValueError(
+                    "--evaluation-output is required with --backtest-origin"
+                )
+            evaluation = rolling_origin_backtest(
+                adapter_config,
+                bins,
+                args.profile,
+                readings,
+                [_parse_cli_timestamp(value) for value in args.backtest_origin],
+                events=load_forecast_events(args.events),
+            )
+            evaluation_path = Path(args.evaluation_output)
+            evaluation_path.parent.mkdir(parents=True, exist_ok=True)
+            evaluation_path.write_text(
+                json.dumps(evaluation, indent=2, allow_nan=False),
+                encoding="utf-8",
+            )
+        print(
+            json.dumps(
+                {
+                    "output": str(output),
+                    "rows": len(result.frame),
+                    "model_version": result.diagnostics["model_version"],
+                    "coverage_complete": result.diagnostics["coverage_complete"],
+                    "model_retrained": result.diagnostics["model_retrained"],
+                    "estimated_density_used_for_weight": False,
+                    "history_cache": str(cache_path) if cache_path else None,
+                    "history_cache_counts": cache_counts,
+                    "evaluation_output": args.evaluation_output,
+                },
+                indent=2,
+            )
+        )
         return
     if args.command == "plan-once":
         result = _evaluate_once(args.snapshot, args.profile)
