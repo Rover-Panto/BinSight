@@ -28,6 +28,8 @@ Check the working tree before editing. Keep unrelated edits, stored data and gen
 
 The owner wants normal bins to measure waste fill and send readings over Wi-Fi to a central server. The central server makes collection decisions and calculates truck routes.
 
+Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The physical prototype uses one Teensy to service three distinct general-waste bin channels and one ESP32-C3 communications module. Routing must preserve three bin identities even though the measurements share a controller and network link. The separate ESP32-S3 recycling camera is not a fill-level producer for the normal-bin route path.
+
 ```text
 Bin sensors -> Teensy 4.1 -> Wi-Fi communications module
   -> Wi-Fi network -> Central telemetry ingestion and storage
@@ -73,7 +75,7 @@ The routing code already includes tests for stale snapshots, missing sensors, co
 | All rows share one timestamp; the validator derives one age for the entire snapshot. | Live bins have different observation times. A fresh decision time cannot refresh old observations. |
 | Time-to-overflow must be finite; risk must be low/medium/high/critical. | Cold-start or unavailable predictions need an explicit supported state. |
 | `update_last_valid_readings()` requires both valid fill and weight. | The current ultrasonic-only hardware never qualifies for retained fill history if weight stays null. |
-| Configuration requires three bins per controller and a capacity-sized competition district. | The new hardware uses one Teensy instance per bin. Separate controller topology, pilot mode and simulation sizing. |
+| Configuration requires three bins per controller and a capacity-sized competition district. | The reviewed hardware PR models one bin per firmware instance, while the owner's budgeted target is one Teensy with three distinct sensing channels. Support the target pilot topology without weakening the full-district simulation checks. |
 | The model uses weight, recent growth and site characteristics. | A current fill reading alone cannot satisfy the existing feature contract. |
 | The UI calculates a route after an operator action and stores session state. | Automatic server routing must not depend on a browser tab or rerun. |
 | Last-valid history uses a JSON file; dispatches use JSONL. | Adding a worker introduces concurrent-write and crash-recovery requirements. |

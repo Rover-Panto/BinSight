@@ -38,6 +38,8 @@ Read `CONTRIBUTING.md`, `docs/PROJECT_STATE.md`, `docs/DATA_PRESERVATION.md`, an
 
 The owner wants the bin to read its sensors and send measurements over Wi-Fi to a central server. The server stores readings, evaluates collection need, predicts overflow, and calculates routes for garbage trucks.
 
+Use [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md) before selecting boards or claiming budget feasibility. It counts the owned Teensy at full replacement value and separates the general-waste sensing path from the recycling camera path.
+
 ```text
 Normal smart bin
   Ultrasonic sensors -> Teensy 4.1 with RTOS
@@ -55,9 +57,9 @@ Central BinSight server
 
 Keep routing and model inference on the server. Keep sensor acquisition, bounded filtering, health reporting, and transmission buffering at the bin. A laptop can host the server for the prototype; the design should allow a separate host later. Do not buy hosting, expose services to the public internet, or connect real municipal systems as part of this task.
 
-Teensy 4.1 has no built-in Wi-Fi. Retain it as the normal-bin controller and propose a communications module, such as an ESP32 connected over UART. An ESP32 in this role handles communication; it does not replace the Teensy sensing controller. Keep the separate ESP32 beverage-return station out of this change.
+Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for the three scaled general-waste bins and use the selected ESP32-C3 over UART for communications. The C3 does not replace Teensy sensing or RTOS work. Give every bin channel its own identity, calibration and health state; do not merge three readings into one virtual bin. Keep the separate ESP32-S3 recycling-return camera path out of this change.
 
-Confirm the available module, firmware/toolchain, serial pins, power supply and budget before implementing board-specific Wi-Fi firmware. If those details are unavailable, proceed with the protocol, server adapter, mocks and USB development path. Mark physical Wi-Fi support as pending. An HTTP upload test or laptop Wi-Fi connection does not prove standalone wireless operation at the bin.
+Confirm the selected module, firmware/toolchain, serial pins and shared 5V power arrangement before implementing board-specific Wi-Fi firmware. The budget baseline selects an ESP32-C3 but does not prove its wiring, power stability or firmware. Proceed with the protocol, server adapter, mocks and USB development path while those tests are pending. An HTTP upload test or laptop Wi-Fi connection does not prove standalone wireless operation at the bin.
 
 Manufacturer references: [Teensy 4.1 interfaces](https://www.pjrc.com/store/teensy41.html), [ESP32 communications capabilities](https://www.espressif.com/en/products/socs/esp32).
 

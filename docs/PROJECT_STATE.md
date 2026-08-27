@@ -1,6 +1,6 @@
 # BinSight Project State
 
-Last verified: 17 August 2026
+Last verified: 27 August 2026
 
 ## Main branch
 
@@ -40,6 +40,12 @@ There is no collection-schedule route. BinSight describes public-bin servicing a
 The route-optimisation and KPI dashboard is planned collaborator work. It has not merged into `main` at the date above. The collaborator should follow [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [DATA_PRESERVATION.md](DATA_PRESERVATION.md).
 
 The admin implementation should use `/admin` as its route prefix and keep admin state outside the citizen store. The first pull request must record its final route map, state model, fixtures, KPI formulas, and tests in this directory.
+
+## Hardware sourcing baseline
+
+The current budgeted topology uses one Teensy 4.1 for three distinct general-waste fill channels, an ESP32-C3 communications module, and one ESP32-S3 camera board for the recycling-return station. The unseen recycling classifier remains a laptop-hosted component until its resource use is measured. The owned Teensy is still counted at full local replacement value inside the USD150 competition ceiling.
+
+See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for the dated Malaysian listings, Selangor delivery assumptions, budget totals and purchase gates.
 
 ## Source of truth
 
