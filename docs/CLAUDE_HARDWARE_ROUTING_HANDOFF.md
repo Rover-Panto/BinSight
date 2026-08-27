@@ -61,6 +61,19 @@ Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for the th
 
 Confirm the selected module, firmware/toolchain, serial pins and shared 5V power arrangement before implementing board-specific Wi-Fi firmware. The budget baseline selects an ESP32-C3 but does not prove its wiring, power stability or firmware. Proceed with the protocol, server adapter, mocks and USB development path while those tests are pending. An HTTP upload test or laptop Wi-Fi connection does not prove standalone wireless operation at the bin.
 
+### Required ESP32-C3 compatibility outcome
+
+Implement compatibility with the budgeted [ESP32-C3 Super Mini](HARDWARE_BUDGET_LOCAL_SOURCING.md), not only a generic ESP32 sketch or laptop bridge. Deliver two reproducible firmware builds:
+
+1. The existing Teensy 4.1 sensing target, extended with an ESP transport implementation behind the same event contract used by USB.
+2. A separate ESP32-C3 gateway target that receives Teensy events over UART, manages Wi-Fi and sends authenticated requests to the ingestion backend.
+
+Keep the Teensy and C3 code in separate target directories with pinned toolchain and library versions. Document the exact board profile, flash/USB settings, upload command and clean-build procedure. The MakerHub listing describes the C3 board as native USB with loose headers; verify the delivered board marking and pinout instead of assuming every `ESP32-C3 Super Mini` clone is identical.
+
+Use a hardware UART, 3.3V logic and a common ground. Serial1 pins 0/1 are the proposed Teensy default, but verify them against the actual Teensy pinout and existing sensor allocation before wiring. Power the C3 from a verified input on the shared regulated supply; do not power Wi-Fi radio current from the Teensy's 3.3V pin. Record the final TX/RX crossover, ground, input-voltage pin, baud rate and measured current in the setup guide.
+
+Do not fold recycling classification into this gateway. The ESP32-S3 camera board is a separate recycling-return device and has its own future firmware/model-validation task.
+
 Manufacturer references: [Teensy 4.1 interfaces](https://www.pjrc.com/store/teensy41.html), [ESP32 communications capabilities](https://www.espressif.com/en/products/socs/esp32).
 
 ## 3. Current Implementation and Boundaries
@@ -242,6 +255,42 @@ Prefer authenticated HTTPS against the existing ingestion backend for the first 
 - Require Wi-Fi coverage at each bin and a network path to the server. Do not claim city-wide coverage based on a desk test.
 - Keep the USB path as a development transport using the same event contract. Test that USB and wireless ingestion produce equivalent stored events.
 
+### Teensy-to-ESP32-C3 protocol
+
+Use versioned newline-delimited JSON or an equally inspectable framed format. Do not forward debug text on the telemetry UART. Bound the maximum frame size and reject malformed, oversized or unsupported-version frames without blocking the sensing tasks.
+
+Every telemetry frame must carry at least:
+
+- `schema_version`, `event_id`, `controller_id`, `boot_id` and monotonic `sequence`;
+- the distinct `bin_id` for one of the three general-waste bins;
+- acquisition time or device uptime with explicit clock-quality status;
+- measured `fill_pct`, measurement quality/health and calibration version;
+- `weight_kg: null` when no real load-cell measurement exists; and
+- provenance identifying physical Teensy acquisition rather than replay or synthetic data.
+
+Make `event_id` stable across retries. The backend must treat a repeated event as idempotent and return the same stored identity. Preserve the source identifiers through storage and routing.
+
+Define acknowledgement levels rather than using a bare `OK`:
+
+- `QUEUED` means the C3 validated the frame and accepted responsibility for replay from a bounded local queue.
+- `STORED` means the backend confirmed durable storage for that exact `event_id`.
+- `REJECTED` includes a machine-readable reason such as malformed frame, unsupported schema, authentication failure or queue full.
+
+If the C3 sends `QUEUED`, persist the event in a bounded flash-backed queue before acknowledging it and document the wear/capacity policy. Remove it only after a matching durable backend acknowledgement. If flash persistence is not implemented, do not use `QUEUED`; retain responsibility in the Teensy queue and report that limitation. Queue exhaustion must raise a visible counter/health fault and must not silently discard data.
+
+The C3 gateway must:
+
+- provision SSID, password, server address, device identity and key outside tracked source files;
+- validate HTTPS certificates in the secure profile and never use an insecure TLS bypass;
+- keep a clearly labelled isolated-LAN HTTP profile only when local TLS is unavailable;
+- reconnect with bounded exponential backoff and jitter;
+- replay oldest accepted events first after Wi-Fi, server or module recovery;
+- distinguish retryable transport/server failures from permanent validation/authentication failures;
+- avoid logging secrets or complete credentials; and
+- expose queue depth, retry count, last stored event and connection state for diagnostics.
+
+Add a host-side C3 emulator using the same UART fixtures so backend and Teensy work can continue without the board. The emulator is development evidence only; it cannot satisfy the physical ESP acceptance tests.
+
 Add an operator action to load the latest validated observations and preview a route before enabling automatic evaluation. Run subsequent route calculations on the server, independently of whether an operator has a dashboard tab open. Avoid repeated work when the input snapshot has not changed.
 
 Rate-limit replanning and version proposed routes. Keep an accepted active route separate from new proposals; do not send competing instructions to a driver on each sensor update. Keep vehicle dispatch simulated until the owner authorizes a real integration.
@@ -260,7 +309,7 @@ Agree and version the contract. Add the registry, adapter, timestamp/quality han
 
 ### Phase C: Add Wi-Fi and controlled automation
 
-After confirming the module, implement the transport and test reconnection, replay, power interruption and end-to-end storage acknowledgement. Add server-side route evaluation and operator controls. Keep hardware tests pending when the equipment is unavailable; do not let that block independent server tests.
+Implement the Teensy transport interface and separate ESP32-C3 gateway target described above. First pass the shared UART fixtures and host emulator, then test the purchased C3 with the actual Teensy, regulated supply and central server. Exercise reconnection, replay, queue exhaustion, module restart, power interruption and end-to-end storage acknowledgement. Add server-side route evaluation and operator controls. Keep physical tests explicitly pending when the equipment is unavailable; do not let that block independent server tests.
 
 ### Branch discipline
 
@@ -307,6 +356,12 @@ Add these as committed tests or recorded hardware procedures. Report each as pas
 | T19 | New proposals do not overwrite an accepted active route, and repeated input does not create duplicate dispatches. |
 | T20 | Populated old databases migrate/restore without changing original IDs or losing records; citizen data and images remain intact. |
 | T21 | Physical Wi-Fi test uses the actual bin/module and central server, exercises reconnection and validates TLS; a mock does not satisfy this test. |
+| T22 | Clean checkout builds both the Teensy target and the pinned ESP32-C3 target using the documented commands and board settings. |
+| T23 | Teensy and C3 exchange at least 1,000 mixed three-bin frames without interleaving, parser corruption, lost bin identity or blocked sensing tasks. |
+| T24 | Wi-Fi loss, HTTP 503, server restart and lost backend acknowledgement replay stable event IDs; each event is stored once and in documented order. |
+| T25 | C3 reset and full power interruption preserve every event promised as `QUEUED`; if persistence is not implemented, no such acknowledgement is emitted. |
+| T26 | Queue capacity exhaustion, malformed UART input, authentication failure and unsupported schema each produce a visible machine-readable fault without leaking credentials. |
+| T27 | USB and C3 delivery of the same fixture produce equivalent stored observations, while the physical path remains distinguishable in provenance. |
 
 Run the existing routing tests after adapter, policy or schema changes. Run the citizen checks required by `CONTRIBUTING.md` from `web/`: `pnpm lint`, `pnpm test:run`, `pnpm test:e2e`, and `pnpm build`. Record any environment blocker instead of claiming a pass. Add screenshots at the documented desktop/tablet/mobile sizes if changing a visible page.
 
@@ -332,7 +387,7 @@ Return a report with:
 3. The final event/route contracts, migration details and data ownership rules.
 4. Test commands and results, including a separate list of untested physical behaviors.
 5. Startup, shutdown, provisioning and recovery instructions another contributor can follow.
-6. Hardware/module and power-budget decisions, or the exact missing information that prevents the Wi-Fi phase.
+6. ESP32-C3 board profile, UART wiring, power arrangement, provisioning method, queue ownership and the result of T22-T27, or the exact missing evidence that prevents physical Wi-Fi completion.
 7. Commit/branch/PR references and the remaining review items before merge.
 
 Do not call the system deployed, lossless, production-ready or proven without evidence. Do not claim genuine truck dispatch or real savings from a simulated demonstration. Leave a reviewable implementation with accurate documentation and explicit limitations.
