@@ -10,8 +10,8 @@ The proposal, supporting research, document-generation scripts, and responsive c
 
 | Bin type | Prototype hardware | Server use |
 | --- | --- | --- |
-| General waste | Three fill-sensing channels controlled by one Teensy 4.1, with one ESP32-C3 Wi-Fi relay | Fill history, overflow prediction, collection priority and route planning |
-| Recycling return | OV5647 camera and Grove Vision AI V2, with a separate ESP32-C3 result relay | Accept/reject records, return sessions, simulated refunds and recycling KPIs |
+| General waste | Three fill-sensing channels controlled by one Teensy 4.1, with one ESP32-C3 Wi-Fi relay | PR #2 integrates with PR #1 for fill history, prediction, collection priority and routing |
+| Recycling return | OV5647 camera and Grove Vision AI V2, with its own ESP32-C3 result relay | PR #3 integrates with `main` for QR sessions, accept/reject records, simulated refunds and citizen UI |
 
 General-waste bins have no camera and perform no item classification. The recycling-return station is the only BinSight device that requires or runs the vision model. The two ESP32-C3 boards have separate firmware, identities and data contracts; neither runs the model.
 

@@ -52,6 +52,15 @@ The route-optimisation and KPI dashboard is planned collaborator work. It has no
 
 The admin implementation should use `/admin` as its route prefix and keep admin state outside the citizen store. The first pull request must record its final route map, state model, fixtures, KPI formulas, and tests in this directory.
 
+## Integration ownership
+
+| Track | Components | Integration target |
+| --- | --- | --- |
+| General waste | PR #2 Teensy sensing and its dedicated ESP32-C3 relay | PR #1 prediction, routing and operations portal |
+| Recycling return | PR #3 Grove model and its dedicated ESP32-C3 inference relay | `main` server, QR-bound return sessions, citizen portal and simulated payout |
+
+PR #2 must not implement or host the recycling relay, recycling endpoint, QR workflow or citizen return state. PR #3 must not send recycling events into PR #1's routing adapter. The two tracks meet only through shared project documentation and later KPI aggregation with explicit provenance.
+
 ## Hardware sourcing baseline
 
 The current budgeted topology uses one Teensy 4.1 for three distinct general-waste fill channels and one ESP32-C3 communications module. The recycling-return station uses an OV5647 camera and Grove Vision AI V2 for local inference, plus a separate ESP32-C3 for result delivery and station control. Only the recycling-return station uses vision, and neither C3 runs the recycling model. The owned Teensy is still counted at full local replacement value inside the USD150 competition ceiling.

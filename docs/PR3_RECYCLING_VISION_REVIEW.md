@@ -78,7 +78,7 @@ Set the final confidence threshold from held-out test results. The server counts
 
 Sources: [`requirements.txt`](https://github.com/Rover-Panto/BinSight/blob/ed6f8a83dca0869fea69eb40685a328133c93794/requirements.txt), [`docs/RECYCLING_YOLO.md`](https://github.com/Rover-Panto/BinSight/blob/ed6f8a83dca0869fea69eb40685a328133c93794/docs/RECYCLING_YOLO.md), [`docs/docs/RECYCLING_YOLO.md`](https://github.com/Rover-Panto/BinSight/blob/ed6f8a83dca0869fea69eb40685a328133c93794/docs/docs/RECYCLING_YOLO.md).
 
-The same guide appears under `docs/` and `docs/docs/`. The root dependency file has no version pins and can collide with the backend environments from PR #2. The repository ignore rules do not exclude datasets, training runs or weights. The branch adds no tests, model card, export record or held-out metrics, and the pull-request description remains the empty template.
+The same guide appears under `docs/` and `docs/docs/`. The root dependency file has no version pins and can collide with the main-owned server environment. The repository ignore rules do not exclude datasets, training runs or weights. The branch adds no tests, model card, export record or held-out metrics, and the pull-request description remains the empty template.
 
 Keep one guide at `docs/RECYCLING_VISION.md`. Put training code, pinned dependencies and tests under `recycling_vision/`. Ignore `dataset/`, `runs/`, `weights/`, `.pt`, `.onnx` and generated `.tflite` files unless the team approves a small release artifact with its licence and checksum. Fill in the pull-request description and attach actual command results.
 
@@ -173,12 +173,12 @@ Updating `ItemEvent` requires a versioned citizen-data migration. Preserve exist
 ## Main Integration Order
 
 1. **Repair PR #3.** Rebase from current `main`; exclude paper from the accepted display policy; document the five-class map and its container-eligibility limits; remove the duplicate guide; isolate and pin dependencies; add ignore rules, model evaluation and the Grove export procedure.
-2. **Merge the model package.** Merge only training, evaluation, export and contract fixtures after the software checks pass. Label Grove deployment and physical accuracy as pending until tested on the device.
-3. **Extend the hardware backend.** In PR #2 or a dependent follow-up, add the recycling ESP32-C3 firmware and an authenticated `/api/v1/recycling/inferences` endpoint using the contract above. Import `server/recycling_policy.py` and store its terminal decisions. Do not put recycling events into `/api/v1/telemetry` for general-waste fill.
-4. **Integrate the citizen return flow.** Create a fresh branch from the resulting `main`; add the return-station client, store migration, server-backed decision handling and mock fallback. Keep camera data out of the browser.
-5. **Run one end-to-end pilot.** Active website session -> Grove result -> ESP32-C3 metadata relay -> server confidence/stability gate -> stored decision -> website accept/reject -> exactly one RM0.20 credit for an accepted item.
+2. **Complete the PR #3 recycling device path.** Supply the Grove-compatible model artifact and the dedicated recycling ESP32-C3 relay that reads SSCMA class/confidence results and sends the inference contract above. PR #3 must not depend on or modify PR #1 or PR #2.
+3. **Build the main-owned server endpoint.** Add authenticated `/api/v1/recycling/inferences`, QR-bound return-session endpoints, durable event storage and `server/recycling_policy.py`. Main owns the decision, session credit and citizen-facing result.
+4. **Integrate the citizen return flow in main.** Add a QR deep link such as `/return/start?station=RRS-001`, preserve it through login, create a station-bound session, wait for server decisions and keep a mock fallback for tests. Keep camera data out of the browser.
+5. **Run one end-to-end pilot.** User opens station QR -> main creates the return session -> Grove result -> PR #3 ESP32-C3 metadata relay -> main server confidence/stability gate -> stored decision -> website accept/reject -> exactly one RM0.20 credit for an accepted item.
 
-Do not merge PR #3 by copying its files into `main`, and do not merge PR #2 into PR #3 to hide dependencies. Keep the model, hardware transport and citizen integration in reviewable commits with an explicit base revision.
+PR #1 and PR #2 form the separate general-waste routing track and are not dependencies of this integration. Keep the PR #3 device work and main-owned server/citizen changes in reviewable commits with an explicit API version.
 
 ## Acceptance Checks
 

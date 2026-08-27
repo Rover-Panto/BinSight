@@ -15,7 +15,7 @@ Grove Vision AI V2 runs the model. The recycling ESP32-C3 relays class, confiden
 
 ## Integration Boundary
 
-`main` currently has no backend application. This package adds no second HTTP server. Import it into PR #2's FastAPI backend when that backend is ready, using one `RecyclingInspection` per server-created inspection ID.
+`main` currently has no backend application. This package is the start of the main-owned recycling server. The main server must expose the inference and QR-session endpoints, using one `RecyclingInspection` per server-created inspection ID. PR #1 and PR #2 do not own or host this policy.
 
 The API layer must authenticate the station, bind it to the active return session, validate event identity and freshness, persist samples/decisions, and make event processing idempotent. Supply elapsed milliseconds from a server monotonic clock. Do not trust a device-provided stable-result count. The policy computes that count itself.
 
