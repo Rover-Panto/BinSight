@@ -22,6 +22,14 @@ tmp/
 work/pdfs/
 ~$*
 
+# Local proposal and submission material
+outputs/
+research_brief_proposal_outline.md
+scripts/create_binsight_proposal.py
+scripts/generate_project_outline_pdf.py
+work/binsight_assets/monash_logo_white.png
+work/research-notes/binsight_gap_analysis/
+
 # Local reference material not owned by this project
 codex-skills/
 output/
