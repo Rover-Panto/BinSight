@@ -1,6 +1,5 @@
 # Keep the dataset path relative to this YAML so the project works on any machine.
 # Every image must have a matching .txt annotation. Class IDs are 0-4 in this order.
-# The next five-class dataset will be prepared in this folder.
 path: dataset
 train: images/train
 val: images/val

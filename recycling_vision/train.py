@@ -10,7 +10,7 @@ from ultralytics import YOLO
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train a five-class recycling YOLO model.")
-    parser.add_argument("--data", default="recycling_data.yaml", help="Dataset YAML file.")
+    parser.add_argument("--data", default="recycling_vision/recycling_data.yaml", help="Dataset YAML file.")
     parser.add_argument(
         "--model",
         default="weights/yolo11n.pt",

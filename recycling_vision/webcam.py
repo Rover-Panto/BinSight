@@ -11,7 +11,7 @@ import argparse
 import cv2
 from ultralytics import YOLO
 
-TARGET_CLASSES = {"plastic", "metal", "glass", "paper"}
+ACCEPTED_CLASSES = {"plastic", "metal", "glass"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,7 +29,7 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.70,
         help=(
-            "Scores below this for plastic, metal, glass, or paper are shown as OTHER "
+            "Scores below this for plastic, metal, or glass are shown as OTHER "
             "(default: 0.70)."
         ),
     )
@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
 
 def label_for_detection(class_name: str, confidence: float, other_threshold: float) -> str:
     """Apply the project's confidence-based fallback to the OTHER category."""
-    if class_name.lower() in TARGET_CLASSES and confidence < other_threshold:
+    if class_name.lower() in ACCEPTED_CLASSES and confidence < other_threshold:
         return "other"
     return class_name.lower()
 
