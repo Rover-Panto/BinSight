@@ -9,7 +9,7 @@ This is the working purchase baseline for the competition prototype. Prices and 
 - Competition ceiling: USD150.
 - The 27 August 2026 opening USD/MYR quote was RM4.0235 per USD, making the working ceiling **RM603.53**. Use RM580 as the internal purchasing limit so exchange movement does not create a late overrun.
 - Count the existing Teensy 4.1 at its full local replacement value of **RM159.00**. Do not remove it from the competition total because it is already owned.
-- Show the existing laptop separately as borrowed/existing equipment at RM0 cash cost. It is the prototype server, dashboard, route engine and initial classifier host.
+- Show the existing laptop separately as borrowed/existing equipment at RM0 cash cost. It is the prototype server, dashboard and route engine; the selected Grove V2 performs recycling inference locally.
 
 Exchange reference: [Bernama, 27 August 2026](https://www.bernama.com/en/market/news.php?id=2599450). Competition requirement: `Degree level question paper-SEAR 1.pdf`, lines 137-140 of extracted text.
 
@@ -23,15 +23,15 @@ Three general-waste model bins
   -> laptop ingestion, prediction and route optimisation
 
 One recycling-return model station
-  -> ESP32-S3 camera board
-  -> image capture and Wi-Fi upload
-  -> laptop classification until the uploaded model is profiled
+  -> OV5647 CSI camera
+  -> Grove Vision AI V2 image processing and local classification
+  -> dedicated ESP32-C3 result relay and Wi-Fi connection
   -> accept/reject indication and servo feedback
 ```
 
 One Teensy may control the three 1:20 general-waste bins because the brief requires three instrumented bins, not three separate controllers. Firmware must still produce a distinct `bin_id`, calibration and health state for each channel. The current hardware PR represents one bin per firmware instance, so three-bin multiplexing is future implementation work and must be tested before demonstration.
 
-The recycling model has not been supplied yet. The ESP32-S3 purchase therefore provides camera capture, buffering and wireless delivery, but it is **not evidence that the final model runs on the board**. Keep the team-trained classifier on the laptop first. After the model is uploaded, measure its input size, operations, memory and latency before considering a quantised on-device classifier. Do not describe a YOLO model as running on the ESP32-S3 without a measured build.
+The Grove V2, not either ESP32-C3, owns recycling image preprocessing and model inference. One C3 is the Teensy Wi-Fi gateway; a second C3 receives only the Grove's compact class/confidence result, sends it to the server and controls the return-station feedback. The recycling model has not yet been supplied, so selection of Grove V2 does not prove model compatibility or accuracy. The model must pass the deployment gates below before the hardware path is called complete.
 
 ## Recommended local bill of materials
 
@@ -46,32 +46,33 @@ The recycling model has not been supplied yet. The ESP32-S3 purchase therefore p
 | 830-hole breadboard | [Cytron](https://my.cytron.io/ampp-breadboard-16.5x5.5cm-830-holes) | 1 | 3.90 | 3.90 | Low-voltage prototype distribution and testing |
 | 40-way 20 cm jumper set | [Cytron](https://my.cytron.io/c-jumper-wire/p-40-way-20cm-dupont-jumper-wire) | 2 | 2.50 | 5.00 | Select one male-male and one male-female set |
 | ESP32-C3 Super Mini | [MakerHub](https://makerhub.my/shop/microcontroller/esp32-super-mini-ultra-small-size-esp32-c3-risc-v-low-power-consumption/) | 1 | 17.95 | 17.95 | UART/Wi-Fi bridge for the Teensy; use acknowledgements and retry buffering |
-| ESP32-S3 WROOM CAM with OV5640 | [MakerHub](https://makerhub.my/shop/devkit/esp32-s3-wroom-cam-development-board-ov5640-camera-module-wifi-bluetooth-dual-usb-c-iot-ai/) | 1 | 56.95 | 56.95 | Recycling camera, PSRAM, Wi-Fi and direct USB programming |
+| Grove AI Vision Module V2 | [Cytron](https://my.cytron.io/p-grove-ai-vision-module-v2) | 1 | 95.00 | 95.00 | Recycling image processing and local classifier inference |
+| OV5647 5MP CSI camera | [Cytron](https://my.cytron.io/p-5mp-camera-board-for-raspberry-pi) | 1 | 29.00 | 29.00 | Image input for the Grove V2; close-focus suitability remains a purchase gate |
+| ESP32-C3 Super Mini | [MakerHub](https://makerhub.my/shop/microcontroller/esp32-super-mini-ultra-small-size-esp32-c3-risc-v-low-power-consumption/) | 1 | 17.95 | 17.95 | Separate recycling result relay, server Wi-Fi and servo control; no model inference |
+| Grove-to-female cable | [Cytron](https://my.cytron.io/p-grove-4-pin-buckled-to-female-cable) | 1 | 1.50 | 1.50 | Grove inference-result connection to the recycling C3 |
 | 5V 3A DC adapter | [MakerHub](https://makerhub.my/shop/electrical/power-supply-adapter-dc-universal-ac-to-dc-converter-psu-5v2a-5v3a-9v2a-12v2a/) | 1 | 12.95 | 12.95 | Select the 5V3A variant; keeps exposed prototype voltage below 12V DC |
 | 5.5x2.1 mm female connector | [MakerHub](https://makerhub.my/shop/electrical/5-5x2-1mm-dc-power-male-connector-plug-jack-adapter-for-arduino-diy-electronics-projects/) | 1 | 1.20 | 1.20 | Select the female variant for the 5V distribution input |
-| USB-A to USB-C data cable, 0.5 m | [MakerHub S3 setup listing](https://makerhub.my/ms/panduan/esp32-s3-cam-stream-video-pertama/) | 1 | 4.90 | 4.90 | Programs the C3 and S3 sequentially |
+| USB-A to USB-C data cable, 0.5 m | [MakerHub](https://makerhub.my/shop/) | 1 | 4.90 | 4.90 | Programs the two C3 boards and Grove V2 sequentially |
 | 5 mm status LEDs | [MakerHub shop](https://makerhub.my/shop/) | 9 | 0.10 | 0.90 | Three visible states for each general-waste bin |
 | 400-piece resistor pack | [MakerHub](https://makerhub.my/shop/electrical/400-pcs-1-4w-resistor-pack-resistor-kit-20-common-value-with-20-each/) | 1 | 7.95 | 7.95 | LED current limiting and spare prototype values |
 | Momentary test/control button | [MakerHub shop](https://makerhub.my/shop/) | 1 | 4.90 | 4.90 | Demonstration and calibration input |
-| **Electronics subtotal** |  |  |  | **346.80** |  |
+| **Electronics subtotal** |  |  |  | **433.30** |  |
 | Selangor delivery reserve | Cytron plus MakerHub | 1 | 15.00 | 15.00 | Cytron is free above RM9.90 in Peninsular Malaysia; reserve is for MakerHub checkout |
 | Recycled-board enclosure and fixings reserve | Local/reused materials | 1 | 40.00 | 40.00 | Record receipts or document reused material provenance |
-| Ten-percent contingency |  |  |  | 40.18 | Applied after delivery and fabrication reserves |
-| **Planned competition total** |  |  |  | **441.98** | Includes the owned Teensy |
+| Ten-percent contingency |  |  |  | 48.83 | Applied after delivery and fabrication reserves |
+| **Planned competition total** |  |  |  | **537.13** | Includes the owned Teensy |
 
-**Headroom against RM603.53: RM161.55.** If the Teensy is the only listed part already owned, the present cash-to-buy figure is RM282.98, while the competition total remains RM441.98.
+**Headroom against RM603.53: RM66.40.** The plan remains RM42.87 below the internal RM580 purchasing limit. If the Teensy is the only listed part already owned, the present cash-to-buy figure is RM378.13, while the competition total remains RM537.13.
 
 ## Delivery plan for Selangor
 
-1. **Cytron basket: RM239.10.** Cytron states free Peninsular Malaysia shipping for orders above RM9.90 and an estimated two to three working days to major West Malaysian cities: [delivery policy](https://my.cytron.io/delivery-information).
-2. **MakerHub basket: RM107.70.** The selected boards and parts are listed as ready stock in Sungai Besi, Kuala Lumpur, with dispatch within 24 hours and self-pickup or same-day Klang Valley delivery available. Use ordinary courier or pickup; only use same-day delivery if its checkout price stays within the RM15 reserve.
+1. **Cytron basket: RM364.60.** Cytron states free Peninsular Malaysia shipping for orders above RM9.90 and an estimated two to three working days to major West Malaysian cities: [delivery policy](https://my.cytron.io/delivery-information).
+2. **MakerHub basket: RM68.70.** The selected boards and parts are listed as ready stock in Sungai Besi, Kuala Lumpur, with dispatch within 24 hours and self-pickup or same-day Klang Valley delivery available. Use ordinary courier or pickup; only use same-day delivery if its checkout price stays within the RM15 reserve.
 3. The exact MakerHub charge cannot be verified without the final Selangor postcode and checkout session. If it exceeds RM15, use pickup or move compatible accessories to the free-shipping Cytron basket before paying.
 
-## Evaluated replacement: Grove Vision AI Module V2
+## Selected recycling stack: Grove Vision AI Module V2
 
-The Grove Vision AI Module V2 can replace the ESP32-S3 camera board for the recycling-return station, but it is not a one-board substitution. It performs local inference but needs a separate CSI camera and a Wi-Fi-capable host to send results to the BinSight server.
-
-This remains an evaluated option rather than the selected baseline until the team's model and the close-range camera image are tested.
+The Grove Vision AI Module V2 replaces the ESP32-S3 camera board for the recycling-return station. It performs local inference but needs a separate CSI camera and a Wi-Fi-capable host to send results to the BinSight server. The architecture is selected; model conversion, measured accuracy and close-range optical testing remain release gates before the path may be described as working.
 
 | Replacement component | Local listing | Qty | Line total (RM) | Status at check |
 | --- | --- | ---: | ---: | --- |
@@ -79,9 +80,9 @@ This remains an evaluated option rather than the selected baseline until the tea
 | OV5647 5MP CSI camera | [Cytron](https://my.cytron.io/p-5mp-camera-board-for-raspberry-pi) | 1 | 29.00 | RM29; local stock shown |
 | Dedicated ESP32-C3 Super Mini | [MakerHub](https://makerhub.my/shop/microcontroller/esp32-super-mini-ultra-small-size-esp32-c3-risc-v-low-power-consumption/) | 1 | 17.95 | RM17.95; ready stock in Kuala Lumpur |
 | Grove-to-female cable | [Cytron](https://my.cytron.io/p-grove-4-pin-buckled-to-female-cable) | 1 | 1.50 | RM1.50; local stock shown |
-| **Grove replacement subtotal** |  |  | **143.45** | Replaces the RM56.95 ESP32-S3 camera line |
+| **Selected Grove recycling-stack subtotal** |  |  | **143.45** | Module, camera, dedicated result-relay C3 and cable |
 
-With this replacement, the electronics subtotal becomes **RM433.30**. After the existing RM15 delivery reserve, RM40 fabrication reserve and ten-percent contingency, the planned competition total becomes **RM537.13**. This leaves **RM66.40** below the RM603.53 converted ceiling and **RM42.87** below the internal RM580 purchasing limit. If the Teensy is the only owned component, the resulting cash-to-buy figure is RM378.13.
+These lines are included in the selected bill of materials above. The planned competition total is **RM537.13**, leaving **RM66.40** below the RM603.53 converted ceiling and **RM42.87** below the internal RM580 purchasing limit.
 
 ### Connectivity
 
@@ -89,11 +90,13 @@ With this replacement, the electronics subtotal becomes **RM433.30**. After the 
 OV5647 CSI camera
   -> Grove Vision AI V2: image processing and local classification
   -> I2C at address 0x62 or hardware UART inference-result link
-  -> dedicated ESP32-C3: session logic, server Wi-Fi and servo command
+  -> dedicated ESP32-C3: result relay, session logic, server Wi-Fi and servo command
   -> authenticated BinSight ingestion endpoint
 ```
 
-The Grove module has USB-C, I2C, UART, SPI and CSI, but no built-in Wi-Fi radio. Seeed's documented network configuration adds a XIAO ESP32-C3; the budget substitutes the locally stocked ESP32-C3 Super Mini and requires its wiring and SSCMA protocol compatibility to be tested. The official SSCMA documentation lists ESP32-C3 support over both I2C and hardware UART. Prefer I2C for compact inference results. Use UART image transfer only for sampled evidence, not every item.
+The Grove module has USB-C, I2C, UART, SPI and CSI, but no built-in Wi-Fi radio. The Grove V2, not the ESP32-C3, owns image preprocessing and model inference. The C3 receives only compact outputs such as class, confidence and timing, then handles Wi-Fi delivery and return-station control. Do not deploy or duplicate the recycling classifier on the C3.
+
+Seeed's documented network configuration adds a XIAO ESP32-C3; the budget substitutes the locally stocked ESP32-C3 Super Mini and requires its wiring and SSCMA protocol compatibility to be tested. The official SSCMA documentation lists ESP32-C3 support over both I2C and hardware UART. Prefer I2C for compact inference results. Use UART image transfer only for sampled evidence, not every item.
 
 Power the vision module from the verified 5V rail and use 3.3V signalling with the C3 and a common ground. Do not power the camera module or Wi-Fi radio from a microcontroller's 3.3V pin. Drive the SG90 signal from the C3 while powering the servo from the shared 5V rail. Measure the assembled system during inference, Wi-Fi transmission and servo movement; the module's published power figure does not prove that the complete prototype remains below 10W continuous.
 
@@ -108,10 +111,10 @@ Power the vision module from the verified 5V rail and use 3.3V signalling with t
 ## Purchase gates
 
 - Buy only **one** ESP32-C3 for the three-bin Teensy controller unless the physical layout later makes one shared UART/Wi-Fi bridge impractical.
-- Buy only **one** ESP32-S3 camera board for the required recycling-return station. Each additional recycling camera station adds at least RM56.95 before enclosure and power distribution.
-- Do not replace the ESP32-S3 line with Grove V2 parts until the model and close-range camera checks above pass. If approved, revise this baseline and the Claude handoff together so contributors do not build both camera paths.
+- Buy one separate ESP32-C3 for the Grove V2 recycling station. It relays inference results and controls the station; it does not run the model.
+- Do not buy an ESP32-S3 camera in addition to the selected Grove stack. Retain that architecture only as a documented fallback if the Grove model gates fail.
 - Revise any final proposal sentence that says each normal bin has its own Teensy. The budgeted prototype has one Teensy servicing three independently identified scaled bins.
-- Confirm the ESP32-S3 camera example works and can upload a labelled still image before integrating the unseen classifier.
+- Confirm the Grove V2 model conversion, close-range image and result relay before describing the recycling classifier as implemented.
 - Load-test the 5V rail during Wi-Fi transmission and servo movement. The 5V3A label is a supply rating, not proof that the assembled prototype is stable or below the competition's 10W continuous target.
 - Keep receipts, checkout screenshots, reused-material declarations and the final measured-power record with the submission evidence.
 
@@ -119,4 +122,4 @@ Power the vision module from the verified 5V rail and use 3.3V signalling with t
 
 - **Three Teensy boards:** adding two more Teensy 4.1 boards raises the plan to RM759.98 before adding separate Wi-Fi modules, already RM156.45 over the converted ceiling.
 - **ESP-01 as the normal-bin Wi-Fi module:** Cytron lists it at RM6.30, but the listing says it lacks SSL support and needs a separate 3.3V regulator capable of current spikes. The RM11.65 saving is not worth weakening authenticated delivery or power reliability.
-- **Classic ESP32-CAM:** a local OV2640 option is cheaper, but the ESP32-S3 board provides direct USB, more memory and a cleaner path for profiling a future compact model. The classifier still remains on the laptop until measurements justify otherwise.
+- **ESP32-S3 camera plus laptop inference:** cheaper and easier to integrate, but it does not meet the selected goal of local recycling inference. Retain it only as a fallback if the model cannot be converted for Grove V2 or loses unacceptable accuracy after quantisation.

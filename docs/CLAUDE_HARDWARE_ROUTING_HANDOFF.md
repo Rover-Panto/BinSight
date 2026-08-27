@@ -57,7 +57,7 @@ Central BinSight server
 
 Keep routing and model inference on the server. Keep sensor acquisition, bounded filtering, health reporting, and transmission buffering at the bin. A laptop can host the server for the prototype; the design should allow a separate host later. Do not buy hosting, expose services to the public internet, or connect real municipal systems as part of this task.
 
-Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for the three scaled general-waste bins and use the selected ESP32-C3 over UART for communications. The C3 does not replace Teensy sensing or RTOS work. Give every bin channel its own identity, calibration and health state; do not merge three readings into one virtual bin. Keep the separate ESP32-S3 recycling-return camera path out of this change.
+Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for the three scaled general-waste bins and use the selected ESP32-C3 over UART for communications. The C3 does not replace Teensy sensing or RTOS work. Give every bin channel its own identity, calibration and health state; do not merge three readings into one virtual bin. Keep the separate Grove Vision AI V2 recycling-return path and its second ESP32-C3 distinct from this gateway.
 
 Confirm the selected module, firmware/toolchain, serial pins and shared 5V power arrangement before implementing board-specific Wi-Fi firmware. The budget baseline selects an ESP32-C3 but does not prove its wiring, power stability or firmware. Proceed with the protocol, server adapter, mocks and USB development path while those tests are pending. An HTTP upload test or laptop Wi-Fi connection does not prove standalone wireless operation at the bin.
 
@@ -72,7 +72,9 @@ Keep the Teensy and C3 code in separate target directories with pinned toolchain
 
 Use a hardware UART, 3.3V logic and a common ground. Serial1 pins 0/1 are the proposed Teensy default, but verify them against the actual Teensy pinout and existing sensor allocation before wiring. Power the C3 from a verified input on the shared regulated supply; do not power Wi-Fi radio current from the Teensy's 3.3V pin. Record the final TX/RX crossover, ground, input-voltage pin, baud rate and measured current in the setup guide.
 
-Do not fold recycling classification into this gateway. The ESP32-S3 camera board is a separate recycling-return device and has its own future firmware/model-validation task.
+Do not fold recycling classification into this gateway. The selected recycling stack is an OV5647 camera connected to Grove Vision AI V2 for local inference, plus a second ESP32-C3 that receives only class/confidence/timing results, sends them to the server and controls station feedback. Neither C3 runs the recycling model. Keep separate device identities, firmware targets, credentials, queues and event contracts for the normal-bin gateway and recycling result relay.
+
+The Grove model has not yet been supplied. Implement the SSCMA result interface and replayable server contract with fixtures, but leave model conversion, camera focus, measured accuracy and physical inference explicitly pending. Accept the model only after it runs as a fully integer Vela-optimised TFLite build on Grove V2 and passes a held-out recycling test set. Do not claim local inference from an emulator or from a model running on a laptop/C3.
 
 Manufacturer references: [Teensy 4.1 interfaces](https://www.pjrc.com/store/teensy41.html), [ESP32 communications capabilities](https://www.espressif.com/en/products/socs/esp32).
 
@@ -362,6 +364,9 @@ Add these as committed tests or recorded hardware procedures. Report each as pas
 | T25 | C3 reset and full power interruption preserve every event promised as `QUEUED`; if persistence is not implemented, no such acknowledgement is emitted. |
 | T26 | Queue capacity exhaustion, malformed UART input, authentication failure and unsupported schema each produce a visible machine-readable fault without leaking credentials. |
 | T27 | USB and C3 delivery of the same fixture produce equivalent stored observations, while the physical path remains distinguishable in provenance. |
+| T28 | The recycling C3 parses Grove SSCMA fixture results and sends class, confidence, timing and station/session identity without containing or executing the model. |
+| T29 | Physical Grove V2 testing confirms the converted model, close-range camera focus, held-out accuracy and measured latency; an emulator cannot satisfy this test. |
+| T30 | Recycling Wi-Fi loss and server failure preserve or visibly reject inference events without issuing an unlogged simulated refund. |
 
 Run the existing routing tests after adapter, policy or schema changes. Run the citizen checks required by `CONTRIBUTING.md` from `web/`: `pnpm lint`, `pnpm test:run`, `pnpm test:e2e`, and `pnpm build`. Record any environment blocker instead of claiming a pass. Add screenshots at the documented desktop/tablet/mobile sizes if changing a visible page.
 

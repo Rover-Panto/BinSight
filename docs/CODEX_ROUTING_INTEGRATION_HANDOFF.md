@@ -28,7 +28,7 @@ Check the working tree before editing. Keep unrelated edits, stored data and gen
 
 The owner wants normal bins to measure waste fill and send readings over Wi-Fi to a central server. The central server makes collection decisions and calculates truck routes.
 
-Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The physical prototype uses one Teensy to service three distinct general-waste bin channels and one ESP32-C3 communications module. Routing must preserve three bin identities even though the measurements share a controller and network link. The separate ESP32-S3 recycling camera is not a fill-level producer for the normal-bin route path.
+Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The physical prototype uses one Teensy to service three distinct general-waste bin channels and one ESP32-C3 communications module. Routing must preserve three bin identities even though the measurements share a controller and network link. The separate Grove Vision AI V2 recycling classifier and its result-relay ESP32-C3 are not fill-level producers for the normal-bin route path.
 
 ```text
 Bin sensors -> Teensy 4.1 -> Wi-Fi communications module
@@ -39,7 +39,7 @@ Bin sensors -> Teensy 4.1 -> Wi-Fi communications module
   -> Operator route preview, approval and mock truck dispatch
 ```
 
-Keep sensing and RTOS scheduling on the Teensy. Keep inference and routing on the server. A laptop can serve as the prototype server; no paid hosting, public deployment or real truck connection belongs in this task. The ESP32 beverage-return station remains a separate component.
+Keep sensing and RTOS scheduling on the Teensy. Keep fill prediction and routing on the server. Recycling image inference runs locally on Grove Vision AI V2, while its separate ESP32-C3 relays only inference results and station events. A laptop can serve as the prototype server; no paid hosting, public deployment or real truck connection belongs in this task.
 
 ### Paired handoff responsibilities
 

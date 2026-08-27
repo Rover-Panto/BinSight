@@ -43,7 +43,7 @@ The admin implementation should use `/admin` as its route prefix and keep admin 
 
 ## Hardware sourcing baseline
 
-The current budgeted topology uses one Teensy 4.1 for three distinct general-waste fill channels, an ESP32-C3 communications module, and one ESP32-S3 camera board for the recycling-return station. The unseen recycling classifier remains a laptop-hosted component until its resource use is measured. The owned Teensy is still counted at full local replacement value inside the USD150 competition ceiling.
+The current budgeted topology uses one Teensy 4.1 for three distinct general-waste fill channels and one ESP32-C3 communications module. The recycling-return station uses an OV5647 camera and Grove Vision AI V2 for local inference, plus a separate ESP32-C3 for result delivery and station control. Neither C3 runs the recycling model. The owned Teensy is still counted at full local replacement value inside the USD150 competition ceiling.
 
 See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for the dated Malaysian listings, Selangor delivery assumptions, budget totals and purchase gates.
 
