@@ -4,6 +4,8 @@ Checked: 27 August 2026
 
 This is the working purchase baseline for the competition prototype. Prices and stock can change, so save the checkout pages and receipts when ordering.
 
+**Architecture rule:** BinSight has general-waste bins and a recycling-return station. Only the recycling-return station uses a camera or vision model. General-waste bins provide fill telemetry for routing and must not include image-classification hardware.
+
 ## Budget basis
 
 - Competition ceiling: USD150.

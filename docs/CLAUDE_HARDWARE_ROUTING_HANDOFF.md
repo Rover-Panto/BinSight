@@ -38,6 +38,17 @@ Read `CONTRIBUTING.md`, `docs/PROJECT_STATE.md`, `docs/DATA_PRESERVATION.md`, an
 
 The owner wants the bin to read its sensors and send measurements over Wi-Fi to a central server. The server stores readings, evaluates collection need, predicts overflow, and calculates routes for garbage trucks.
 
+### Non-negotiable two-bin boundary
+
+BinSight has exactly two bin types. Do not use “smart bin” as though one device performs both roles.
+
+| Bin type | Hardware and responsibility |
+| --- | --- |
+| General waste | Three sensing channels on one Teensy 4.1, relayed by one ESP32-C3. These bins report fill, optional measured weight, health and confidence for server-side prediction and routing. They have no camera and no vision model. |
+| Recycling return | One OV5647/Grove Vision AI V2 station with a separate ESP32-C3 relay. This is the only device that classifies items or requires the vision model. The C3 receives results; it does not run inference. |
+
+Use separate device identities, event schemas, queues, firmware targets and server handlers. A recycling classification event must never enter the general-waste route adapter as a fill observation, and a general-waste reading must never be used to infer material class.
+
 Use [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md) before selecting boards or claiming budget feasibility. It counts the owned Teensy at full replacement value and separates the general-waste sensing path from the recycling camera path.
 
 ```text

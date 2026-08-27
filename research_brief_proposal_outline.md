@@ -1,5 +1,7 @@
 # SEA Engineering Design Competition 2026 - Research Brief and Proposal Outline
 
+> **Archived planning reference.** This file contains early concept exploration, including the superseded GreenRoute direction. Do not use it as the current BinSight architecture or implementation brief. The current system has exactly two bin types: general-waste bins provide fill telemetry for routing and use no vision model; the separate recycling-return station is the only device that uses the OV5647 camera and Grove Vision AI V2 classifier. Current decisions are recorded in `docs/PROJECT_STATE.md` and `docs/HARDWARE_BUDGET_LOCAL_SOURCING.md`.
+
 ## Competition Constraints
 
 - Theme: Sustainability and AI for real-world urban waste/recycling management.

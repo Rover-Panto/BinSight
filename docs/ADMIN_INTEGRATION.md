@@ -2,7 +2,9 @@
 
 ## Scope
 
-The admin area will let an authorised operator inspect smart-bin status, compare a fixed collection baseline with a priority route, review route stops, and track simulation KPIs. Keep resident tasks in the existing citizen shell.
+The admin area will let an authorised operator inspect general-waste fill status, compare a fixed collection baseline with a priority route, review route stops, and track simulation KPIs. Keep resident tasks in the existing citizen shell.
+
+BinSight has two bin types with different contracts. General-waste bins produce fill telemetry for collection routing and never use vision. The recycling-return station is the only vision-enabled device; it produces item-classification and return-session events, not general-waste route inputs. Keep these records, device identities and UI states separate.
 
 Use `/admin` as the route prefix. Recommended routes:
 
@@ -40,7 +42,8 @@ Use stable IDs across citizen and admin records:
 
 - Waste report: `WR-####`
 - Return session: `BS-####`
-- Smart bin: `BIN-###`
+- General-waste hardware channel: producer ID such as `bin_01`, mapped through the registry to its existing canonical route ID
+- Recycling-return station: `RRS-###`
 - Route plan: `ROUTE-YYYYMMDD-##`
 - Route run: `RUN-YYYYMMDD-##`
 - KPI snapshot: `KPI-YYYYMMDD-##`
@@ -51,15 +54,28 @@ Do not use array positions as IDs. Never regenerate an existing ID during a migr
 
 ```ts
 type SimulationMode = 'fixed-baseline' | 'priority-optimised'
+type BinType = 'general-waste' | 'recycling-return'
 
-interface BinReading {
+interface GeneralWasteBinReading {
   binId: string
+  binType: 'general-waste'
   recordedAt: string
   fillPercent: number
-  weightKg: number
+  weightKg: number | null
   confidence: 'high' | 'medium' | 'low'
   health: 'online' | 'degraded' | 'offline'
   overflowRisk: 'normal' | 'watch' | 'urgent'
+}
+
+interface RecyclingReturnEvent {
+  stationId: string
+  binType: 'recycling-return'
+  recordedAt: string
+  materialClass: 'plastic' | 'metal' | 'glass' | 'non-recyclable' | 'unknown'
+  accepted: boolean
+  confidence: number | null
+  inferenceSource: 'grove-vision-ai-v2'
+  isSimulation: true
 }
 
 interface RoutePlan {
@@ -90,7 +106,7 @@ interface KpiSnapshot {
 }
 ```
 
-The collaborator may refine these contracts. Any change must retain the units, timestamps, stable IDs, and simulation marker or document a replacement.
+The collaborator may refine these contracts. Any change must retain the bin-type boundary, units, timestamps, stable IDs, and simulation marker or document a replacement. A route snapshot accepts only `general-waste` readings. Recycling events must fail route-input validation rather than being silently coerced.
 
 ## KPI rules
 
@@ -114,14 +130,14 @@ Use these definitions:
 | Route distance | Sum of simulated route-leg distance in kilometres |
 | Fuel use | Modelled litres based on route distance and the documented vehicle assumption |
 | CO2 | Modelled kilograms from fuel use and the documented emission factor |
-| Contamination | Rejected recycling items divided by inspected recycling items |
+| Contamination | Rejected recycling items divided by items inspected by the recycling-return station; never infer this from general-waste fill data |
 | Sensing energy | Estimated watt-hours used by the sensing schedule during the window |
 
 Do not present proposal targets as measured results. The admin UI may show target bands, but it must separate them from simulation output and name the source of each assumption.
 
 ## Route comparison
 
-The fixed baseline represents the same bins, depot, vehicle assumptions, and time window as the priority route. A comparison is invalid when either route uses a different service area or input window.
+The fixed baseline represents the same general-waste bins, depot, vehicle assumptions, and time window as the priority route. A comparison is invalid when either route uses a different service area or input window. Recycling-return stations are not truck-route fill stops unless a future, separately specified collection contract adds them.
 
 The priority score should expose its input fields. At minimum, record fill level, time-to-overflow or risk, confidence, report urgency, and data freshness. Do not label a route as optimal unless the implementation proves optimality for the stated objective and constraints. `Priority route` is the safe default label.
 

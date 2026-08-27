@@ -35,6 +35,17 @@ The citizen app currently supports:
 
 There is no collection-schedule route. BinSight describes public-bin servicing as demand-led and automatically routed.
 
+## Two-bin architecture
+
+BinSight has two and only two bin types. Keep this distinction in firmware, APIs, storage, routing, dashboards, proposal text and demonstrations.
+
+| Bin type | Physical role | Processing boundary |
+| --- | --- | --- |
+| General waste | Three model bins measure fill and, where fitted, weight | Teensy 4.1 schedules sensing; one ESP32-C3 relays telemetry; the laptop server predicts overflow and plans routes. No camera or vision model is used. |
+| Recycling return | One station inspects submitted containers and operates the return flow | OV5647 supplies images; Grove Vision AI V2 performs local classification; a separate ESP32-C3 relays compact results and controls feedback. This is the only vision-enabled bin type. |
+
+Recycling classification results must never be treated as general-waste fill readings. General-waste readings must never be treated as evidence of material class or recycling contamination.
+
 ## Admin work
 
 The route-optimisation and KPI dashboard is planned collaborator work. It has not merged into `main` at the date above. The collaborator should follow [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [DATA_PRESERVATION.md](DATA_PRESERVATION.md).
@@ -43,7 +54,7 @@ The admin implementation should use `/admin` as its route prefix and keep admin 
 
 ## Hardware sourcing baseline
 
-The current budgeted topology uses one Teensy 4.1 for three distinct general-waste fill channels and one ESP32-C3 communications module. The recycling-return station uses an OV5647 camera and Grove Vision AI V2 for local inference, plus a separate ESP32-C3 for result delivery and station control. Neither C3 runs the recycling model. The owned Teensy is still counted at full local replacement value inside the USD150 competition ceiling.
+The current budgeted topology uses one Teensy 4.1 for three distinct general-waste fill channels and one ESP32-C3 communications module. The recycling-return station uses an OV5647 camera and Grove Vision AI V2 for local inference, plus a separate ESP32-C3 for result delivery and station control. Only the recycling-return station uses vision, and neither C3 runs the recycling model. The owned Teensy is still counted at full local replacement value inside the USD150 competition ceiling.
 
 See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for the dated Malaysian listings, Selangor delivery assumptions, budget totals and purchase gates.
 

@@ -24,6 +24,8 @@ Use a separate key for admin fixtures and preferences. Start with `binsight-admi
 
 Shared data should pass through typed selectors or adapters. Do not let two stores write the same record. Until a backend exists, citizen reports remain citizen-owned records; the admin area may read a mapped copy for display.
 
+Keep hardware records separated by bin type. General-waste fill observations belong to the telemetry and routing store. Recycling-return classification and session events belong to the return-station domain. Preserve a required discriminator such as `binType` at storage and API boundaries, reject cross-type records, and never migrate one record type into the other to satisfy a route or KPI schema.
+
 ## Schema changes
 
 Follow this sequence for every persisted change:

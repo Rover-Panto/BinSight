@@ -28,6 +28,17 @@ Check the working tree before editing. Keep unrelated edits, stored data and gen
 
 The owner wants normal bins to measure waste fill and send readings over Wi-Fi to a central server. The central server makes collection decisions and calculates truck routes.
 
+### Non-negotiable two-bin boundary
+
+BinSight has exactly two bin types:
+
+| Bin type | Routing-system treatment |
+| --- | --- |
+| General waste | Three Teensy-controlled fill channels relayed by one ESP32-C3. Only these fill observations feed overflow prediction, collection priority and truck routing. No vision model is present. |
+| Recycling return | One OV5647/Grove Vision AI V2 station with its own ESP32-C3 result relay. This is the only vision-enabled bin type. Its classification and return-session events do not enter the general-waste fill pipeline. |
+
+Reject cross-type events at the adapter boundary. Preserve separate IDs, schemas, storage and provenance so the dashboard cannot display a recycling classification as route telemetry or imply that a general-waste bin identifies materials.
+
 Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The physical prototype uses one Teensy to service three distinct general-waste bin channels and one ESP32-C3 communications module. Routing must preserve three bin identities even though the measurements share a controller and network link. The separate Grove Vision AI V2 recycling classifier and its result-relay ESP32-C3 are not fill-level producers for the normal-bin route path.
 
 ```text

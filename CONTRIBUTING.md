@@ -19,6 +19,17 @@ Read:
 
 Check `git status --short` before editing. Do not delete, stage, or reformat files that belong to another contributor's unfinished work.
 
+## Architecture invariants
+
+BinSight has exactly two bin types:
+
+| Bin type | Required behavior |
+| --- | --- |
+| General-waste bin | Reports fill, weight when available, sensor health and confidence. It uses no camera and no vision model. |
+| Recycling-return station | Uses the OV5647 camera and Grove Vision AI V2 to classify submitted items. Its ESP32-C3 relays results and controls the station; it does not run the model. |
+
+Only general-waste fill observations enter overflow prediction and truck-route planning. Recycling classification events support accept/reject decisions, return sessions, simulated refunds and recycling KPIs. Do not merge these event types, device identities, firmware targets or storage contracts.
+
 ## Change boundaries
 
 Keep citizen and admin state separate. Changes to `web/src/model.ts`, `web/src/store.tsx`, storage keys, or migrations require an explanation and migration coverage in the pull request.

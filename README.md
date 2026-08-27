@@ -1,10 +1,19 @@
 # BinSight
 
-BinSight is MON BLUE's engineering proposal for a smart waste-sensing system and citizen recycling hub. The concept combines instrumented bins, a beverage return station, local decision support, collection-route simulation, and a resident-facing service interface.
+BinSight is MON BLUE's engineering proposal for a smart waste-sensing system and citizen recycling hub. The prototype has two bin types: general-waste bins that measure fill for collection routing, and a recycling-return station that classifies deposited items. Computer vision belongs only to the recycling-return station.
 
 ## Current status
 
 The proposal, supporting research, document-generation scripts, and responsive citizen hub frontend are present. The frontend is a self-contained prototype with simulated authentication, station-detected returns, payouts, reports, automatic public-bin routing, support services, and local persistence.
+
+## System boundary
+
+| Bin type | Prototype hardware | Server use |
+| --- | --- | --- |
+| General waste | Three fill-sensing channels controlled by one Teensy 4.1, with one ESP32-C3 Wi-Fi relay | Fill history, overflow prediction, collection priority and route planning |
+| Recycling return | OV5647 camera and Grove Vision AI V2, with a separate ESP32-C3 result relay | Accept/reject records, return sessions, simulated refunds and recycling KPIs |
+
+General-waste bins have no camera and perform no item classification. The recycling-return station is the only BinSight device that requires or runs the vision model. The two ESP32-C3 boards have separate firmware, identities and data contracts; neither runs the model.
 
 ## Repository contents
 
@@ -14,7 +23,7 @@ The proposal, supporting research, document-generation scripts, and responsive c
 - `scripts/`: proposal and document-generation scripts
 - `work/binsight_assets/`: project-owned visual assets
 - `work/research-notes/`: research and evidence notes
-- `research_brief_proposal_outline.md`: proposal research brief
+- `research_brief_proposal_outline.md`: archived early research notes; not the current architecture source
 - `web/`: React and TypeScript citizen hub prototype
 
 ## Planned citizen hub

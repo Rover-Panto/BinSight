@@ -14,6 +14,12 @@ Last verified: 17 August 2026
 
 The frontend lives under `web/`. It is a local demonstration with simulated identity, payouts, service data, and bin activity.
 
+## Product boundary
+
+The interface represents two different bin types. General-waste bins report fill and health for automatic collection routing; they do not use cameras or classify waste. The recycling-return station is the only vision-enabled bin. It classifies submitted containers, returns an accepted/rejected result and supports the citizen return and payout flow.
+
+Keep the distinction visible without asking the citizen to categorise the item manually. Return pages describe a station inspection. Routing and fill status belong to the operations side. Do not display recycling classification as general-waste telemetry or suggest that general-waste bins identify their contents.
+
 ## File map
 
 | Path | Responsibility |

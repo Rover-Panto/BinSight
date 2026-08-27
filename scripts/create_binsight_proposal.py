@@ -51,14 +51,14 @@ PROBLEM_STATEMENT = (
 )
 
 PROPOSED_SOLUTION = (
-    "BinSight is a street-block prototype with three smart bins, one return station and hub. Focus A instruments "
-    "each bin with a Teensy 4.1 running FreeRTOS for deterministic ultrasonic/load-cell polling, LED states, "
-    "watchdog recovery and confidence flags for blocked or noisy readings. Focus C uses a Raspberry Pi/laptop "
-    "hub to log sensor and QR events, estimate time-to-overflow with a tree-based model, rank pickups and "
-    "compare fixed schedules against priority routes. Focus B adds a camera classifier that accepts plastic, "
-    "metal and glass, then rejects non-recyclables before they enter the stream. Focus D builds an ESP32 return "
-    "station following Singapore's Beverage Container Return Scheme / Return Right RVM flow with QR session, "
-    "chute/servo feedback, dashboard logs and a simulated refund."
+    "BinSight has two hardware paths. Focus A instruments three general-waste bins using one Teensy 4.1 and "
+    "FreeRTOS for scheduled ultrasonic/load-cell sensing, watchdog recovery, fault flags and fill telemetry "
+    "through an ESP32-C3 Wi-Fi relay. Focus C's laptop hub logs readings, estimates time-to-overflow with a "
+    "tree-based model, ranks pickups and compares fixed schedules with priority routes. Focus B adds vision only "
+    "to the recycling-return station: an OV5647 camera feeds Grove Vision AI V2 for local classification. Focus "
+    "D's dedicated ESP32-C3 relays class, confidence and timing, manages the QR session and commands chute/servo "
+    "feedback; it does not run the model. Accepted plastic, metal and glass items are logged for a simulated "
+    "refund, while non-recyclables are rejected."
 )
 
 VALIDATION_SUMMARY = (
@@ -220,7 +220,7 @@ def cover_page(c, logo_path):
     c.drawString(23.5 * mm, PAGE_H - 96 * mm, "BinSight")
     c.setFillColor(CYAN)
     c.setFont("Helvetica-Bold", 15.3)
-    c.drawString(25 * mm, PAGE_H - 109 * mm, "Smart waste sensing, recycling-return validation")
+    c.drawString(25 * mm, PAGE_H - 109 * mm, "General-waste sensing, recycling vision")
     c.drawString(25 * mm, PAGE_H - 118 * mm, "and route simulation")
     c.setFillColor(colors.HexColor("#E8FBFC"))
     c.setFont("Helvetica-Bold", 12.5)
@@ -231,7 +231,7 @@ def cover_page(c, logo_path):
     c.line(24 * mm, 58 * mm, PAGE_W - 24 * mm, 58 * mm)
     c.setFillColor(colors.HexColor("#CDEEF3"))
     c.setFont("Helvetica-Bold", 9.0)
-    c.drawString(25 * mm, 47 * mm, "Three sensor bins | QR return station | Local decision hub | Fixed-vs-priority route simulation")
+    c.drawString(25 * mm, 47 * mm, "Three general-waste bins | Vision-enabled recycling return | Decision hub | Route simulation")
     c.restoreState()
 
 
@@ -405,7 +405,7 @@ def build_docx():
     subtitle = doc.add_paragraph()
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
     subtitle.paragraph_format.space_after = Pt(10)
-    run = subtitle.add_run("Smart waste sensing, recycling-return validation and route simulation")
+    run = subtitle.add_run("General-waste sensing, recycling vision and route simulation")
     run.bold = True
     run.font.name = "Arial"
     run._element.rPr.rFonts.set(qn("w:ascii"), "Arial")
@@ -425,7 +425,7 @@ def build_docx():
 
     scope = docx_para(
         doc,
-        "Three sensor bins | QR return station | Local decision hub | Fixed-vs-priority route simulation",
+        "Three general-waste bins | Vision-enabled recycling return | Decision hub | Route simulation",
         9.4,
         "344054",
         True,
