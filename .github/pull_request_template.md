@@ -30,6 +30,7 @@ Storage keys or schema versions changed:
 
 ## Documentation
 
+- [ ] `docs/FRONTEND.md` updated for frontend changes
 - [ ] `docs/PROJECT_STATE.md` updated
 - [ ] `docs/DATA_PRESERVATION.md` updated when stored data changed
 - [ ] Route map and KPI contracts updated when admin behavior changed
