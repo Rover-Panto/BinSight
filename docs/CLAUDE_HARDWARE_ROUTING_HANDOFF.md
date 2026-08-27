@@ -4,6 +4,12 @@ Prepared: 27 August 2026
 
 Use this file as the task brief for Claude Pro or Claude Code. It contains the review findings and the owner's requested architecture. It does not claim that anyone has completed the repairs or wireless integration.
 
+## Coordination With the Routing Contributor
+
+Use this brief alongside [the Codex routing handoff](CODEX_ROUTING_INTEGRATION_HANDOFF.md). With both briefs in use, Claude owns hardware, USB/Wi-Fi transport, ingestion API/storage and producer-side fixes. Codex owns the `admin-portal/` adapter, prediction preparation, collection policy, planning lifecycle, operator UI and routing persistence.
+
+Agree one event/route contract and shared fixtures before changing either side. Treat this brief's routing sections and Phase B as interface requirements to coordinate with Codex, not a second assignment to implement the same routing files. Choose one editor for each shared schema/document and exchange the tested producer/consumer versions. Do not change the other contributor's files or branch without agreement.
+
 ## 1. Instructions to Claude
 
 Act as a senior embedded-systems and backend engineer working on BinSight. Verify the findings below against the current code, repair the hardware telemetry pipeline, and connect its readings to the existing central routing system. Preserve citizen data and existing contributor work.
