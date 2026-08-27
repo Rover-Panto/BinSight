@@ -13,6 +13,8 @@ The default gate requires three consecutive matching results at confidence 0.70 
 
 Grove Vision AI V2 runs the model. The recycling ESP32-C3 relays class, confidence, sequence and object count to the backend. The central server calls this policy, stores its terminal decision, and sends the outcome to the station and citizen website. The ESP32-C3 controls the chute only after receiving the server decision. Neither the server nor the website needs an image stream.
 
+Both recycling bins also have independent fill sensors. The shared Teensy and PR #2 ESP32-C3 send those readings through the routing telemetry path; they never enter `RecyclingInspection`. Fill collection must remain available during a vision fault, and item decisions must remain available during a fill-sensor fault.
+
 ## Integration Boundary
 
 `main` currently has no backend application. This package is the start of the main-owned recycling server. The main server must expose the inference and QR-session endpoints, using one `RecyclingInspection` per server-created inspection ID. PR #1 and PR #2 do not own or host this policy.

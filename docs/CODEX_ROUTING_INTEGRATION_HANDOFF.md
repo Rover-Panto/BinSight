@@ -26,7 +26,7 @@ Check the working tree before editing. Keep unrelated edits, stored data and gen
 
 ## 2. Target Architecture and Ownership
 
-The owner wants normal bins to measure waste fill and send readings over Wi-Fi to a central server. The central server makes collection decisions and calculates truck routes.
+The owner wants all three demonstrator bins to measure fill and send readings over Wi-Fi to a central server. The central server makes collection decisions and calculates truck routes.
 
 ### Non-negotiable two-bin boundary
 
@@ -34,12 +34,12 @@ BinSight has exactly two bin types:
 
 | Bin type | Routing-system treatment |
 | --- | --- |
-| General waste | Three Teensy-controlled fill channels relayed by one ESP32-C3. Only these fill observations feed overflow prediction, collection priority and truck routing. No vision model is present. |
-| Recycling return | One OV5647/Grove Vision AI V2 station with its own ESP32-C3 result relay. This is the only vision-enabled bin type. Its classification and return-session events do not enter the general-waste fill pipeline. |
+| General waste | One Teensy-controlled fill channel relayed by the shared PR #2 ESP32-C3. It has no vision model. |
+| Recycling return | Two Teensy-controlled fill channels use the same PR #2 relay and are valid routing inputs. The separate OV5647/Grove Vision AI V2 path and PR #3 ESP32-C3 produce recognition and return-session events, never fill observations. |
 
-Reject cross-type events at the adapter boundary. Preserve separate IDs, schemas, storage and provenance so the dashboard cannot display a recycling classification as route telemetry or imply that a general-waste bin identifies materials.
+Accept validated fill observations from both bin types, but reject every recognition or return-session event at the route adapter. Preserve physical bin IDs, bin type, waste stream, schemas and provenance so the dashboard cannot display a classification as route telemetry or imply that the general-waste bin identifies materials.
 
-Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The physical prototype uses one Teensy to service three distinct general-waste bin channels and one ESP32-C3 communications module. Routing must preserve three bin identities even though the measurements share a controller and network link. The separate Grove Vision AI V2 recycling classifier and its result-relay ESP32-C3 are not fill-level producers for the normal-bin route path.
+Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The demonstrator uses one Teensy to service one general-waste and two recycling fill channels, then one PR #2 ESP32-C3 to relay all three. Routing must preserve the three identities and waste streams even though they share a controller and network link. No second Teensy is included in the USD150 demo budget.
 
 ```text
 Bin sensors -> Teensy 4.1 -> Wi-Fi communications module
@@ -50,13 +50,13 @@ Bin sensors -> Teensy 4.1 -> Wi-Fi communications module
   -> Operator route preview, approval and mock truck dispatch
 ```
 
-Keep sensing and RTOS scheduling on the Teensy. Keep fill prediction and routing on the server. Recycling image inference runs locally on Grove Vision AI V2, while its separate ESP32-C3 relays only inference results and station events. A laptop can serve as the prototype server; no paid hosting, public deployment or real truck connection belongs in this task.
+Keep all fill sensing and RTOS scheduling on the single Teensy. Keep fill prediction and routing on the server. Recycling image inference runs locally on Grove Vision AI V2, while its separate PR #3 ESP32-C3 relays only inference results and station events. A laptop can serve as the prototype server; no paid hosting, public deployment or real truck connection belongs in this task.
 
 ### Paired handoff responsibilities
 
 | Owner | Scope |
 | --- | --- |
-| Claude / hardware contributor | `hardware_pipeline/firmware/`, USB/Wi-Fi delivery, ingestion API/storage, event acknowledgements, producer-side migrations and hardware setup. |
+| Claude / hardware contributor | `hardware_pipeline/firmware/`, three-channel fill sensing, USB/Wi-Fi delivery, ingestion API/storage, event acknowledgements, producer-side migrations and hardware setup. |
 | Codex / routing contributor | `admin-portal/binsight/`, route adapter/client, feature preparation, collection policy, planning lifecycle, routing persistence, operator UI and KPI provenance. |
 | Both contributors | One versioned interface specification, bin registry meanings, quality/time semantics, fixtures and an end-to-end acceptance run. Agree a single editor for each shared file. |
 
@@ -86,7 +86,7 @@ The routing code already includes tests for stale snapshots, missing sensors, co
 | All rows share one timestamp; the validator derives one age for the entire snapshot. | Live bins have different observation times. A fresh decision time cannot refresh old observations. |
 | Time-to-overflow must be finite; risk must be low/medium/high/critical. | Cold-start or unavailable predictions need an explicit supported state. |
 | `update_last_valid_readings()` requires both valid fill and weight. | The current ultrasonic-only hardware never qualifies for retained fill history if weight stays null. |
-| Configuration requires three bins per controller and a capacity-sized competition district. | The reviewed hardware PR models one bin per firmware instance, while the owner's budgeted target is one Teensy with three distinct sensing channels. Support the target pilot topology without weakening the full-district simulation checks. |
+| Configuration requires three bins per controller and a capacity-sized competition district. | The reviewed hardware PR models one bin per firmware instance, while the budgeted target is one Teensy with three channels representing one general-waste and two recycling bins. Support that topology without weakening the full-district simulation checks. |
 | The model uses weight, recent growth and site characteristics. | A current fill reading alone cannot satisfy the existing feature contract. |
 | The UI calculates a route after an operator action and stores session state. | Automatic server routing must not depend on a browser tab or rerun. |
 | Last-valid history uses a JSON file; dispatches use JSONL. | Adding a worker introduces concurrent-write and crash-recovery requirements. |

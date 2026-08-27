@@ -4,7 +4,7 @@ Checked: 27 August 2026
 
 This is the working purchase baseline for the competition prototype. Prices and stock can change, so save the checkout pages and receipts when ordering.
 
-**Architecture rule:** BinSight has general-waste bins and a recycling-return station. Only the recycling-return station uses a camera or vision model. General-waste bins provide fill telemetry for routing and must not include image-classification hardware.
+**Architecture rule:** The USD150 demonstrator has three physical bins: one general-waste and two recycling bins. One Teensy measures all three fill levels and one PR #2 ESP32-C3 relays them for routing. The separate PR #3 ESP32-C3 relays Grove recognition results only. Fill and recognition remain independent.
 
 ## Budget basis
 
@@ -18,22 +18,24 @@ Exchange reference: [Bernama, 27 August 2026](https://www.bernama.com/en/market/
 ## Agreed prototype topology
 
 ```text
-Three general-waste model bins
-  -> three fill channels
+One general-waste model bin + two recycling model bins
+  -> three independent fill channels
   -> one Teensy 4.1 running scheduled sensing and health tasks
-  -> one ESP32-C3 UART/Wi-Fi communications module
+  -> one PR #2 ESP32-C3 UART/Wi-Fi communications module
   -> laptop ingestion, prediction and route optimisation
 
-One recycling-return model station
+Shared recycling-return demonstration path
   -> OV5647 CSI camera
   -> Grove Vision AI V2 image processing and local classification
-  -> dedicated ESP32-C3 result relay and Wi-Fi connection
+  -> dedicated PR #3 ESP32-C3 recognition relay
   -> accept/reject indication and servo feedback
 ```
 
-One Teensy may control the three 1:20 general-waste bins because the brief requires three instrumented bins, not three separate controllers. Firmware must still produce a distinct `bin_id`, calibration and health state for each channel. The current hardware PR represents one bin per firmware instance, so three-bin multiplexing is future implementation work and must be tested before demonstration.
+One Teensy may control the three 1:20 bins because the brief requires three instrumented bins, not three separate controllers. Firmware must still produce a distinct `bin_id`, `bin_type`, calibration and health state for each channel. The current hardware PR represents one bin per firmware instance, so three-channel multiplexing is implementation work and must be tested before demonstration.
 
-The Grove V2, not either ESP32-C3, owns recycling image preprocessing and model inference. One C3 is the Teensy Wi-Fi gateway; a second C3 receives only the Grove's compact class/confidence result, sends it to the server and controls the return-station feedback. The recycling model has not yet been supplied, so selection of Grove V2 does not prove model compatibility or accuracy. The model must pass the deployment gates below before the hardware path is called complete.
+The Grove V2, not either ESP32-C3, owns recycling image preprocessing and model inference. The PR #2 C3 is the Wi-Fi gateway for all three Teensy fill channels. The PR #3 C3 receives only Grove's compact class/confidence result, sends it to the server and controls return-station feedback. The recycling model has not yet been supplied, so selection of Grove V2 does not prove model compatibility or accuracy. The model must pass the deployment gates below before the hardware path is called complete.
+
+The budget includes one shared Grove/camera return point for the two recycling-bin demonstrators. If each recycling bin needs its own simultaneous insertion point, a second Grove, camera and recognition relay would be a different prototype and requires a new budget check. Do not present the one-module demonstrator as two independently operating vision stations.
 
 ## Recommended local bill of materials
 
@@ -42,20 +44,20 @@ The Grove V2, not either ESP32-C3, owns recycling image preprocessing and model 
 | Teensy 4.1 | [Cytron](https://my.cytron.io/p-teensy-4p1-controller-board) | 1 | 159.00 | 159.00 | General-waste sensing and task scheduling; counted even though owned |
 | 1x40 male header | [Cytron](https://my.cytron.io/p-straight-pin-header-male-1x40-ways) | 2 | 0.65 | 1.30 | Teensy and loose-header board assembly |
 | USB Micro-B data cable | [Cytron Teensy accessory](https://my.cytron.io/p-teensy-4p1-controller-board) | 1 | 4.00 | 4.00 | Teensy programming |
-| SR04P 3V-5.5V ultrasonic sensor | [Cytron](https://my.cytron.io/c-sensor/p-3v-5.5v-ultrasonic-ranging-module) | 3 | 4.90 | 14.70 | One fill channel per general-waste bin; no 5V echo divider required |
-| 1 kg load cell with HX711 | [Cytron](https://my.cytron.io/ampp-1kg-load-cell-with-hx711-amplifier) | 3 | 14.90 | 44.70 | Retains the proposal's weight-monitoring claim; remove only if the proposal is revised |
+| SR04P 3V-5.5V ultrasonic sensor | [Cytron](https://my.cytron.io/c-sensor/p-3v-5.5v-ultrasonic-ranging-module) | 3 | 4.90 | 14.70 | One independent fill channel for each physical bin; no 5V echo divider required |
+| 1 kg load cell with HX711 | [Cytron](https://my.cytron.io/ampp-1kg-load-cell-with-hx711-amplifier) | 3 | 14.90 | 44.70 | Retains the demonstrator's weight-monitoring scope; remove only if that scope is revised |
 | SG90 180-degree servo | [Cytron](https://my.cytron.io/p-sg90-micro-servo) | 1 | 6.50 | 6.50 | Recycling accept/reject chute feedback |
 | 830-hole breadboard | [Cytron](https://my.cytron.io/ampp-breadboard-16.5x5.5cm-830-holes) | 1 | 3.90 | 3.90 | Low-voltage prototype distribution and testing |
 | 40-way 20 cm jumper set | [Cytron](https://my.cytron.io/c-jumper-wire/p-40-way-20cm-dupont-jumper-wire) | 2 | 2.50 | 5.00 | Select one male-male and one male-female set |
-| ESP32-C3 Super Mini | [MakerHub](https://makerhub.my/shop/microcontroller/esp32-super-mini-ultra-small-size-esp32-c3-risc-v-low-power-consumption/) | 1 | 17.95 | 17.95 | UART/Wi-Fi bridge for the Teensy; use acknowledgements and retry buffering |
+| ESP32-C3 Super Mini | [MakerHub](https://makerhub.my/shop/microcontroller/esp32-super-mini-ultra-small-size-esp32-c3-risc-v-low-power-consumption/) | 1 | 17.95 | 17.95 | PR #2 UART/Wi-Fi bridge for all three Teensy fill channels |
 | Grove AI Vision Module V2 | [Cytron](https://my.cytron.io/p-grove-ai-vision-module-v2) | 1 | 95.00 | 95.00 | Recycling image processing and local classifier inference |
 | OV5647 5MP CSI camera | [Cytron](https://my.cytron.io/p-5mp-camera-board-for-raspberry-pi) | 1 | 29.00 | 29.00 | Image input for the Grove V2; close-focus suitability remains a purchase gate |
-| ESP32-C3 Super Mini | [MakerHub](https://makerhub.my/shop/microcontroller/esp32-super-mini-ultra-small-size-esp32-c3-risc-v-low-power-consumption/) | 1 | 17.95 | 17.95 | Separate recycling result relay, server Wi-Fi and servo control; no model inference |
+| ESP32-C3 Super Mini | [MakerHub](https://makerhub.my/shop/microcontroller/esp32-super-mini-ultra-small-size-esp32-c3-risc-v-low-power-consumption/) | 1 | 17.95 | 17.95 | Separate PR #3 recognition relay, server Wi-Fi and servo control; no fill sensing or model inference |
 | Grove-to-female cable | [Cytron](https://my.cytron.io/p-grove-4-pin-buckled-to-female-cable) | 1 | 1.50 | 1.50 | Grove inference-result connection to the recycling C3 |
 | 5V 3A DC adapter | [MakerHub](https://makerhub.my/shop/electrical/power-supply-adapter-dc-universal-ac-to-dc-converter-psu-5v2a-5v3a-9v2a-12v2a/) | 1 | 12.95 | 12.95 | Select the 5V3A variant; keeps exposed prototype voltage below 12V DC |
 | 5.5x2.1 mm female connector | [MakerHub](https://makerhub.my/shop/electrical/5-5x2-1mm-dc-power-male-connector-plug-jack-adapter-for-arduino-diy-electronics-projects/) | 1 | 1.20 | 1.20 | Select the female variant for the 5V distribution input |
 | USB-A to USB-C data cable, 0.5 m | [MakerHub](https://makerhub.my/shop/) | 1 | 4.90 | 4.90 | Programs the two C3 boards and Grove V2 sequentially |
-| 5 mm status LEDs | [MakerHub shop](https://makerhub.my/shop/) | 9 | 0.10 | 0.90 | Three visible states for each general-waste bin |
+| 5 mm status LEDs | [MakerHub shop](https://makerhub.my/shop/) | 9 | 0.10 | 0.90 | Three visible fill/health states for each of the three bins |
 | 400-piece resistor pack | [MakerHub](https://makerhub.my/shop/electrical/400-pcs-1-4w-resistor-pack-resistor-kit-20-common-value-with-20-each/) | 1 | 7.95 | 7.95 | LED current limiting and spare prototype values |
 | Momentary test/control button | [MakerHub shop](https://makerhub.my/shop/) | 1 | 4.90 | 4.90 | Demonstration and calibration input |
 | **Electronics subtotal** |  |  |  | **433.30** |  |
@@ -82,7 +84,7 @@ The Grove Vision AI Module V2 replaces the ESP32-S3 camera board for the recycli
 | OV5647 5MP CSI camera | [Cytron](https://my.cytron.io/p-5mp-camera-board-for-raspberry-pi) | 1 | 29.00 | RM29; local stock shown |
 | Dedicated ESP32-C3 Super Mini | [MakerHub](https://makerhub.my/shop/microcontroller/esp32-super-mini-ultra-small-size-esp32-c3-risc-v-low-power-consumption/) | 1 | 17.95 | RM17.95; ready stock in Kuala Lumpur |
 | Grove-to-female cable | [Cytron](https://my.cytron.io/p-grove-4-pin-buckled-to-female-cable) | 1 | 1.50 | RM1.50; local stock shown |
-| **Selected Grove recycling-stack subtotal** |  |  | **143.45** | Module, camera, dedicated result-relay C3 and cable |
+| **Selected Grove recycling-stack subtotal** |  |  | **143.45** | Module, camera, dedicated recognition-relay C3 and cable |
 
 These lines are included in the selected bill of materials above. The planned competition total is **RM537.13**, leaving **RM66.40** below the RM603.53 converted ceiling and **RM42.87** below the internal RM580 purchasing limit.
 
@@ -92,11 +94,11 @@ These lines are included in the selected bill of materials above. The planned co
 OV5647 CSI camera
   -> Grove Vision AI V2: image processing and local classification
   -> I2C at address 0x62 or hardware UART inference-result link
-  -> dedicated ESP32-C3: result relay, session logic, server Wi-Fi and servo command
+  -> dedicated PR #3 ESP32-C3: recognition relay, session logic, server Wi-Fi and servo command
   -> authenticated BinSight ingestion endpoint
 ```
 
-The Grove module has USB-C, I2C, UART, SPI and CSI, but no built-in Wi-Fi radio. The Grove V2, not the ESP32-C3, owns image preprocessing and model inference. The C3 receives only compact outputs such as class, confidence and timing, then handles Wi-Fi delivery and return-station control. Do not deploy or duplicate the recycling classifier on the C3.
+The Grove module has USB-C, I2C, UART, SPI and CSI, but no built-in Wi-Fi radio. The Grove V2, not the ESP32-C3, owns image preprocessing and model inference. The PR #3 C3 receives compact class/confidence/timing outputs, then handles Wi-Fi delivery and return-station control. It does not sample fill sensors. Do not deploy or duplicate the recycling classifier on the C3.
 
 Seeed's documented network configuration adds a XIAO ESP32-C3; the budget substitutes the locally stocked ESP32-C3 Super Mini and requires its wiring and SSCMA protocol compatibility to be tested. The official SSCMA documentation lists ESP32-C3 support over both I2C and hardware UART. Prefer I2C for compact inference results. Use UART image transfer only for sampled evidence, not every item.
 
@@ -112,16 +114,16 @@ Power the vision module from the verified 5V rail and use 3.3V signalling with t
 
 ## Purchase gates
 
-- Buy only **one** ESP32-C3 for the three-bin Teensy controller unless the physical layout later makes one shared UART/Wi-Fi bridge impractical.
-- Buy one separate ESP32-C3 for the Grove V2 recycling station. It relays inference results and controls the station; it does not run the model.
+- Buy only **one** Teensy and one PR #2 ESP32-C3 for all three fill channels in the USD150 demonstrator.
+- Buy one separate PR #3 ESP32-C3 for the Grove V2 recognition path. It relays inference results and controls the station; it does not read fill sensors or run the model.
 - Do not buy an ESP32-S3 camera in addition to the selected Grove stack. Retain that architecture only as a documented fallback if the Grove model gates fail.
-- Revise any final proposal sentence that says each normal bin has its own Teensy. The budgeted prototype has one Teensy servicing three independently identified scaled bins.
+- Keep submission wording aligned with the budgeted demonstrator: one Teensy services one general-waste and two recycling bins as independently identified channels.
 - Confirm the Grove V2 model conversion, close-range image and result relay before describing the recycling classifier as implemented.
 - Load-test the 5V rail during Wi-Fi transmission and servo movement. The 5V3A label is a supply rating, not proof that the assembled prototype is stable or below the competition's 10W continuous target.
 - Keep receipts, checkout screenshots, reused-material declarations and the final measured-power record with the submission evidence.
 
 ## Rejected budget variants
 
-- **Three Teensy boards:** adding two more Teensy 4.1 boards raises the plan to RM759.98 before adding separate Wi-Fi modules, already RM156.45 over the converted ceiling.
+- **Three Teensy boards:** two unnecessary extra Teensy 4.1 boards add RM318.00 in parts before contingency. The one-controller demonstrator is the budgeted design.
 - **ESP-01 as the normal-bin Wi-Fi module:** Cytron lists it at RM6.30, but the listing says it lacks SSL support and needs a separate 3.3V regulator capable of current spikes. The RM11.65 saving is not worth weakening authenticated delivery or power reliability.
 - **ESP32-S3 camera plus laptop inference:** cheaper and easier to integrate, but it does not meet the selected goal of local recycling inference. Retain it only as a fallback if the model cannot be converted for Grove V2 or loses unacceptable accuracy after quantisation.

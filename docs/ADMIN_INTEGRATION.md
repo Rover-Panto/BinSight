@@ -2,9 +2,9 @@
 
 ## Scope
 
-The admin area will let an authorised operator inspect general-waste fill status, compare a fixed collection baseline with a priority route, review route stops, and track simulation KPIs. Keep resident tasks in the existing citizen shell.
+The admin area will let an authorised operator inspect fill status across the three-bin demonstrator, compare a fixed collection baseline with a priority route, review route stops, and track simulation KPIs. Keep resident tasks in the existing citizen shell.
 
-BinSight has two bin types with different contracts. General-waste bins produce fill telemetry for collection routing and never use vision. The recycling-return station is the only vision-enabled device; it produces item-classification and return-session events, not general-waste route inputs. Keep these records, device identities and UI states separate.
+BinSight has two bin types across three physical bins. PR #2 produces fill telemetry for one general-waste and two recycling bins; all three are eligible routing inputs. PR #3 produces recycling item-classification and return-session events. Keep fill separate from vision decisions even when both refer to the same recycling bin.
 
 Use `/admin` as the route prefix. Recommended routes:
 
@@ -78,6 +78,16 @@ interface RecyclingReturnEvent {
   isSimulation: true
 }
 
+interface RecyclingFillReading {
+  binId: string
+  binType: 'recycling-return'
+  recordedAt: string
+  fillPercent: number
+  confidence: 'high' | 'medium' | 'low'
+  health: 'online' | 'degraded' | 'offline'
+  source: 'teensy-fill-sensor'
+}
+
 interface RoutePlan {
   id: string
   mode: SimulationMode
@@ -106,7 +116,7 @@ interface KpiSnapshot {
 }
 ```
 
-The collaborator may refine these contracts. Any change must retain the bin-type boundary, units, timestamps, stable IDs, and simulation marker or document a replacement. A route snapshot accepts only `general-waste` readings. Recycling events must fail route-input validation rather than being silently coerced.
+The collaborator may refine these contracts. Any change must retain the bin-type boundary, units, timestamps, stable IDs, and simulation marker or document a replacement. A route snapshot accepts validated fill readings from both bin types and rejects recycling inference events. The classifier must not supply, modify or validate `fillPercent`.
 
 ## KPI rules
 
@@ -137,7 +147,7 @@ Do not present proposal targets as measured results. The admin UI may show targe
 
 ## Route comparison
 
-The fixed baseline represents the same general-waste bins, depot, vehicle assumptions, and time window as the priority route. A comparison is invalid when either route uses a different service area or input window. Recycling-return stations are not truck-route fill stops unless a future, separately specified collection contract adds them.
+The fixed baseline represents the same three bins, depot, vehicle assumptions, and time window as the priority route. A comparison is invalid when either route uses a different service area or input window. Preserve each bin's waste stream and do not assign incompatible waste streams to one vehicle unless the simulation explicitly defines that capability.
 
 The priority score should expose its input fields. At minimum, record fill level, time-to-overflow or risk, confidence, report urgency, and data freshness. Do not label a route as optimal unless the implementation proves optimality for the stated objective and constraints. `Priority route` is the safe default label.
 

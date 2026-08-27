@@ -4,7 +4,7 @@ Last verified: 27 August 2026
 
 ## Main branch
 
-`main` contains the citizen-facing React prototype and the proposal material. The web app is a local demonstration. It has no production API, database, payment connection, camera scanner, or deployed bin network.
+`main` contains the citizen-facing React prototype and engineering integration documentation. Proposal and submission files are kept outside Git. The web app is a local demonstration. It has no production API, database, payment connection, camera scanner, or deployed bin network.
 
 The citizen app currently supports:
 
@@ -41,10 +41,10 @@ BinSight has two and only two bin types. Keep this distinction in firmware, APIs
 
 | Bin type | Physical role | Processing boundary |
 | --- | --- | --- |
-| General waste | Three model bins measure fill and, where fitted, weight | Teensy 4.1 schedules sensing; one ESP32-C3 relays telemetry; the laptop server predicts overflow and plans routes. No camera or vision model is used. |
-| Recycling return | One station inspects submitted containers and operates the return flow | OV5647 supplies images; Grove Vision AI V2 performs local classification; a separate ESP32-C3 relays compact results and controls feedback. This is the only vision-enabled bin type. |
+| General waste | One model bin measures fill and, where fitted, weight | The shared Teensy 4.1 schedules its sensing; the PR #2 ESP32-C3 relays telemetry for overflow prediction and routing. No camera or vision model is used. |
+| Recycling return | Two model bins measure fill and support the return flow | The same Teensy and PR #2 C3 carry two independently identified fill channels into routing. OV5647/Grove Vision AI V2 performs local classification for the return flow; the separate PR #3 C3 relays compact recognition results and controls feedback. |
 
-Recycling classification results must never be treated as general-waste fill readings. General-waste readings must never be treated as evidence of material class or recycling contamination.
+Recycling fill readings and recycling inference events are independent. A classifier fault must not stop fill reporting, and fill level must not influence item acceptance. The route adapter may consume fill observations from either bin type, but must reject every classification event.
 
 ## Admin work
 
@@ -56,14 +56,14 @@ The admin implementation should use `/admin` as its route prefix and keep admin 
 
 | Track | Components | Integration target |
 | --- | --- | --- |
-| General waste | PR #2 Teensy sensing and its dedicated ESP32-C3 relay | PR #1 prediction, routing and operations portal |
-| Recycling return | PR #3 Grove model and its dedicated ESP32-C3 inference relay | `main` server, QR-bound return sessions, citizen portal and simulated payout |
+| Fill sensing for all three bins | PR #2 shared Teensy sensing and its dedicated ESP32-C3 relay | PR #1 prediction, routing and operations portal |
+| Recycling recognition | PR #3 Grove model and its dedicated ESP32-C3 inference relay | `main` server, QR-bound return sessions, citizen portal and simulated payout |
 
-PR #2 must not implement or host the recycling relay, recycling endpoint, QR workflow or citizen return state. PR #3 must not send recycling events into PR #1's routing adapter. The two tracks meet only through shared project documentation and later KPI aggregation with explicit provenance.
+PR #2 owns recycling-bin fill telemetry but must not implement Grove recognition, the inference endpoint, QR workflow or citizen return state. PR #3 must not send recognition events into PR #1's routing adapter. The tracks may share a physical recycling bin, but not event schemas, queues or decision logic.
 
 ## Hardware sourcing baseline
 
-The current budgeted topology uses one Teensy 4.1 for three distinct general-waste fill channels and one ESP32-C3 communications module. The recycling-return station uses an OV5647 camera and Grove Vision AI V2 for local inference, plus a separate ESP32-C3 for result delivery and station control. Only the recycling-return station uses vision, and neither C3 runs the recycling model. The owned Teensy is still counted at full local replacement value inside the USD150 competition ceiling.
+The USD150 demonstrator uses one Teensy 4.1 for three fill channels: one general-waste bin and two recycling bins. One PR #2 ESP32-C3 relays all three fill streams. The return flow uses one OV5647 camera and Grove Vision AI V2 for local inference, plus a separate PR #3 ESP32-C3 for recognition delivery and station control. Only recycling uses vision, and neither C3 runs the model. The owned Teensy is counted at full local replacement value inside the competition ceiling.
 
 See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for the dated Malaysian listings, Selangor delivery assumptions, budget totals and purchase gates.
 

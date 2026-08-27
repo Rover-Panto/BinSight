@@ -44,16 +44,16 @@ BinSight has exactly two bin types. Do not use “smart bin” as though one dev
 
 | Bin type | Hardware and responsibility |
 | --- | --- |
-| General waste | Three sensing channels on one Teensy 4.1, relayed by one ESP32-C3. These bins report fill, optional measured weight, health and confidence for server-side prediction and routing. They have no camera and no vision model. |
-| Recycling return | One OV5647/Grove Vision AI V2 station with a separate ESP32-C3 relay. This is the only device that classifies items or requires the vision model. The C3 receives results; it does not run inference. |
+| General waste | One demonstrator bin has a fill channel on the shared Teensy 4.1 and PR #2 ESP32-C3. It reports fill, optional measured weight, health and confidence for server-side prediction and routing. It has no camera or vision model. |
+| Recycling return | Two demonstrator bins have independent fill channels on the same Teensy/PR #2 relay. The separate OV5647/Grove Vision AI V2 path classifies submitted items, and the PR #3 ESP32-C3 relays recognition results without running inference. |
 
-Use separate device identities, event schemas, queues, firmware targets and server handlers. A recycling classification event must never enter the general-waste route adapter as a fill observation, and a general-waste reading must never be used to infer material class.
+PR #2 owns fill sensing and delivery for all three physical bins. Preserve each `bin_id`, `bin_type`, calibration and health state, and allow validated fill readings from both bin types to reach routing. PR #3 owns recognition delivery. A recycling classification event must never enter the route adapter as a fill observation, and no fill reading may be used to infer material class.
 
-Use [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md) before selecting boards or claiming budget feasibility. It counts the owned Teensy at full replacement value and separates the general-waste sensing path from the recycling camera path.
+Use [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md) before selecting boards or claiming budget feasibility. It counts the one owned Teensy at full replacement value and separates the shared three-bin fill path from the recycling camera path.
 
 ```text
-Normal smart bin
-  Ultrasonic sensors -> Teensy 4.1 with RTOS
+Three-bin fill path
+  1 general-waste + 2 recycling sensors -> one Teensy 4.1 with RTOS
       -> Wi-Fi communications module
       -> Wi-Fi access point
       -> Network connection to the central server
@@ -66,9 +66,9 @@ Central BinSight server
       -> Operator dashboard and mock truck dispatch
 ```
 
-Keep general-waste prediction and routing on the server. Keep general-waste sensor acquisition, bounded filtering, health reporting and transmission buffering at the bin. Recycling vision inference runs on Grove Vision AI V2; its accept/reject decision tree runs on the central server. A laptop can host the server for the prototype; the design should allow a separate host later. Do not buy hosting, expose services to the public internet, or connect real municipal systems as part of this task.
+Keep fill prediction and routing on the server. Keep all three channels' acquisition, bounded filtering, health reporting and transmission buffering on the shared sensing path. Recycling vision inference runs on Grove Vision AI V2; its accept/reject decision tree runs on the central server. A laptop can host the server for the prototype; the design should allow a separate host later. Do not buy hosting, expose services to the public internet, or connect real municipal systems as part of this task.
 
-Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for the three scaled general-waste bins and use the selected ESP32-C3 over UART for communications. The C3 does not replace Teensy sensing or RTOS work. Give every bin channel its own identity, calibration and health state; do not merge three readings into one virtual bin. Keep the separate Grove Vision AI V2 recycling-return path and its second ESP32-C3 distinct from this gateway.
+Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for all three scaled bins and use the selected PR #2 ESP32-C3 over UART for fill communications. The C3 does not replace Teensy sensing or RTOS work. Give every channel its own identity, type, calibration and health state; do not merge three readings into one virtual bin. Keep the Grove Vision AI V2 recognition path and its PR #3 ESP32-C3 distinct from this fill gateway.
 
 Confirm the selected module, firmware/toolchain, serial pins and shared 5V power arrangement before implementing board-specific Wi-Fi firmware. The budget baseline selects an ESP32-C3 but does not prove its wiring, power stability or firmware. Proceed with the protocol, server adapter, mocks and USB development path while those tests are pending. An HTTP upload test or laptop Wi-Fi connection does not prove standalone wireless operation at the bin.
 
@@ -83,7 +83,7 @@ Keep the Teensy and C3 code in separate target directories with pinned toolchain
 
 Use a hardware UART, 3.3V logic and a common ground. Serial1 pins 0/1 are the proposed Teensy default, but verify them against the actual Teensy pinout and existing sensor allocation before wiring. Power the C3 from a verified input on the shared regulated supply; do not power Wi-Fi radio current from the Teensy's 3.3V pin. Record the final TX/RX crossover, ground, input-voltage pin, baud rate and measured current in the setup guide.
 
-Do not fold recycling classification into this gateway. PR #2 owns only the Teensy general-waste sensing path and its dedicated ESP32-C3 relay. PR #3 and `main` own the separate recycling path, including Grove Vision AI V2, its own ESP32-C3, the recycling endpoint, QR session and citizen return workflow. PR #2 must not implement, host or test those components.
+Do not fold recycling classification into the PR #2 gateway. PR #2 owns the shared Teensy fill path and its ESP32-C3 relay for one general-waste and two recycling bins. PR #3 and `main` own Grove Vision AI V2, the recognition ESP32-C3, inference endpoint, QR session and citizen return workflow. PR #2 must implement recycling **fill** compatibility but must not implement, host or test recycling recognition.
 
 Manufacturer references: [Teensy 4.1 interfaces](https://www.pjrc.com/store/teensy41.html), [ESP32 communications capabilities](https://www.espressif.com/en/products/socs/esp32).
 
@@ -273,7 +273,7 @@ Use versioned newline-delimited JSON or an equally inspectable framed format. Do
 Every telemetry frame must carry at least:
 
 - `schema_version`, `event_id`, `controller_id`, `boot_id` and monotonic `sequence`;
-- the distinct `bin_id` for one of the three general-waste bins;
+- the distinct `bin_id` and `bin_type` for one of the three demonstrator bins;
 - acquisition time or device uptime with explicit clock-quality status;
 - measured `fill_pct`, measurement quality/health and calibration version;
 - `weight_kg: null` when no real load-cell measurement exists; and
@@ -368,7 +368,7 @@ Add these as committed tests or recorded hardware procedures. Report each as pas
 | T20 | Populated old databases migrate/restore without changing original IDs or losing records; citizen data and images remain intact. |
 | T21 | Physical Wi-Fi test uses the actual bin/module and central server, exercises reconnection and validates TLS; a mock does not satisfy this test. |
 | T22 | Clean checkout builds both the Teensy target and the pinned ESP32-C3 target using the documented commands and board settings. |
-| T23 | Teensy and C3 exchange at least 1,000 mixed three-bin frames without interleaving, parser corruption, lost bin identity or blocked sensing tasks. |
+| T23 | Teensy and C3 exchange at least 1,000 mixed frames for one general-waste and two recycling bins without interleaving, parser corruption, lost bin identity/type or blocked sensing tasks. |
 | T24 | Wi-Fi loss, HTTP 503, server restart and lost backend acknowledgement replay stable event IDs; each event is stored once and in documented order. |
 | T25 | C3 reset and full power interruption preserve every event promised as `QUEUED`; if persistence is not implemented, no such acknowledgement is emitted. |
 | T26 | Queue capacity exhaustion, malformed UART input, authentication failure and unsupported schema each produce a visible machine-readable fault without leaking credentials. |

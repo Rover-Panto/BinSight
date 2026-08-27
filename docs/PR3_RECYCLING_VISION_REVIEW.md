@@ -9,7 +9,7 @@ Reviewed: 27 August 2026
 
 ## Required Outcome
 
-The recycling-return station is the only BinSight device that uses computer vision. The OV5647 camera connects to Grove Vision AI V2, and Grove runs the deployed model locally. A dedicated ESP32-C3 reads compact inference results and sends metadata to the laptop server. The server makes the accept/reject decision and returns it to the ESP32-C3 for chute feedback and to the website for session updates.
+Only the two recycling bins participate in the computer-vision return flow. Their fill sensors are independent and belong to the shared Teensy/PR #2 telemetry path. The OV5647 camera connects to Grove Vision AI V2, and Grove runs the deployed model locally. The dedicated PR #3 ESP32-C3 relays compact inference results only. The server makes the accept/reject decision and returns it to the C3 for chute feedback and to the website for session updates.
 
 The citizen website must not open, stream or store camera images. During an active return session it waits for one terminal station event, then shows the detected container and whether the station accepted it. The eligible classes are:
 
@@ -120,6 +120,10 @@ The backend must enforce:
 - no image payload fields;
 - separate storage from general-waste fill telemetry and truck routing.
 
+### Fill-system boundary
+
+PR #3 must not read, relay, validate or store fill levels. The one Teensy and PR #2 ESP32-C3 report all three demo bins, including both recycling bins, through the routing telemetry contract. PR #3 may use a stable recycling `bin_id` only to bind an inference to the correct return location. It must not require a current fill reading before inference, acceptance or payout.
+
 ## Implemented Server Decision Policy
 
 `server/recycling_policy.py` now contains the dependency-free policy and `server/tests/test_recycling_policy.py` covers its decision rules. The networking node neither runs the model nor makes the final acceptance decision.
@@ -173,12 +177,12 @@ Updating `ItemEvent` requires a versioned citizen-data migration. Preserve exist
 ## Main Integration Order
 
 1. **Repair PR #3.** Rebase from current `main`; exclude paper from the accepted display policy; document the five-class map and its container-eligibility limits; remove the duplicate guide; isolate and pin dependencies; add ignore rules, model evaluation and the Grove export procedure.
-2. **Complete the PR #3 recycling device path.** Supply the Grove-compatible model artifact and the dedicated recycling ESP32-C3 relay that reads SSCMA class/confidence results and sends the inference contract above. PR #3 must not depend on or modify PR #1 or PR #2.
+2. **Complete the PR #3 recycling device path.** Supply the Grove-compatible model artifact and the dedicated recycling ESP32-C3 relay. It reads SSCMA class/confidence results and sends the inference contract above. It does not read or relay fill data. PR #3 must not depend on or modify PR #1 or PR #2.
 3. **Build the main-owned server endpoint.** Add authenticated `/api/v1/recycling/inferences`, QR-bound return-session endpoints, durable event storage and `server/recycling_policy.py`. Main owns the decision, session credit and citizen-facing result.
 4. **Integrate the citizen return flow in main.** Add a QR deep link such as `/return/start?station=RRS-001`, preserve it through login, create a station-bound session, wait for server decisions and keep a mock fallback for tests. Keep camera data out of the browser.
 5. **Run one end-to-end pilot.** User opens station QR -> main creates the return session -> Grove result -> PR #3 ESP32-C3 metadata relay -> main server confidence/stability gate -> stored decision -> website accept/reject -> exactly one RM0.20 credit for an accepted item.
 
-PR #1 and PR #2 form the separate general-waste routing track and are not dependencies of this integration. Keep the PR #3 device work and main-owned server/citizen changes in reviewable commits with an explicit API version.
+PR #1 and PR #2 form the separate three-bin fill/routing track and are not dependencies of recognition. Keep the PR #3 device work and main-owned server/citizen changes in reviewable commits with an explicit API version.
 
 ## Acceptance Checks
 
@@ -199,6 +203,7 @@ PR #1 and PR #2 form the separate general-waste routing track and are not depend
 | V13 | Version 3 citizen returns and payouts survive the new event migration without relabelling old bottles as glass or plastic. |
 | V14 | Existing login, payout, report and attachment browser tests still pass. |
 | V15 | Held-out results report per-class precision, recall, confusion matrix, confidence threshold and failure examples under prototype lighting. |
+| V16 | PR #2 recycling fill reports continue through a PR #3 vision fault; PR #3 decisions continue through a fill-path fault; fill level never changes item acceptance or payout. |
 
 ## Verification Performed During Review
 
