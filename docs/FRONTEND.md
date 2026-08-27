@@ -67,6 +67,8 @@ Do not write admin fixtures or route simulation output to the citizen key. Follo
 
 The resident starts a session and inserts one container at a time. The station determines the simulated item type and accepted or rejected result. Accepted items add RM0.20. The resident then chooses Bank Transfer or E-Wallet and receives a simulated receipt.
 
+The planned hardware integration receives decision metadata from the laptop server after Grove Vision AI V2 classifies the item, the recycling ESP32-C3 relays the result and the server applies the confidence gate. The browser must not access or display the station camera. Keep mock behavior behind a return-station client until the server contract is available, then place the API implementation behind the same interface. See [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md).
+
 ### Waste report
 
 The resident selects an issue, location, observation time, description, safety flag, and up to three images. The browser converts JPG, PNG, and WEBP files into compressed local attachments. The report detail page keeps them visible after submission and reload.

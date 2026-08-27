@@ -58,6 +58,10 @@ The current budgeted topology uses one Teensy 4.1 for three distinct general-was
 
 See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for the dated Malaysian listings, Selangor delivery assumptions, budget totals and purchase gates.
 
+PR #3 adds a laptop/webcam YOLO training prototype but does not yet implement the Grove export, ESP32-C3 result relay, server decision contract or website integration. It must not merge unchanged. Follow [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md) for the required class map, high-confidence decision gate, no-camera web boundary, data contract, merge order and acceptance checks.
+
+The documentation/integration branch now includes `server/recycling_policy.py`: a tested central-server decision tree that accepts stable high-confidence `plastic`, `metal` and `glass` labels and rejects every other material. It is not yet wired to an HTTP endpoint or the citizen return page. PR #3 contains no trained model artifact or dataset.
+
 ## Source of truth
 
 - `web/src/model.ts`: citizen domain types and default demonstration data

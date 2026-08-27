@@ -26,6 +26,8 @@ Recheck current branch heads before applying a finding. Another contributor may 
 - Hardware PR: [#2, Add hardware pipeline (firmware/backend/dashboard) as a separate track](https://github.com/Rover-Panto/BinSight/pull/2)
 - Hardware branch: `feature/hardware-pipeline`
 - Reviewed hardware commit: `e7055764b57663a9d916602d7b0e89f54df2eaa4`
+- Recycling-model PR: [#3, Feature/recycling yolo detector](https://github.com/Rover-Panto/BinSight/pull/3)
+- Reviewed recycling-model commit: `ed6f8a83dca0869fea69eb40685a328133c93794`
 - Routing PR: [#1, Feature/admin operations portal](https://github.com/Rover-Panto/BinSight/pull/1)
 - Routing branch: `feature/admin-operations-portal`
 - Inspected routing commit: `2e9f84ba2c2b13f93910728cdddda1589eb015ad`
@@ -33,6 +35,8 @@ Recheck current branch heads before applying a finding. Another contributor may 
 - Both PRs were open and unmerged when this file was prepared. PR #2 had no attached automated check results.
 
 Read `CONTRIBUTING.md`, `docs/PROJECT_STATE.md`, `docs/DATA_PRESERVATION.md`, and `docs/ADMIN_INTEGRATION.md` before editing. Read each PR's own README and setup instructions. Treat older proposed contracts as proposals; reconcile them with the current implementations.
+
+Read [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md) before implementing the recycling station. It defines the Grove export, ESP32-C3 inference event, server-side material decision tree, no-camera website boundary and merge acceptance checks. PR #3's current laptop webcam overlay is not the station integration.
 
 ## 2. Owner's Architecture Decision
 
@@ -66,7 +70,7 @@ Central BinSight server
       -> Operator dashboard and mock truck dispatch
 ```
 
-Keep routing and model inference on the server. Keep sensor acquisition, bounded filtering, health reporting, and transmission buffering at the bin. A laptop can host the server for the prototype; the design should allow a separate host later. Do not buy hosting, expose services to the public internet, or connect real municipal systems as part of this task.
+Keep general-waste prediction and routing on the server. Keep general-waste sensor acquisition, bounded filtering, health reporting and transmission buffering at the bin. Recycling vision inference runs on Grove Vision AI V2; its accept/reject decision tree runs on the central server. A laptop can host the server for the prototype; the design should allow a separate host later. Do not buy hosting, expose services to the public internet, or connect real municipal systems as part of this task.
 
 Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for the three scaled general-waste bins and use the selected ESP32-C3 over UART for communications. The C3 does not replace Teensy sensing or RTOS work. Give every bin channel its own identity, calibration and health state; do not merge three readings into one virtual bin. Keep the separate Grove Vision AI V2 recycling-return path and its second ESP32-C3 distinct from this gateway.
 
@@ -85,7 +89,7 @@ Use a hardware UART, 3.3V logic and a common ground. Serial1 pins 0/1 are the pr
 
 Do not fold recycling classification into this gateway. The selected recycling stack is an OV5647 camera connected to Grove Vision AI V2 for local inference, plus a second ESP32-C3 that receives only class/confidence/timing results, sends them to the server and controls station feedback. Neither C3 runs the recycling model. Keep separate device identities, firmware targets, credentials, queues and event contracts for the normal-bin gateway and recycling result relay.
 
-The Grove model has not yet been supplied. Implement the SSCMA result interface and replayable server contract with fixtures, but leave model conversion, camera focus, measured accuracy and physical inference explicitly pending. Accept the model only after it runs as a fully integer Vela-optimised TFLite build on Grove V2 and passes a held-out recycling test set. Do not claim local inference from an emulator or from a model running on a laptop/C3.
+PR #3 supplies training configuration and webcam display code, but no trained `.pt` file or Grove artifact. Its class map is `plastic`, `metal`, `glass`, `paper`, `other`. The owner's decision tree runs on the central server: accept high-confidence stable plastic/metal/glass results and reject all other labels. Import `server/recycling_policy.py` into the backend rather than deciding acceptance on the ESP32-C3. Implement the SSCMA metadata relay and replayable server contract with fixtures, but leave model conversion, camera focus, measured accuracy and physical inference pending. Accept the deployment only after the model runs as a fully integer Vela-optimised TFLite build on Grove V2 and passes the held-out checks in the PR #3 review.
 
 Manufacturer references: [Teensy 4.1 interfaces](https://www.pjrc.com/store/teensy41.html), [ESP32 communications capabilities](https://www.espressif.com/en/products/socs/esp32).
 

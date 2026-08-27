@@ -18,9 +18,11 @@ General-waste bins have no camera and perform no item classification. The recycl
 ## Repository contents
 
 - `docs/`: frontend reference, project state, admin integration, and data-preservation contracts
+- `docs/PR3_RECYCLING_VISION_REVIEW.md`: recycling-model review and Grove-to-website integration contract
 - `BinSight_UI_Design_Language.txt`: citizen and admin interface rules
 - `outputs/`: current proposal documents and review material
 - `scripts/`: proposal and document-generation scripts
+- `server/`: central-server recycling decision policy and unit tests; HTTP integration remains pending
 - `work/binsight_assets/`: project-owned visual assets
 - `work/research-notes/`: research and evidence notes
 - `research_brief_proposal_outline.md`: archived early research notes; not the current architecture source
