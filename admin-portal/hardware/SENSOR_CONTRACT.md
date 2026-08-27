@@ -1,8 +1,10 @@
-# ESP32-to-Raspberry Pi sensor contract
+# Legacy ESP32-to-Raspberry Pi sensor contract
+
+> **Architecture status:** this is the retained legacy producer/gateway reference. The current physical pilot target is Teensy 4.1 plus ESP32-C3, with routing-facing telemetry defined by `docs/TELEMETRY_ROUTING_CONTRACT.md` and `hardware/telemetry-routing-v2.schema.json`. Do not infer 11 deployed ESP32 controllers from the 11 simulation service groups.
 
 ## Physical topology
 
-One ESP32 controls exactly three underground bins. Each bin has:
+This reference ESP32 controls exactly three underground bins. Each bin has:
 
 - one downward-facing ultrasonic channel for occupied-volume percentage; and
 - one conditioned analogue pressure/force channel for estimated waste mass.
@@ -14,7 +16,7 @@ The ESP32 fires ultrasonic sensors sequentially to limit acoustic cross-talk, ta
 - Topic: `binsight/v1/telemetry/<controller_id>`
 - Current ESP32 client publish level: QoS 0 (`PubSubClient` publish API)
 - Raspberry Pi subscription request: QoS 1 where the broker/client supports it; this cannot upgrade a QoS 0 publication already sent by the ESP32
-- Payload: UTF-8 JSON matching `hardware/telemetry.schema.json`
+- Payload: UTF-8 JSON matching legacy `hardware/telemetry.schema.json` 1.1, including a per-boot `boot_id`; the gateway derives a durable event identity from controller, boot and sequence
 - Default interval: 15 minutes
 - Production: use broker authentication and TLS; never place credentials in firmware source control.
 

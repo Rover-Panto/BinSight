@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -8,7 +9,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from binsight.config import load_config, required_controller_sites
+from binsight.config import load_config, required_service_sites
 from binsight.dispatch import (
     build_dispatch_plan,
     load_last_valid_readings,
@@ -19,23 +20,32 @@ from binsight.dispatch import (
     parse_snapshot_bytes,
     parse_snapshot_json,
     route_loads_kg,
-    save_last_valid_readings,
     save_mock_dispatch,
     validate_snapshot,
-    update_last_valid_readings,
+    update_last_valid_readings_file,
 )
 from binsight.maps import build_dispatch_map, build_overview_map, build_tracking_map
 from binsight.network import load_cached_service_network, route_coordinates
-from binsight.pipeline import run_experiment
+from binsight.pipeline import experiment_scenarios, run_experiment
+from binsight.planner import PlanningService
+from binsight.planning_store import PlanningStore
+from binsight.registry import BinRegistry
 from binsight.tracking import build_tracking_manifest
 
 
 ROOT = Path(__file__).resolve().parent
 ARTIFACTS = ROOT / "artifacts"
+EVIDENCE_ARTIFACTS = (
+    ARTIFACTS / "dynamic_v2"
+    if (ARTIFACTS / "dynamic_v2" / "paired_effects.csv").exists()
+    else ARTIFACTS
+)
 DATA = ROOT / "data"
 DISPATCH_LOG = DATA / "mock_truck_dispatches.jsonl"
 LAST_VALID_READINGS = DATA / "last_valid_sensor_readings.json"
+PLANNING_DB = DATA / "routing_plans.sqlite3"
 CONFIG = load_config(ROOT / "config.json")
+REGISTRY = BinRegistry.load(ROOT / "config" / "bin_registry.json")
 
 
 st.set_page_config(
@@ -433,15 +443,23 @@ def _dispatch_map(plan, bins: pd.DataFrame, geometries):
 
 
 def _clear_dispatch_state() -> None:
-    for key in ("dispatch_plan", "dispatch_snapshot", "dispatch_geometries", "geometry_note"):
+    for key in (
+        "dispatch_plan",
+        "dispatch_snapshot",
+        "dispatch_bins",
+        "dispatch_profile_id",
+        "dispatch_plan_record",
+        "dispatch_geometries",
+        "geometry_note",
+    ):
         st.session_state.pop(key, None)
 
 
 required_files = [
-    ARTIFACTS / "paired_effects.csv",
+    EVIDENCE_ARTIFACTS / "paired_effects.csv",
     ARTIFACTS / "district_bins.csv",
-    ARTIFACTS / "representative_routes.geojson",
-    ARTIFACTS / "representative_route_events.json",
+    EVIDENCE_ARTIFACTS / "representative_routes.geojson",
+    EVIDENCE_ARTIFACTS / "representative_route_events.json",
     ARTIFACTS / "road_distance_matrix_m.npy",
     ARTIFACTS / "road_duration_matrix_s.npy",
     DATA / "subang_jaya_osrm_network.json",
@@ -456,12 +474,15 @@ with st.sidebar:
     st.markdown('<div class="sidebar-label">Pilot configuration</div>', unsafe_allow_html=True)
     st.write(CONFIG.pilot.label)
     st.metric("Underground bins", CONFIG.pilot.bin_count)
-    st.metric("Three-bin controller sites", required_controller_sites(CONFIG))
+    st.metric("Three-bin service sites", required_service_sites(CONFIG))
     st.metric("Truck payload", f"{CONFIG.operations.truck_capacity_kg:,.0f} kg")
-    st.metric("Paired runs", f"{CONFIG.operations.replications} × 5 scenarios")
+    st.metric(
+        "Paired runs",
+        f"{CONFIG.operations.replications} × {len(experiment_scenarios(CONFIG))} scenarios",
+    )
     if st.button("Run 30-day experiment", type="primary", width="stretch"):
         with st.spinner("Running paired 30-day simulations…"):
-            run_experiment(ROOT)
+            run_experiment(ROOT, artifact_set="dynamic_v2")
         st.success("Experiment complete")
         st.rerun()
     st.markdown(
@@ -476,7 +497,7 @@ st.markdown(
       <div>
         <span class="hero-kicker">Focus Area C · Subang Jaya</span>
         <h1>Which bins need collection?</h1>
-        <p>Check predicted overflow risk, build a capacity-safe truck route, and review the road plan before recording a mock dispatch.</p>
+        <p>Check overflow service risk, compare a trip with waiting or merging, and review the capacity-safe road plan before recording a mock dispatch.</p>
       </div>
       <div class="hero-context" aria-label="Available operator tasks">
         <div class="hero-context-label">Available now</div>
@@ -493,17 +514,20 @@ if not all(path.exists() for path in required_files):
     st.info("Generate the project artifacts with `python -m binsight.cli run`, or use Run full experiment.")
     st.stop()
 
-effects_all = pd.read_csv(ARTIFACTS / "paired_effects.csv")
+effects_all = pd.read_csv(EVIDENCE_ARTIFACTS / "paired_effects.csv")
 if "scenario" not in effects_all.columns:
     effects_all["scenario"] = "base"
-forecast = json.loads((ARTIFACTS / "forecast_evaluation.json").read_text(encoding="utf-8"))
+forecast = json.loads((EVIDENCE_ARTIFACTS / "forecast_evaluation.json").read_text(encoding="utf-8"))
 bins = pd.read_csv(ARTIFACTS / "district_bins.csv")
 distance_matrix = np.load(ARTIFACTS / "road_distance_matrix_m.npy")
-routes = json.loads((ARTIFACTS / "representative_routes.geojson").read_text(encoding="utf-8"))
+duration_matrix = np.load(ARTIFACTS / "road_duration_matrix_s.npy")
+routes = json.loads((EVIDENCE_ARTIFACTS / "representative_routes.geojson").read_text(encoding="utf-8"))
 route_events = json.loads(
-    (ARTIFACTS / "representative_route_events.json").read_text(encoding="utf-8")
+    (EVIDENCE_ARTIFACTS / "representative_route_events.json").read_text(encoding="utf-8")
 )
-base_route_events = route_events.get("base", route_events)
+base_route_events = route_events.get(
+    "normal_patterned", route_events.get("base", route_events)
+)
 completed_smart_events = [
     event for event in base_route_events["smart"] if event.get("completed", False)
 ]
@@ -573,7 +597,7 @@ with overview_tab:
         st.subheader("Representative road routes")
         st.caption(
             f"Smart dispatch from simulation day {representative_smart_event['day']}, "
-            f"{representative_smart_event['hour'] % 24:02d}:00. Each marker is one ESP32 site with three co-located bins."
+            f"{representative_smart_event['hour'] % 24:02d}:00. Each marker is one simulated service site with three co-located bins."
         )
         _render_map(
             _overview_map(
@@ -622,7 +646,7 @@ with overview_tab:
         st.dataframe(display.round(3), width="stretch")
         st.warning("The comparison measures this configured simulation, not proven real-world impact.")
 
-    with st.expander("Controller-site schedule · 11 sites / 33 bins"):
+    with st.expander("Simulated service-site schedule · 11 sites / 33 bins"):
         site_table = sites[
             [
                 "site_id",
@@ -634,7 +658,7 @@ with overview_tab:
                 "commercial_units",
             ]
         ].copy()
-        site_table.insert(3, "underground_bins", CONFIG.pilot.bins_per_controller)
+        site_table.insert(3, "underground_bins", CONFIG.pilot.bins_per_service_site)
         st.dataframe(site_table, hide_index=True, width="stretch")
 
     st.subheader("All KPI effects")
@@ -661,11 +685,28 @@ with overview_tab:
     st.caption("Positive values mean the smart policy improved the metric in its beneficial direction.")
 
 with input_tab:
-    st.markdown('<p class="micro-label">Predictive data handoff</p>', unsafe_allow_html=True)
+    st.markdown('<p class="micro-label">Versioned telemetry handoff</p>', unsafe_allow_html=True)
     st.subheader("Build a collection route")
+    selected_profile_id = st.selectbox(
+        "Operating profile",
+        ["competition-simulation", "physical-pilot"],
+        format_func=lambda value: (
+            "Competition simulation · 33 synthetic bins"
+            if value == "competition-simulation"
+            else "Physical pilot · 1 general + 2 recycling fill channels (replay only)"
+        ),
+        help="Live hardware routing remains disabled until producer/consumer acceptance gates pass.",
+    )
+    expected_bin_count = 33 if selected_profile_id == "competition-simulation" else 3
+    profile_scope = (
+        "all 33 synthetic mixed-waste bins"
+        if selected_profile_id == "competition-simulation"
+        else "the registered general-waste bin and both recycling-return fill channels"
+    )
     st.caption(
-        "Provide all 33 bins at one timestamp. BinSight validates the data, applies the smart collection policy, "
-        "and uses the cached OpenStreetMap road matrix with OR-Tools to build capacity-safe trips."
+        f"Provide {profile_scope}. BinSight preserves source time, type, stream and quality, "
+        "then compares overflow-avoidance value with fixed-trip, road, time, service, and low-fill costs. "
+        "Vision recognition/classification/session events are rejected."
     )
 
     if "dispatch_plan" not in st.session_state:
@@ -696,10 +737,19 @@ with input_tab:
             language="csv",
         )
         download_left, download_right = st.columns(2)
-        template = make_snapshot_template(bins["bin_id"])
+        profile_bins = bins if selected_profile_id == "competition-simulation" else bins.iloc[:3]
+        template = make_snapshot_template(profile_bins["bin_id"])
         demo = make_demo_snapshot(bins)
+        if selected_profile_id == "physical-pilot":
+            example_json = (ROOT / "tests" / "fixtures" / "telemetry_v2_valid.json").read_bytes()
+            example_name = "binsight_telemetry_routing_v2_example.json"
+        else:
+            example_json = json.dumps(
+                {"bins": demo.to_dict(orient="records")}, indent=2
+            ).encode("utf-8")
+            example_name = "binsight_predictive_snapshot_example.json"
         download_left.download_button(
-            "Download blank 33-bin CSV template",
+            f"Download blank {expected_bin_count}-bin legacy CSV",
             template.to_csv(index=False).encode("utf-8"),
             file_name="binsight_predictive_snapshot_template.csv",
             mime="text/csv",
@@ -707,15 +757,18 @@ with input_tab:
         )
         download_right.download_button(
             "Download working JSON example",
-            json.dumps({"bins": demo.to_dict(orient="records")}, indent=2).encode("utf-8"),
-            file_name="binsight_predictive_snapshot_example.json",
+            example_json,
+            file_name=example_name,
             mime="application/json",
             width="stretch",
         )
 
+    input_options = ["Upload CSV or JSON", "Paste JSON"]
+    if selected_profile_id == "competition-simulation":
+        input_options.append("Use built-in demo")
     input_method = st.radio(
         "Input method",
-        ["Upload CSV or JSON", "Paste JSON", "Use built-in demo"],
+        input_options,
         horizontal=True,
     )
     uploaded = None
@@ -723,7 +776,7 @@ with input_tab:
     demo_snapshot = None
     if input_method == "Upload CSV or JSON":
         uploaded = st.file_uploader(
-            "Predictive AI snapshot",
+            "Routing snapshot or telemetry replay",
             type=["csv", "json"],
             help="One row per bin. Extra columns are allowed but ignored.",
         )
@@ -744,36 +797,80 @@ with input_tab:
             if input_method == "Upload CSV or JSON":
                 if uploaded is None:
                     raise ValueError("Choose a CSV or JSON file first")
-                raw_snapshot = parse_snapshot_bytes(uploaded.getvalue(), uploaded.name)
+                raw_snapshot = parse_snapshot_bytes(
+                    uploaded.getvalue(),
+                    uploaded.name,
+                    registry=REGISTRY,
+                    profile_id=selected_profile_id,
+                )
             elif input_method == "Paste JSON":
                 if not pasted_json.strip():
                     raise ValueError("Paste the JSON snapshot first")
-                raw_snapshot = parse_snapshot_json(pasted_json)
+                raw_snapshot = parse_snapshot_json(
+                    pasted_json,
+                    registry=REGISTRY,
+                    profile_id=selected_profile_id,
+                )
             else:
                 raw_snapshot = demo_snapshot
-            normalized = validate_snapshot(
-                raw_snapshot,
-                bins["bin_id"],
-                CONFIG.operations.crane_lift_limit_kg,
-                stale_after_hours=CONFIG.sensor.stale_after_hours,
-                future_tolerance_minutes=CONFIG.sensor.future_tolerance_minutes,
-            )
+            if selected_profile_id == "competition-simulation":
+                if len(raw_snapshot) != len(bins):
+                    raise ValueError("Competition simulation input must contain all 33 bins")
+                active_bins = bins.reset_index(drop=True)
+                active_distance = distance_matrix
+                active_duration = duration_matrix
+                profile_id = "competition-simulation"
+            else:
+                if len(raw_snapshot) != 3:
+                    raise ValueError("Physical pilot input must contain all 3 registered bins")
+                active_bins = bins.iloc[:3].reset_index(drop=True)
+                registry_entries = {
+                    entry.canonical_bin_id: entry
+                    for entry in REGISTRY.entries_for("physical-pilot")
+                }
+                active_bins["bin_type"] = [
+                    registry_entries[str(value)].bin_type
+                    for value in active_bins["bin_id"]
+                ]
+                active_bins["waste_stream"] = [
+                    registry_entries[str(value)].waste_stream
+                    for value in active_bins["bin_id"]
+                ]
+                indices = np.array([0, 1, 2, 3])
+                active_distance = distance_matrix[np.ix_(indices, indices)]
+                active_duration = duration_matrix[np.ix_(indices, indices)]
+                REGISTRY.validate_matrix("physical-pilot", active_distance)
+                profile_id = "physical-pilot"
             with st.spinner("Applying collection rules and optimizing OSM-road trips…"):
                 last_valid = load_last_valid_readings(LAST_VALID_READINGS)
-                plan = build_dispatch_plan(
-                    normalized,
-                    bins,
-                    distance_matrix,
+                store = PlanningStore(PLANNING_DB)
+                service = PlanningService(
                     CONFIG,
-                    last_valid,
+                    active_bins,
+                    active_distance,
+                    active_duration,
+                    store,
+                    network_version="subang-jaya-osrm-v1",
+                    model_version="forecast-synthetic-q90-v2",
                 )
-                geometries, geometry_note = _dispatch_geometries(plan, bins)
-                save_last_valid_readings(
-                    update_last_valid_readings(last_valid, normalized, bins, CONFIG),
-                    LAST_VALID_READINGS,
+                result = service.evaluate(
+                    raw_snapshot,
+                    decision_at=datetime.now(timezone.utc),
+                    last_valid_readings=last_valid,
+                )
+                plan = result.plan
+                normalized = result.snapshot
+                plan_record = result.stored_record
+                store.close()
+                geometries, geometry_note = _dispatch_geometries(plan, active_bins)
+                update_last_valid_readings_file(
+                    normalized, active_bins, CONFIG, LAST_VALID_READINGS
                 )
             st.session_state["dispatch_plan"] = plan
             st.session_state["dispatch_snapshot"] = normalized
+            st.session_state["dispatch_bins"] = active_bins
+            st.session_state["dispatch_profile_id"] = profile_id
+            st.session_state["dispatch_plan_record"] = plan_record
             st.session_state["dispatch_geometries"] = geometries
             st.session_state["geometry_note"] = geometry_note
             st.rerun()
@@ -785,6 +882,8 @@ with input_tab:
     if "dispatch_plan" in st.session_state:
         plan = st.session_state["dispatch_plan"]
         snapshot = st.session_state["dispatch_snapshot"]
+        plan_bins = st.session_state.get("dispatch_bins", bins)
+        plan_record = st.session_state.get("dispatch_plan_record", {"status": "DRAFT"})
         geometries = st.session_state["dispatch_geometries"]
         geometry_note = st.session_state.get("geometry_note")
         if plan.collection_required:
@@ -804,28 +903,38 @@ with input_tab:
         else:
             st.markdown(
                 '<div class="status-card status-safe"><strong>No collection required</strong>'
-                '<span>No bin crossed the current-fill, risk, or 48-hour overflow trigger.</span></div>',
+                '<span>Waiting or merging with a later route has lower expected cost while the overflow service constraint remains satisfied.</span></div>',
                 unsafe_allow_html=True,
             )
 
         if plan.inspection_required:
             st.warning(
                 "Safety review remains open. Low-confidence readings were retained conservatively; "
-                "see the 33-bin audit for the reason attached to every affected bin."
+                "see the decision audit for the reason attached to every affected bin."
             )
 
-        if plan.collection_required:
+        st.caption(
+            f"Plan {plan.plan_id} · {plan.source_mode} · {plan.policy_version} · "
+            f"lifecycle {plan_record.get('status', 'DRAFT')}"
+        )
+
+        if plan.collection_required and plan.route_plan.routes:
             loads = route_loads_kg(plan, snapshot)
-            summary_columns = st.columns(4)
+            summary_columns = st.columns(5)
             summary_columns[0].metric("Selected bins", plan.selected_count)
             summary_columns[1].metric("Truck trips", len(plan.route_plan.routes))
             summary_columns[2].metric("Road distance", f"{plan.route_plan.distance_m / 1000:.1f} km")
             summary_columns[3].metric("Planned load", f"{sum(loads):,.0f} kg")
+            summary_columns[4].metric(
+                "Net trip value",
+                f"{plan.route_plan.net_value_m_equivalent:,.0f} m-eq",
+                help="Prototype metre-equivalent avoided-loss value minus route operating cost.",
+            )
             map_col, list_col = st.columns([1.5, 1], gap="large")
             with map_col:
                 st.subheader("Dispatch route preview")
                 st.caption("Road shape from OSRM/OpenStreetMap; route order and capacity from OR-Tools.")
-                _render_map(_dispatch_map(plan, bins, geometries), height=590)
+                _render_map(_dispatch_map(plan, plan_bins, geometries), height=590)
                 if geometry_note:
                     st.warning(geometry_note)
             with list_col:
@@ -852,12 +961,17 @@ with input_tab:
                     zip(plan.route_plan.routes, loads), start=1
                 ):
                     labels = [
-                        "DEPOT" if index == -1 else str(bins.iloc[index]["bin_id"])
+                        "DEPOT" if index == -1 else str(plan_bins.iloc[index]["bin_id"])
                         for index in route
                     ]
                     st.markdown(f"**Trip {trip_number} · {load:,.0f} kg**")
                     st.write(" → ".join(labels))
                 st.caption(f"Solver: {plan.route_plan.solver_method}")
+                st.caption(
+                    f"Decision: {plan.route_plan.dispatch_reason}; operating cost "
+                    f"{plan.route_plan.operating_cost_m_equivalent:,.0f} m-eq; avoided loss "
+                    f"{plan.route_plan.avoided_loss_value_m_equivalent:,.0f} m-eq."
+                )
 
             for warning in plan.warnings:
                 st.warning(warning)
@@ -865,32 +979,90 @@ with input_tab:
                 st.error("Mock dispatch is blocked because at least one required bin could not be assigned within daily capacity.")
 
             st.markdown(
-                '<div class="mock-note"><strong>Mock connection only.</strong> The button below writes a local JSON dispatch record. It does not contact a real truck, driver, or municipality.</div>',
+                '<div class="mock-note"><strong>Draft and mock connection only.</strong> Approving freezes this version; sending records one idempotent local mock dispatch. Mark complete only after the simulated service finishes so delayed pre-service readings cannot schedule the same bin again. No action contacts a real truck, driver, or municipality.</div>',
                 unsafe_allow_html=True,
             )
+            state_store = PlanningStore(PLANNING_DB)
+            mock_dispatch_exists = state_store.has_mock_dispatch(plan.plan_id)
+            state_store.close()
+            lifecycle_left, lifecycle_middle, lifecycle_right = st.columns(3)
+            if lifecycle_left.button(
+                "Approve route proposal",
+                width="stretch",
+                disabled=plan_record.get("status") != "DRAFT",
+            ):
+                store = PlanningStore(PLANNING_DB)
+                st.session_state["dispatch_plan_record"] = store.accept(
+                    plan.plan_id, "local-operator", "Approved in Streamlit preview"
+                )
+                store.close()
+                st.rerun()
+            if lifecycle_middle.button(
+                "Cancel route proposal",
+                width="stretch",
+                disabled=plan_record.get("status") != "DRAFT",
+            ):
+                store = PlanningStore(PLANNING_DB)
+                st.session_state["dispatch_plan_record"] = store.cancel(
+                    plan.plan_id, "local-operator", "Cancelled in Streamlit preview"
+                )
+                store.close()
+                st.rerun()
+            if lifecycle_right.button(
+                "Mark mock route completed",
+                width="stretch",
+                disabled=(
+                    plan_record.get("status") != "ACCEPTED"
+                    or not mock_dispatch_exists
+                ),
+                help="Records every served bin as emptied after the mock route has been recorded.",
+            ):
+                store = PlanningStore(PLANNING_DB)
+                st.session_state["dispatch_plan_record"] = store.complete(
+                    plan.plan_id,
+                    "local-operator",
+                    "Mock route marked complete in Streamlit preview",
+                )
+                store.close()
+                st.rerun()
             if st.button(
                 "Send mock route to garbage truck",
                 type="primary",
                 width="stretch",
-                disabled=bool(plan.unserved_required_bin_indices),
+                disabled=(
+                    bool(plan.unserved_required_bin_indices)
+                    or plan_record.get("status") != "ACCEPTED"
+                ),
             ):
-                payload = mock_dispatch_payload(plan, snapshot, bins, CONFIG)
-                save_mock_dispatch(payload, DISPATCH_LOG)
-                st.session_state["last_mock_dispatch"] = payload
-                st.success(f"Mock route sent to MOCK-TRUCK-01 · dispatch {payload['dispatch_id']}")
-                st.toast("Mock truck dispatch recorded locally", icon="✅")
+                payload = mock_dispatch_payload(plan, snapshot, plan_bins, CONFIG)
+                store = PlanningStore(PLANNING_DB)
+                recorded, created = store.record_mock_dispatch(plan.plan_id, payload)
+                store.close()
+                st.session_state["last_mock_dispatch"] = recorded
+                verb = "recorded" if created else "already recorded"
+                st.success(
+                    f"Mock route {verb} for MOCK-TRUCK-01 · dispatch {recorded['dispatch_id']}"
+                )
+                st.toast("Mock dispatch audit updated", icon="✅")
+        elif plan.collection_required:
+            st.error(
+                "Collection is safety-required, but no feasible route was produced. Dispatch remains blocked until capacity, time, or data constraints are resolved."
+            )
         elif plan.inspection_required:
             st.subheader("Inspection map")
             st.caption(
                 "Amber controller sites require a sensor or data review. No mock truck route was created."
             )
-            _render_map(_dispatch_map(plan, bins, geometries), height=590)
+            _render_map(_dispatch_map(plan, plan_bins, geometries), height=590)
             if geometry_note:
                 st.warning(geometry_note)
         else:
             st.info("No truck route was created because collection is not currently required.")
 
-        with st.expander("Full 33-bin decision audit", expanded=plan.inspection_required):
+        with st.expander(
+            f"Full {len(plan.audit_rows)}-bin decision audit",
+            expanded=plan.inspection_required,
+        ):
             audit_table = pd.DataFrame(plan.audit_rows)
             st.dataframe(
                 audit_table[
@@ -903,6 +1075,9 @@ with input_tab:
                         "weight_kg",
                         "conservative_upper_fill_pct",
                         "time_to_overflow_hours",
+                        "forecast_status",
+                        "overflow_probability_before_next_opportunity",
+                        "pickup_avoided_loss_value_m_equivalent",
                         "risk_level",
                         "confidence_flag",
                         "reading_age_hours",
@@ -964,32 +1139,65 @@ with tracking_tab:
 
 with log_tab:
     st.markdown('<p class="micro-label">Prototype audit trail</p>', unsafe_allow_html=True)
-    st.subheader("Dispatch records")
-    st.caption("Stored locally in data/mock_truck_dispatches.jsonl. These records are not external transmissions.")
-    records = load_mock_dispatches(DISPATCH_LOG)
-    if not records:
-        st.info("No mock routes have been sent yet.")
+    st.subheader("Plans and mock dispatch records")
+    st.caption(
+        "Draft, accepted, completed, and cancelled plans are stored transactionally in "
+        "data/routing_plans.sqlite3. Telemetry and citizen records remain separate."
+    )
+    store = PlanningStore(PLANNING_DB)
+    plan_records = store.latest()
+    records = store.latest_mock_dispatches()
+    store.close()
+    if not plan_records:
+        st.info("No durable route proposals have been created yet.")
     else:
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "plan_id": record["plan_id"],
+                        "decision_at": record["decision_at"],
+                        "status": record["status"],
+                        "source_mode": record["source_mode"],
+                        "selected_bins": len(record["plan"]["selected_bin_indices"]),
+                        "required_bins": len(record["plan"]["required_bin_indices"]),
+                        "record_version": record["record_version"],
+                    }
+                    for record in plan_records
+                ]
+            ),
+            hide_index=True,
+            width="stretch",
+        )
+    if records:
         log_rows = [
             {
-                "dispatch_id": record.get("dispatch_id"),
-                "created_at_utc": record.get("created_at_utc"),
-                "truck": record.get("vehicle_id"),
-                "bins": record.get("selected_bin_count"),
-                "trips": record.get("trip_count"),
-                "distance_km": record.get("route_distance_km"),
-                "status": record.get("status"),
+                "dispatch_id": record["dispatch_id"],
+                "plan_id": record["plan_id"],
+                "created_at_utc": record["created_at"],
+                "truck": record["payload"].get("vehicle_id"),
+                "bins": record["payload"].get("selected_bin_count"),
+                "trips": record["payload"].get("trip_count"),
+                "distance_km": record["payload"].get("route_distance_km"),
+                "status": record["payload"].get("status"),
             }
             for record in records
         ]
         st.dataframe(pd.DataFrame(log_rows), hide_index=True, width="stretch")
         st.download_button(
             "Download latest dispatch JSON",
-            json.dumps(records[0], indent=2).encode("utf-8"),
-            file_name=f"{records[0].get('dispatch_id', 'mock-dispatch')}.json",
+            json.dumps(records[0]["payload"], indent=2).encode("utf-8"),
+            file_name=f"{records[0]['dispatch_id']}.json",
             mime="application/json",
         )
         with st.expander("View latest mock payload"):
-            st.json(records[0])
+            st.json(records[0]["payload"])
+    legacy_records = load_mock_dispatches(DISPATCH_LOG)
+    if legacy_records:
+        with st.expander("Legacy JSONL dispatch records (read-only)"):
+            st.caption(
+                "Records created before the transactional plan lifecycle are preserved and are not rewritten."
+            )
+            st.dataframe(pd.DataFrame(legacy_records), hide_index=True, width="stretch")
 
 st.caption("BinSight Focus Area C · OpenStreetMap/OSRM routing · prototype operator decision support")

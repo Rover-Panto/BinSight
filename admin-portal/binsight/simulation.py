@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field, replace
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import numpy as np
@@ -8,7 +9,9 @@ import pandas as pd
 import simpy
 
 from .config import Config
+from .demand import DemandContext, DemandScenario
 from .district import BinSpec
+from .dispatch import build_dispatch_plan, validate_snapshot
 from .forecast import ForecastBundle, make_feature_row
 from .fuel import calculate_idle_fuel, calculate_leg_fuel, leg_travel_minutes
 from .observations import generate_sensor_noise_scenario, observe_sensors
@@ -27,8 +30,8 @@ _incremental_proxy_distance_m = incremental_proxy_distance_m
 
 @dataclass(frozen=True)
 class SimulationScenario:
-    name: str = "base"
-    demand_multiplier: float = 1.0
+    name: str = "normal_patterned"
+    demand: DemandScenario = field(default_factory=DemandScenario)
     traffic_multiplier: float = 1.0
     sensor_missing_probability: float | None = None
     sensor_outlier_probability: float | None = None
@@ -42,6 +45,7 @@ class PolicyResult:
     metrics: dict[str, float | int | str]
     route_events: list[dict]
     final_fill_kg: np.ndarray
+    regime_metrics: list[dict[str, float | int | str]] = field(default_factory=list)
 
 
 def _time_to_overflow_hours(
@@ -76,7 +80,7 @@ def _risk_levels(
     )
     critical = (
         (fill_pct >= config.operations.smart_emergency_current_trigger_pct)
-        | (time_to_overflow_hours <= config.operations.smart_emergency_time_to_overflow_hours)
+        | (time_to_overflow_hours <= 0.0)
     )
     levels[medium] = "medium"
     levels[high] = "high"
@@ -105,6 +109,7 @@ def run_policy(
     sensor_seed: int,
     forecaster: ForecastBundle | None = None,
     scenario: SimulationScenario | None = None,
+    demand_context: DemandContext | None = None,
 ) -> PolicyResult:
     if policy not in {"fixed", "smart"}:
         raise ValueError("policy must be 'fixed' or 'smart'")
@@ -115,17 +120,33 @@ def run_policy(
     horizon_minutes = horizon_hours * 60
     if arrivals_kg.shape != (horizon_hours, len(bins)):
         raise ValueError("arrivals_kg has the wrong shape")
+    if demand_context is not None and (
+        demand_context.current_event_intensity.shape != arrivals_kg.shape
+        or demand_context.known_event_intensity_48h.shape != arrivals_kg.shape
+        or demand_context.known_event_intensity_168h.shape != arrivals_kg.shape
+        or len(demand_context.regime_labels) != horizon_hours
+    ):
+        raise ValueError("Demand context must align with the arrival matrix")
     expected_shape = (len(bins) + 1, len(bins) + 1)
     if distance_matrix_m.shape != expected_shape or duration_matrix_s.shape != expected_shape:
         raise ValueError("Road distance and duration matrices must contain depot plus every bin")
 
     env = simpy.Environment()
     capacities = np.array([item.capacity_kg for item in bins], dtype=float)
+    bins_table = pd.DataFrame([asdict(item) for item in bins])
+    reference_epoch = datetime.fromisoformat(config.demand.reference_start_utc).astimezone(
+        timezone.utc
+    )
+    start_absolute_hour = (
+        int(demand_context.absolute_hours[0]) if demand_context is not None else 0
+    )
+    simulation_epoch = reference_epoch + timedelta(hours=start_absolute_hour)
     hidden_mass = np.zeros(len(bins), dtype=float)
-    observed_history: list[list[float]] = [[] for _ in bins]
+    observed_history: list[list[tuple[float, float]]] = [[] for _ in bins]
     last_valid_fill = np.full(len(bins), np.nan, dtype=float)
     last_valid_weight = np.full(len(bins), np.nan, dtype=float)
     last_valid_hour = np.full(len(bins), np.nan, dtype=float)
+    last_collection_feature_hour = np.full(len(bins), np.nan, dtype=float)
     observation_count = horizon_hours // config.waste.sensor_interval_hours + 1
     sensor_scenario = generate_sensor_noise_scenario(
         config,
@@ -136,7 +157,10 @@ def run_policy(
         outlier_probability=active_scenario.sensor_outlier_probability,
     )
     route_events: list[dict[str, Any]] = []
-    last_dispatch_hour = -10_000.0
+    # Both policies start from the same empty district. Optional dynamic work
+    # must accrue a full consolidation interval before its first departure;
+    # emergency/service constraints can still override this clock.
+    last_optional_dispatch_hour = 0.0
     truck_active = False
     trips_by_day: dict[int, int] = {}
     warmup_minute = config.operations.analysis_warmup_days * 24 * 60
@@ -166,13 +190,28 @@ def run_policy(
         "collection_idle_fuel_l",
         "depot_idle_fuel_l",
         "routing_fallbacks",
+        "forecast_driven_dispatches",
+        "capacity_constrained_decisions",
+        "dispatch_limit_blocks",
+        "sensor_uncertainty_decisions",
     )
     totals = {name: 0.0 for name in metric_names}
     post_warmup = {name: 0.0 for name in metric_names}
+    regime_totals = {
+        label: {name: 0.0 for name in metric_names}
+        for label in ("quiet", "normal", "surge")
+    }
 
     def record(name: str, value: float, at_minute: float | None = None) -> None:
         moment = env.now if at_minute is None else at_minute
         totals[name] += float(value)
+        regime_hour = min(horizon_hours - 1, max(0, int(float(moment) // 60)))
+        regime_label = (
+            demand_context.regime_labels[regime_hour]
+            if demand_context is not None
+            else "normal"
+        )
+        regime_totals[regime_label][name] += float(value)
         if moment >= warmup_minute:
             post_warmup[name] += float(value)
 
@@ -210,12 +249,20 @@ def run_policy(
                 )
                 if fused_missing:
                     upper_fill[index] = aged_fill
-                    upper_weight[index] = max(
-                        last_valid_weight[index], aged_fill / 100.0 * capacities[index]
+                    derived_weight = aged_fill / 100.0 * capacities[index]
+                    upper_weight[index] = (
+                        max(last_valid_weight[index], derived_weight)
+                        if np.isfinite(last_valid_weight[index])
+                        else derived_weight
                     )
                 else:
                     upper_fill[index] = max(upper_fill[index], aged_fill)
-                    upper_weight[index] = max(upper_weight[index], last_valid_weight[index])
+                    if np.isfinite(last_valid_weight[index]):
+                        upper_weight[index] = (
+                            max(upper_weight[index], last_valid_weight[index])
+                            if np.isfinite(upper_weight[index])
+                            else last_valid_weight[index]
+                        )
                 review_reasons[index].append("last valid reading retained conservatively")
             elif fused_missing:
                 # No reading is not evidence of a full bin. Preserve the unsafe state
@@ -229,149 +276,82 @@ def run_policy(
             review_reasons,
         )
 
-    def choose_smart_bins(
+    def predict_smart_state(
         hour: int,
         batch,
         upper_fill: np.ndarray,
-        route_weights: np.ndarray,
-        remaining_trips: int,
     ):
         model_fill = batch.fill_pct.copy()
         model_weight = batch.weight_kg.copy()
         for index in range(len(bins)):
             if not np.isfinite(model_fill[index]):
                 model_fill[index] = (
-                    observed_history[index][-1] if observed_history[index] else upper_fill[index]
+                    observed_history[index][-1][1] if observed_history[index] else upper_fill[index]
                 )
             if not np.isfinite(model_weight[index]):
                 model_weight[index] = model_fill[index] / 100.0 * capacities[index]
-        feature_rows = [
-            make_feature_row(
-                item,
-                float(model_fill[index]),
-                float(model_weight[index]),
-                bool(batch.confidence_flag[index]),
-                observed_history[index],
-                hour,
+        feature_hour = (
+            int(demand_context.absolute_hours[hour])
+            if demand_context is not None
+            else hour
+        )
+        feature_rows = []
+        for index, item in enumerate(bins):
+            feature_rows.append(
+                make_feature_row(
+                    item,
+                    float(model_fill[index]),
+                    float(model_weight[index]),
+                    bool(batch.confidence_flag[index]),
+                    observed_history[index],
+                    feature_hour,
+                    last_collection_hour=(
+                        float(last_collection_feature_hour[index])
+                        if np.isfinite(last_collection_feature_hour[index])
+                        else None
+                    ),
+                    current_event_intensity=(
+                        float(demand_context.current_event_intensity[hour, index])
+                        if demand_context is not None
+                        else 0.0
+                    ),
+                    known_event_intensity_48h=(
+                        float(demand_context.known_event_intensity_48h[hour, index])
+                        if demand_context is not None
+                        else 0.0
+                    ),
+                    known_event_intensity_168h=(
+                        float(demand_context.known_event_intensity_168h[hour, index])
+                        if demand_context is not None
+                        else 0.0
+                    ),
+                    calendar_timestamp=reference_epoch + timedelta(hours=feature_hour),
+                )
             )
-            for index, item in enumerate(bins)
-        ]
         predicted_mean, predicted_upper = forecaster.predict(pd.DataFrame(feature_rows))
+        overflow_probability_6h = (
+            forecaster.predict_overflow_probability_6h(pd.DataFrame(feature_rows))
+            if hasattr(forecaster, "predict_overflow_probability_6h")
+            else np.full(len(feature_rows), np.nan, dtype=float)
+        )
+        overflow_probability_48h = (
+            forecaster.predict_overflow_probability_48h(pd.DataFrame(feature_rows))
+            if hasattr(forecaster, "predict_overflow_probability_48h")
+            else np.full(len(feature_rows), np.nan, dtype=float)
+        )
         time_to_overflow = _time_to_overflow_hours(
             upper_fill,
             predicted_upper,
             config.operations.forecast_horizon_hours,
         )
         risk = _risk_levels(upper_fill, time_to_overflow, config)
-        # A low-confidence forecast cannot by itself command a truck. Preserve
-        # only the conservative emergency current/aged-fill trigger; route the
-        # remaining uncertainty to inspection rather than fabricating urgency.
-        for index in range(len(bins)):
-            if batch.confidence_flag[index]:
-                continue
-            if (
-                upper_fill[index]
-                >= config.operations.smart_emergency_current_trigger_pct
-            ):
-                risk[index] = "critical"
-            else:
-                risk[index] = "low"
-        required = [index for index in range(len(bins)) if risk[index] in {"high", "critical"}]
-        required.sort(
-            key=lambda index: (
-                risk[index] != "critical",
-                time_to_overflow[index],
-                -upper_fill[index],
-                bins[index].bin_id,
-            )
-        )
-        selected, _ = select_capacity_feasible(
-            required,
-            route_weights,
-            effective_truck_capacity,
-            remaining_trips,
-        )
-
-        selected_sites = {bins[index].service_index for index in selected}
-        siblings = sorted(
-            (
-                index
-                for index in range(len(bins))
-                if index not in selected
-                and bins[index].service_index in selected_sites
-                and (
-                    (
-                        batch.confidence_flag[index]
-                        and (
-                            upper_fill[index]
-                            >= config.operations.smart_sibling_include_current_pct
-                            or time_to_overflow[index]
-                            <= config.operations.smart_sibling_include_time_to_overflow_hours
-                        )
-                    )
-                    or (
-                        not batch.confidence_flag[index]
-                        and risk[index] == "critical"
-                    )
-                )
-            ),
-            key=lambda index: (time_to_overflow[index], -upper_fill[index], bins[index].bin_id),
-        )
-        selected_siblings: list[int] = []
-        for index in siblings:
-            proposal, rejected = select_capacity_feasible(
-                selected + [index],
-                route_weights,
-                effective_truck_capacity,
-                remaining_trips,
-            )
-            if not rejected:
-                selected = proposal
-                selected_siblings.append(index)
-
-        optional_candidates = sorted(
-            (
-                index
-                for index in range(len(bins))
-                if index not in selected
-                and batch.confidence_flag[index]
-                and risk[index] == "medium"
-            ),
-            key=lambda index: (time_to_overflow[index], -upper_fill[index], bins[index].bin_id),
-        )
-        selected_optional: list[int] = []
-        budget_m = config.operations.smart_max_dispatch_distance_km * 1000.0
-        increment_limit_m = config.operations.smart_optional_max_increment_km * 1000.0
-        if required:
-            for index in optional_candidates:
-                capacity_proposal, rejected = select_capacity_feasible(
-                    selected + [index],
-                    route_weights,
-                    effective_truck_capacity,
-                    remaining_trips,
-                )
-                if rejected:
-                    continue
-                proposal, added = incremental_proxy_distance_m(
-                    selected,
-                    index,
-                    route_weights,
-                    distance_matrix_m,
-                    effective_truck_capacity,
-                    remaining_trips,
-                )
-                if proposal <= budget_m and added <= increment_limit_m:
-                    selected = capacity_proposal
-                    selected_optional.append(index)
         return (
-            selected,
-            required,
-            selected_siblings,
-            selected_optional,
             np.asarray(predicted_mean),
             np.asarray(predicted_upper),
             time_to_overflow,
             risk,
+            overflow_probability_6h,
+            overflow_probability_48h,
         )
 
     def execute_plan(plan: RoutePlan, route_event: dict[str, Any]):
@@ -517,6 +497,18 @@ def run_policy(
                     continue
                 fill_at_completion_pct = 100.0 * actual_mass / capacities[destination]
                 hidden_mass[destination] = 0.0
+                # A completed collection is stronger evidence than delayed or
+                # missing pre-collection telemetry. Reset the digital service
+                # state so the same old reading cannot trigger another truck.
+                completed_hour = float(env.now) / 60.0
+                completed_feature_hour = start_absolute_hour + completed_hour
+                last_valid_fill[destination] = 0.0
+                last_valid_weight[destination] = 0.0
+                last_valid_hour[destination] = completed_hour
+                observed_history[destination].clear()
+                observed_history[destination].append((completed_hour, 0.0))
+                observed_history[destination][-1] = (completed_feature_hour, 0.0)
+                last_collection_feature_hour[destination] = completed_feature_hour
                 payload_kg += actual_mass
                 completed_bins.append(destination)
                 record("collection_stops", 1)
@@ -540,123 +532,214 @@ def run_policy(
         route_event["completed_minute"] = round(float(env.now), 3)
 
     def dispatch(hour: int, batch) -> None:
-        nonlocal last_dispatch_hour, truck_active
+        nonlocal last_optional_dispatch_hour, truck_active
         decision_day = int(env.now // 1440)
         remaining_trips = config.operations.max_daily_trips - trips_by_day.get(decision_day, 0)
-        if truck_active or remaining_trips <= 0:
+        if remaining_trips <= 0:
+            record("dispatch_limit_blocks", 1)
+            return
+        if truck_active:
             return
         if policy == "fixed" and not fixed_service_due(hour, config):
             return
         upper_fill, upper_weight, review_reasons = conservative_observations(batch, hour)
-        review_indices = [index for index, reasons in enumerate(review_reasons) if reasons]
-        record("inspection_events", len(review_indices))
         route_weights = np.where(
-            np.isfinite(upper_weight), np.minimum(upper_weight, capacities), 0.0
+            np.isfinite(upper_weight), np.minimum(upper_weight, capacities), capacities
         )
-
         predicted_mean = np.zeros(len(bins), dtype=float)
         predicted_upper = np.zeros(len(bins), dtype=float)
         time_to_overflow = np.full(len(bins), np.inf, dtype=float)
         risk = np.full(len(bins), "fixed", dtype=object)
-        required: list[int] = []
-        siblings: list[int] = []
-        optional: list[int] = []
+        required_set: set[int]
+        unserved_required: list[int]
+        snapshot_rows: list[dict[str, Any]]
+
         if policy == "fixed":
+            review_indices = [index for index, reasons in enumerate(review_reasons) if reasons]
+            record("inspection_events", len(review_indices))
+            record("sensor_uncertainty_decisions", float(bool(review_indices)))
             selected = list(range(len(bins)))
+            capacity_selected, rejected = select_capacity_feasible(
+                selected,
+                route_weights,
+                effective_truck_capacity,
+                remaining_trips,
+            )
+            required_set = set(capacity_selected)
+            unserved_required = sorted(
+                index for index in selected if index not in capacity_selected or index in rejected
+            )
+            record("unserved_required_bins", len(unserved_required))
+            record(
+                "capacity_constrained_decisions", float(bool(unserved_required))
+            )
+            if not capacity_selected:
+                return
+            plan = solve_routes(
+                capacity_selected,
+                route_weights,
+                distance_matrix_m,
+                effective_truck_capacity,
+                remaining_trips,
+                config.operations.route_solver_milliseconds,
+            )
+            served = set(plan.served_bin_indices)
+            snapshot_rows = []
+            for index, item in enumerate(bins):
+                selection = "Required" if index in served else "Unserved required"
+                snapshot_rows.append(
+                    {
+                        "bin_id": item.bin_id,
+                        "site_id": item.site_id,
+                        "fill_pct": _json_number(batch.fill_pct[index]),
+                        "weight_kg": _json_number(batch.weight_kg[index]),
+                        "time_to_overflow_hours": None,
+                        "risk_level": "fixed",
+                        "confidence_flag": bool(batch.confidence_flag[index]),
+                        "conservative_upper_fill_pct": _json_number(upper_fill[index]),
+                        "selection": selection,
+                        "selection_reason": selection.lower(),
+                        "collection_state": selection,
+                    }
+                )
         else:
             (
-                selected,
-                required,
-                siblings,
-                optional,
                 predicted_mean,
                 predicted_upper,
                 time_to_overflow,
                 risk,
-            ) = choose_smart_bins(hour, batch, upper_fill, route_weights, remaining_trips)
-            emergency = [
-                index
-                for index in required
-                if risk[index] == "critical"
+                overflow_probability_6h,
+                overflow_probability_48h,
+            ) = predict_smart_state(hour, batch, upper_fill)
+            # An upper forecast based on a failed/outlier observation is not an
+            # independent critical signal. Keep it explicit as unavailable and
+            # request inspection; a later valid observation or an upstream
+            # explicitly critical event can still require collection.
+            unreliable = ~np.asarray(batch.confidence_flag, dtype=bool)
+            time_to_overflow[unreliable] = np.nan
+            risk[unreliable] = "unknown"
+            overflow_probability_6h[unreliable] = np.nan
+            overflow_probability_48h[unreliable] = np.nan
+            decision_time = simulation_epoch + timedelta(hours=hour)
+            forecast_status = [
+                (
+                    "unavailable"
+                    if unreliable[index]
+                    else ("available" if np.isfinite(value) else "stable_no_overflow")
+                )
+                for index, value in enumerate(time_to_overflow)
             ]
-            if not required:
-                return
-            if (
-                hour - last_dispatch_hour < config.operations.smart_min_dispatch_gap_hours
-                and not emergency
-            ):
-                return
-
-        required_set = set(required if policy == "smart" else selected)
-        capacity_selected, rejected = select_capacity_feasible(
-            selected,
-            route_weights,
-            effective_truck_capacity,
-            remaining_trips,
-        )
-        unserved_required = sorted(
-            index
-            for index in required_set
-            if index not in capacity_selected or index in rejected
-        )
-        record("unserved_required_bins", len(unserved_required))
-        if not capacity_selected:
-            return
-        plan = solve_routes(
-            capacity_selected,
-            route_weights,
-            distance_matrix_m,
-            effective_truck_capacity,
-            remaining_trips,
-            config.operations.route_solver_milliseconds,
-        )
-        record("routing_fallbacks", float(plan.solver_method == "deterministic_fallback"))
-        served = set(plan.served_bin_indices)
-        required_set = set(required if policy == "smart" else capacity_selected)
-        sibling_set = set(siblings)
-        optional_set = set(optional)
-        snapshot_rows = []
-        for index, item in enumerate(bins):
-            if index in required_set and index in served:
-                selection = "Required"
-            elif index in unserved_required:
-                selection = "Unserved required"
-            elif review_reasons[index] and index not in served:
-                selection = "Inspection required"
-            elif index in sibling_set and index in served:
-                selection = "Co-located sibling"
-            elif index in optional_set and index in served:
-                selection = "Efficient nearby pickup"
-            else:
-                selection = "Wait"
-            reasons = list(review_reasons[index])
-            if risk[index] in {"high", "critical"}:
-                reasons.append(f"{risk[index]} risk")
-            if (
-                np.isfinite(time_to_overflow[index])
-                and time_to_overflow[index]
-                <= config.operations.smart_dispatch_time_to_overflow_hours
-            ):
-                reasons.append(f"overflow in {time_to_overflow[index]:.1f}h")
-            if upper_fill[index] >= config.operations.smart_dispatch_current_trigger_pct:
-                reasons.append(f"upper fill {upper_fill[index]:.1f}%")
-            if not reasons:
-                reasons.append(selection.lower())
-            snapshot_rows.append(
+            snapshot = pd.DataFrame(
                 {
-                    "bin_id": item.bin_id,
-                    "site_id": item.site_id,
-                    "fill_pct": _json_number(batch.fill_pct[index]),
-                    "weight_kg": _json_number(batch.weight_kg[index]),
-                    "time_to_overflow_hours": _json_number(time_to_overflow[index]),
-                    "risk_level": str(risk[index]),
-                    "confidence_flag": bool(batch.confidence_flag[index]),
-                    "conservative_upper_fill_pct": float(upper_fill[index]),
-                    "selection": selection,
-                    "selection_reason": ", ".join(reasons),
-                    "collection_state": selection,
+                    "schema_version": "2.0",
+                    "timestamp": decision_time.isoformat(),
+                    "observed_at": decision_time.isoformat(),
+                    "decision_at": decision_time.isoformat(),
+                    "snapshot_id": f"SIM-{active_scenario.name}-{replication}-{hour}",
+                    "event_id": [
+                        f"SIM:{active_scenario.name}:{replication}:{hour}:{item.bin_id}"
+                        for item in bins
+                    ],
+                    "clock_status": "synchronized",
+                    "source_mode": "synthetic",
+                    "bin_id": [item.bin_id for item in bins],
+                    "fill_pct": batch.fill_pct,
+                    "weight_kg": batch.weight_kg,
+                    "time_to_overflow_hours": [
+                        _json_number(value) for value in time_to_overflow
+                    ],
+                    "risk_level": risk,
+                    "overflow_probability_next_opportunity": overflow_probability_6h,
+                    "overflow_probability_48h": overflow_probability_48h,
+                    "confidence_flag": batch.confidence_flag,
+                    "forecast_status": forecast_status,
+                    "forecast_method": "growth-q90-v2",
+                    "model_version": "simulation-forecast-bundle",
+                    "quality_flags": [tuple(flags) for flags in batch.quality_flags],
                 }
             )
+            normalized = validate_snapshot(
+                snapshot,
+                [item.bin_id for item in bins],
+                config.operations.crane_lift_limit_kg,
+                now_utc=decision_time,
+                stale_after_hours=config.sensor.stale_after_hours,
+                future_tolerance_minutes=config.sensor.future_tolerance_minutes,
+            )
+            history: dict[str, dict[str, Any]] = {}
+            for index, item in enumerate(bins):
+                row: dict[str, Any] = {}
+                if np.isfinite(last_valid_fill[index]):
+                    observed_at = (
+                        simulation_epoch + timedelta(hours=float(last_valid_hour[index]))
+                    ).isoformat()
+                    row["fill"] = {
+                        "value": float(last_valid_fill[index]),
+                        "observed_at": observed_at,
+                    }
+                if np.isfinite(last_valid_weight[index]):
+                    observed_at = (
+                        simulation_epoch + timedelta(hours=float(last_valid_hour[index]))
+                    ).isoformat()
+                    row["weight"] = {
+                        "value": float(last_valid_weight[index]),
+                        "observed_at": observed_at,
+                    }
+                if row:
+                    history[item.bin_id] = row
+            decision_config = replace(
+                config,
+                operations=replace(
+                    config.operations,
+                    truck_capacity_kg=effective_truck_capacity,
+                    max_daily_trips=remaining_trips,
+                ),
+            )
+            optional_window_open = (
+                hour - last_optional_dispatch_hour
+                >= config.operations.smart_min_dispatch_gap_hours
+            )
+            dispatch_plan = build_dispatch_plan(
+                normalized,
+                bins_table,
+                distance_matrix_m,
+                decision_config,
+                history,
+                duration_matrix_s,
+                optional_dispatch_allowed=optional_window_open,
+            )
+            record("inspection_events", len(dispatch_plan.review_bin_indices))
+            record(
+                "sensor_uncertainty_decisions",
+                float(bool(dispatch_plan.review_bin_indices)),
+            )
+            record("unserved_required_bins", len(dispatch_plan.unserved_required_bin_indices))
+            record(
+                "capacity_constrained_decisions",
+                float(bool(dispatch_plan.unserved_required_bin_indices)),
+            )
+            if not dispatch_plan.route_plan.routes:
+                return
+            plan = dispatch_plan.route_plan
+            capacity_selected = list(plan.served_bin_indices)
+            required_set = set(dispatch_plan.required_bin_indices)
+            unserved_required = list(dispatch_plan.unserved_required_bin_indices)
+            snapshot_rows = [
+                row | {"selection_reason": row["reason"]}
+                for row in dispatch_plan.audit_rows
+            ]
+            if plan.routes and any(
+                np.isfinite(time_to_overflow[index])
+                for index in plan.served_bin_indices
+            ):
+                record("forecast_driven_dispatches", 1)
+            if optional_window_open:
+                last_optional_dispatch_hour = hour
+
+        record(
+            "routing_fallbacks",
+            float(plan.solver_method in {"deterministic_fallback", "value_infeasible"}),
+        )
         route_event = {
             "hour": hour,
             "dispatch_minute": round(float(env.now), 3),
@@ -683,10 +766,27 @@ def run_policy(
             },
             "timeline": [],
             "completed": False,
+            "decision_drivers": {
+                "forecast": bool(
+                    policy == "smart"
+                    and any(
+                        np.isfinite(time_to_overflow[index])
+                        for index in plan.served_bin_indices
+                    )
+                ),
+                "route_capacity": bool(unserved_required),
+                "sensor_uncertainty": bool(
+                    policy == "smart"
+                    and any(
+                        row.get("collection_state") == "Inspection/data review required"
+                        or "review" in str(row.get("reason", "")).lower()
+                        for row in snapshot_rows
+                    )
+                ),
+            },
         }
         route_events.append(route_event)
         truck_active = True
-        last_dispatch_hour = hour
         env.process(execute_plan(plan, route_event))
 
     def waste_process():
@@ -738,22 +838,29 @@ def run_policy(
             should_decide = (
                 policy == "fixed" and hour % 24 == config.operations.decision_hour
             ) or (
-                policy == "smart" and hour % 24 in config.operations.smart_decision_hours
+                policy == "smart"
             )
             if should_decide:
                 dispatch(hour, batch)
             for index in range(len(bins)):
                 observed = batch.fill_pct[index]
                 if np.isfinite(observed):
-                    observed_history[index].append(float(observed))
+                    feature_hour = (
+                        float(demand_context.absolute_hours[hour])
+                        if demand_context is not None
+                        else float(hour)
+                    )
+                    observed_history[index].append((feature_hour, float(observed)))
                 if (
                     batch.confidence_flag[index]
                     and np.isfinite(batch.fill_pct[index])
-                    and np.isfinite(batch.weight_kg[index])
                 ):
                     last_valid_fill[index] = batch.fill_pct[index]
-                    last_valid_weight[index] = batch.weight_kg[index]
                     last_valid_hour[index] = hour
+                if batch.confidence_flag[index] and np.isfinite(batch.weight_kg[index]):
+                    last_valid_weight[index] = batch.weight_kg[index]
+                    if not np.isfinite(last_valid_hour[index]):
+                        last_valid_hour[index] = hour
             sensor_index += 1
 
     env.process(waste_process())
@@ -796,6 +903,16 @@ def run_policy(
             f"fuel_l{suffix}": total_fuel,
             f"co2_kg{suffix}": total_fuel * config.operations.diesel_co2_kg_per_l,
             f"routing_fallbacks{suffix}": source["routing_fallbacks"],
+            f"forecast_driven_dispatches{suffix}": source[
+                "forecast_driven_dispatches"
+            ],
+            f"capacity_constrained_decisions{suffix}": source[
+                "capacity_constrained_decisions"
+            ],
+            f"dispatch_limit_blocks{suffix}": source["dispatch_limit_blocks"],
+            f"sensor_uncertainty_decisions{suffix}": source[
+                "sensor_uncertainty_decisions"
+            ],
         }
 
     metrics: dict[str, float | int | str] = {
@@ -808,4 +925,23 @@ def run_policy(
         "unfinished_trip_count": int(truck_active),
         "analysis_warmup_days": config.operations.analysis_warmup_days,
     }
-    return PolicyResult(policy, replication, metrics, route_events, hidden_mass.copy())
+    regime_rows = []
+    for regime, values in regime_totals.items():
+        assembled_values = assembled(values)
+        regime_rows.append(
+            {
+                "scenario": active_scenario.name,
+                "policy": policy,
+                "replication": replication,
+                "demand_regime": regime,
+                **assembled_values,
+            }
+        )
+    return PolicyResult(
+        policy,
+        replication,
+        metrics,
+        route_events,
+        hidden_mass.copy(),
+        regime_rows,
+    )

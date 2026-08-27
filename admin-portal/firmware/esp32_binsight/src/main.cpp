@@ -8,7 +8,7 @@
 
 namespace {
 constexpr char kControllerId[] = "ESP32-001";
-constexpr char kFirmwareVersion[] = "0.1.0";
+constexpr char kFirmwareVersion[] = "0.2.0";
 constexpr char kTopic[] = "binsight/v1/telemetry/ESP32-001";
 constexpr uint32_t kPublishIntervalMs = 15UL * 60UL * 1000UL;
 constexpr uint8_t kBinCount = 3;
@@ -28,6 +28,7 @@ constexpr char const *kBinIds[kBinCount] = {"UGB-001", "UGB-002", "UGB-003"};
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 uint32_t sequenceNumber = 0;
+char bootId[24] = "BOOT-UNINITIALIZED";
 uint32_t lastPublishMs = 0;
 
 struct PendingReading {
@@ -197,8 +198,9 @@ void flushPendingReadings() {
 
 void sampleAndPublish() {
   JsonDocument document;
-  document["schema_version"] = "1.0";
+  document["schema_version"] = "1.1";
   document["controller_id"] = kControllerId;
+  document["boot_id"] = bootId;
   const uint32_t readingSequence = sequenceNumber++;
   document["sequence"] = readingSequence;
   document["captured_at_utc"] = utcTimestamp();
@@ -243,6 +245,9 @@ void sampleAndPublish() {
 
 void setup() {
   Serial.begin(115200);
+  snprintf(bootId, sizeof(bootId), "BOOT-%08lX-%08lX",
+           static_cast<unsigned long>(esp_random()),
+           static_cast<unsigned long>(esp_random()));
   analogReadResolution(12);
   for (uint8_t channel = 0; channel < kBinCount; ++channel) {
     pinMode(kTrigPins[channel], OUTPUT);

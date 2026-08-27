@@ -81,24 +81,24 @@ The graphite command surface states the main operator question and lists the ava
 | State | Visual treatment | Meaning |
 | --- | --- | --- |
 | Waiting | Soft blue with blue left rule | No snapshot has been evaluated in the current session |
-| Collection required | Soft red with red left rule | At least one bin crossed a required-service trigger |
+| Collection required | Soft red with red left rule | At least one emergency/service-level stop is mandatory or the best optional trip has positive net value |
 | Inspection required | Soft amber with amber left rule | Data quality is insufficient to safely declare no collection, without a trustworthy urgent collection trigger |
-| No collection required | Soft green with green left rule | No bin crossed the current triggers |
+| No collection required | Soft green with green left rule | No mandatory stop exists and waiting/merging has lower expected cost |
 | Mock-only warning | Soft amber with amber left rule | The next action writes a local record only |
 
 ### Route-selection states
 
 | Map/list state | Meaning |
 | --- | --- |
-| Required | High or critical risk, predicted overflow within 48 hours, or at least 65% full |
-| Co-located sibling | A bin at a required site that is at least 50% full or predicted to overflow within 72 hours |
-| Efficient nearby pickup | A medium-risk or near-threshold bin accepted within truck capacity, the 30 km planning budget, and at most 5 km incremental distance |
+| Required | Critical risk, conservative fill ≥90%, or q90 overflow crossing before the next six-hour service opportunity; lower-confidence evidence below 90% remains an inspection state |
+| Co-located candidate | A quality-eligible bin at a required service point considered by the joint trip-value route |
+| Positive-value optional pickup | A candidate whose avoided-loss contribution makes the joint capacity/time-feasible trip better than waiting |
 | Inspection required | Missing, stale, low-confidence, or disagreeing data requiring operator review |
-| Wait | A bin that is not selected for the current plan |
+| Defer – wait or merge | A non-mandatory bin excluded because route/service/low-fill cost exceeds current avoided-loss value |
 
-Emergency bins are prioritized when they are critical, predicted to overflow within 20 hours, or at least 90% full. Low-confidence selected readings remain in the plan but produce an operator-review warning. A required bin that cannot fit within two 9,000 kg trips blocks the mock-send button.
+Low-confidence mandatory readings remain in the plan but produce an operator-review warning. A required bin that cannot fit within mass, compacted-volume, route-duration or daily-trip constraints blocks the mock-send button. A draft must be accepted before mock send and cannot be sent twice.
 
-Maps use one marker for each of the 11 physical sites. Each popup shows all three co-located bins and the marker badge shows the count requiring attention. Site shape and text reinforce color. The configured Subang Jaya bounds, zoom range 13–18, disabled wrapping, and reset control keep the operational area in view.
+Competition-simulation maps use one marker for each of the 11 simulated service sites. Each popup shows all three co-located bins and the marker badge shows the count requiring attention. Site shape and text reinforce color. The configured Subang Jaya bounds, zoom range 13–18, disabled wrapping, and reset control keep the operational area in view.
 
 Mock tracking adds in-transit, servicing, completed, and depot states. Completion is timestamp-driven and appears only after service ends. Reduced-motion mode removes the pulsing animation without removing manual playback controls.
 

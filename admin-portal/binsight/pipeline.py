@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.metadata
 import json
+from collections import Counter
+from dataclasses import asdict
 from pathlib import Path
 
 import joblib
@@ -10,7 +13,9 @@ import pandas as pd
 
 from .analysis import save_analysis
 from .config import Config, load_config
-from .district import BinSpec, build_district, generate_hourly_waste, load_site_plan, save_district
+from .demand import DemandScenario, generate_demand_realization
+from .district import BinSpec, build_district, load_site_plan, save_district
+from .dispatch import POLICY_VERSION
 from .forecast import train_forecaster
 from .network import (
     ServiceNetwork,
@@ -19,7 +24,7 @@ from .network import (
     expand_bin_duration_matrix,
     route_coordinates,
 )
-from .simulation import PolicyResult, SimulationScenario, run_policy
+from .simulation import SimulationScenario, run_policy
 
 
 def prepare_project(project_dir: str | Path, refresh_graph: bool = False):
@@ -49,22 +54,92 @@ def prepare_project(project_dir: str | Path, refresh_graph: bool = False):
 def experiment_scenarios(config: Config) -> tuple[SimulationScenario, ...]:
     """Return the declared base and stress conditions for paired evaluation."""
     return (
-        SimulationScenario(name="base"),
         SimulationScenario(
-            name="high_demand",
-            demand_multiplier=config.stress.high_demand_multiplier,
+            name="normal_patterned",
+            demand=DemandScenario(name="normal_patterned"),
         ),
         SimulationScenario(
-            name="traffic",
+            name="high_demand_seasonal",
+            demand=DemandScenario(
+                name="high_demand_seasonal",
+                calendar_start_day=334,
+                demand_multiplier=config.stress.high_demand_multiplier,
+            ),
+        ),
+        SimulationScenario(
+            name="event_heavy",
+            demand=DemandScenario(
+                name="event_heavy",
+                calendar_start_day=60,
+                event_intensity_multiplier=1.5,
+                event_frequency_multiplier=2,
+                add_unannounced_event=True,
+            ),
+        ),
+        SimulationScenario(
+            name="persistent_multi_day_surge",
+            demand=DemandScenario(
+                name="persistent_multi_day_surge",
+                shared_surge_windows=((7, 16, 1.55),),
+            ),
+        ),
+        SimulationScenario(
+            name="localized_surge",
+            demand=DemandScenario(
+                name="localized_surge",
+                local_surge_windows=((9, 20, 1.80),),
+                local_surge_bin_ids=tuple(f"UGB-{index:03d}" for index in range(1, 7)),
+            ),
+        ),
+        SimulationScenario(
+            name="gradual_upward_trend",
+            demand=DemandScenario(
+                name="gradual_upward_trend",
+                trend_per_year=1.20,
+            ),
+        ),
+        SimulationScenario(
+            name="abrupt_behavior_change",
+            demand=DemandScenario(
+                name="abrupt_behavior_change",
+                change_point_day=12,
+                change_point_multiplier=1.45,
+            ),
+        ),
+        SimulationScenario(
+            name="traffic_disruption",
+            demand=DemandScenario(name="traffic_disruption"),
             traffic_multiplier=config.stress.traffic_multiplier,
         ),
         SimulationScenario(
             name="sensor_failure",
+            demand=DemandScenario(name="sensor_failure"),
             sensor_missing_probability=config.stress.sensor_failure_probability,
             sensor_outlier_probability=config.stress.sensor_outlier_probability,
         ),
         SimulationScenario(
-            name="truck_capacity",
+            name="reduced_truck_capacity",
+            demand=DemandScenario(name="reduced_truck_capacity"),
+            truck_capacity_multiplier=config.stress.truck_capacity_multiplier,
+        ),
+        SimulationScenario(
+            name="combined_demand_operational_stress",
+            demand=DemandScenario(
+                name="combined_demand_operational_stress",
+                calendar_start_day=334,
+                demand_multiplier=1.20,
+                event_intensity_multiplier=1.40,
+                event_frequency_multiplier=2,
+                shared_surge_windows=((6, 17, 1.45),),
+                local_surge_windows=((10, 23, 1.50),),
+                local_surge_bin_ids=tuple(f"UGB-{index:03d}" for index in range(1, 7)),
+                change_point_day=18,
+                change_point_multiplier=1.25,
+                add_unannounced_event=True,
+            ),
+            traffic_multiplier=config.stress.traffic_multiplier,
+            sensor_missing_probability=config.stress.sensor_failure_probability,
+            sensor_outlier_probability=config.stress.sensor_outlier_probability,
             truck_capacity_multiplier=config.stress.truck_capacity_multiplier,
         ),
     )
@@ -75,9 +150,17 @@ def run_experiment(
     refresh_graph: bool = False,
     replications: int | None = None,
     scenario_names: tuple[str, ...] | None = None,
+    artifact_set: str | None = None,
+    parallel_workers: int = 1,
 ) -> dict:
     root = Path(project_dir).resolve()
-    artifacts = root / "artifacts"
+    if artifact_set is not None and (
+        not artifact_set.replace("-", "").replace("_", "").isalnum()
+        or "/" in artifact_set
+        or "\\" in artifact_set
+    ):
+        raise ValueError("artifact_set must be a simple alphanumeric, dash or underscore name")
+    artifacts = root / "artifacts" / artifact_set if artifact_set else root / "artifacts"
     artifacts.mkdir(parents=True, exist_ok=True)
     config, service_network, depot, bins, matrix, duration_matrix = prepare_project(
         root, refresh_graph
@@ -87,6 +170,9 @@ def run_experiment(
     )
     if replication_count < 2 or replication_count > 200:
         raise ValueError("replications must be between 2 and 200")
+    worker_count = int(parallel_workers)
+    if worker_count < 1 or worker_count > 8:
+        raise ValueError("parallel_workers must be between 1 and 8")
     declared_scenarios = experiment_scenarios(config)
     if scenario_names is None:
         scenarios = declared_scenarios
@@ -103,87 +189,161 @@ def run_experiment(
         bins, config, seed=config.operations.base_seed + 90_000
     )
     joblib.dump(forecaster, artifacts / "fill_forecaster.joblib")
-    training_data.to_csv(artifacts / "synthetic_forecast_training_data.csv", index=False)
+    training_data.to_csv(
+        artifacts / "synthetic_forecast_training_data.csv.gz",
+        index=False,
+        compression="gzip",
+    )
     (artifacts / "forecast_evaluation.json").write_text(
         json.dumps(forecaster.evaluation, indent=2), encoding="utf-8"
     )
 
-    results: list[PolicyResult] = []
+    results: list[dict] = []
+    regime_results: list[dict] = []
     representative: dict[str, dict[str, list[dict]]] = {}
     seed_manifest = []
     horizon_hours = config.operations.horizon_days * 24
-    for replication in range(replication_count):
-        # This final seed block is intentionally disjoint from the original study,
-        # the startup-artifact audit, and the dispatch-gap/optional-stop tuning trials.
-        arrival_seed = config.operations.base_seed + 1_310_000 + replication * 101
-        sensor_seed = config.operations.base_seed + 1_320_000 + replication * 103
-        base_arrivals = generate_hourly_waste(
-            bins, config, seed=arrival_seed, horizon_hours=horizon_hours
-        )
-        for scenario in scenarios:
-            arrivals = base_arrivals * scenario.demand_multiplier
-            fixed = run_policy(
-                "fixed",
-                replication,
-                bins,
-                config,
-                matrix,
-                duration_matrix,
-                arrivals,
-                sensor_seed,
-                forecaster=None,
-                scenario=scenario,
-            )
-            smart = run_policy(
-                "smart",
-                replication,
-                bins,
-                config,
-                matrix,
-                duration_matrix,
-                arrivals,
-                sensor_seed,
-                forecaster=forecaster,
-                scenario=scenario,
-            )
-            results.extend([fixed, smart])
-            if replication == 0:
-                representative[scenario.name] = {
-                    "fixed": fixed.route_events,
-                    "smart": smart.route_events,
-                }
-            seed_manifest.append(
-                {
-                    "scenario": scenario.name,
-                    "replication": replication,
-                    "arrival_seed": arrival_seed,
-                    "sensor_seed": sensor_seed,
-                    "demand_multiplier": scenario.demand_multiplier,
-                    "traffic_multiplier": scenario.traffic_multiplier,
-                    "sensor_missing_probability": scenario.sensor_missing_probability,
-                    "sensor_outlier_probability": scenario.sensor_outlier_probability,
-                    "truck_capacity_multiplier": scenario.truck_capacity_multiplier,
-                    "policies_share_arrivals_and_sensor_noise": True,
-                }
-            )
+    tasks = [
+        (replication, scenario)
+        for replication in range(replication_count)
+        for scenario in scenarios
+    ]
 
-    metrics = pd.DataFrame([result.metrics for result in results])
+    def execute_pair(task):
+        replication, scenario = task
+        # Locked v2 evaluation seeds are disjoint from the original study,
+        # startup audit and all +1.31m/+1.32m demand/routing development screens.
+        arrival_seed = config.operations.base_seed + 1_610_000 + replication * 101
+        sensor_seed = config.operations.base_seed + 1_620_000 + replication * 103
+        demand = generate_demand_realization(
+            bins,
+            config,
+            seed=arrival_seed,
+            horizon_hours=horizon_hours,
+            scenario=scenario.demand,
+        )
+        arrivals = demand.arrivals_kg
+        fixed = run_policy(
+            "fixed",
+            replication,
+            bins,
+            config,
+            matrix,
+            duration_matrix,
+            arrivals,
+            sensor_seed,
+            forecaster=None,
+            scenario=scenario,
+            demand_context=demand.context,
+        )
+        smart = run_policy(
+            "smart",
+            replication,
+            bins,
+            config,
+            matrix,
+            duration_matrix,
+            arrivals,
+            sensor_seed,
+            forecaster=forecaster,
+            scenario=scenario,
+            demand_context=demand.context,
+        )
+        manifest = {
+            "scenario": scenario.name,
+            "replication": replication,
+            "arrival_seed": arrival_seed,
+            "sensor_seed": sensor_seed,
+            "demand_scenario": asdict(scenario.demand),
+            "traffic_multiplier": scenario.traffic_multiplier,
+            "sensor_missing_probability": scenario.sensor_missing_probability,
+            "sensor_outlier_probability": scenario.sensor_outlier_probability,
+            "truck_capacity_multiplier": scenario.truck_capacity_multiplier,
+            "policies_share_arrivals_and_sensor_noise": True,
+            "arrival_matrix_sha256": hashlib.sha256(
+                np.ascontiguousarray(arrivals).tobytes()
+            ).hexdigest(),
+        }
+        return replication, scenario.name, fixed, smart, manifest
+
+    if worker_count == 1:
+        pair_outputs = map(execute_pair, tasks)
+    else:
+        pair_outputs = joblib.Parallel(
+            n_jobs=worker_count,
+            prefer="processes",
+            return_as="generator",
+        )(
+            joblib.delayed(execute_pair)(task) for task in tasks
+        )
+    for replication, scenario_name, fixed, smart, manifest in pair_outputs:
+        results.extend([fixed.metrics, smart.metrics])
+        regime_results.extend(fixed.regime_metrics)
+        regime_results.extend(smart.regime_metrics)
+        if replication == 0:
+            representative[scenario_name] = {
+                "fixed": fixed.route_events,
+                "smart": smart.route_events,
+            }
+        seed_manifest.append(manifest)
+
+    metrics = pd.DataFrame(results)
     summary, effects = save_analysis(metrics, artifacts, config.operations.base_seed + 30_000)
+    driver_columns = [
+        "forecast_driven_dispatches",
+        "capacity_constrained_decisions",
+        "dispatch_limit_blocks",
+        "sensor_uncertainty_decisions",
+    ]
+    (
+        metrics.groupby(["scenario", "policy"], as_index=False)[driver_columns]
+        .mean()
+        .to_csv(artifacts / "decision_driver_summary.csv", index=False)
+    )
+    regime_frame = pd.DataFrame(regime_results)
+    regime_frame.to_csv(artifacts / "demand_regime_metrics.csv", index=False)
+    regime_numeric = [
+        column
+        for column in regime_frame.columns
+        if column not in {"scenario", "policy", "replication", "demand_regime"}
+    ]
+    regime_frame.groupby(
+        ["scenario", "policy", "demand_regime"], as_index=False
+    )[regime_numeric].mean().to_csv(
+        artifacts / "demand_regime_summary.csv", index=False
+    )
     (artifacts / "representative_route_events.json").write_text(
         json.dumps(representative, indent=2), encoding="utf-8"
     )
     (artifacts / "seed_manifest.json").write_text(
         json.dumps(seed_manifest, indent=2), encoding="utf-8"
     )
+    (artifacts / "fixed_baseline_route_audit.json").write_text(
+        json.dumps(
+            build_fixed_baseline_route_audit(
+                config, matrix, duration_matrix, representative
+            ),
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     write_representative_route_geojson(
         service_network,
         depot,
         bins,
-        representative.get("base", next(iter(representative.values()))),
+        representative.get("normal_patterned", next(iter(representative.values()))),
         artifacts,
         root / "data",
     )
-    provenance = build_provenance(config, replication_count, scenarios)
+    provenance = build_provenance(
+        config,
+        replication_count,
+        scenarios,
+        artifact_set=artifact_set,
+        parallel_workers=worker_count,
+        distance_matrix=matrix,
+        duration_matrix=duration_matrix,
+    )
     (artifacts / "run_provenance.json").write_text(
         json.dumps(provenance, indent=2), encoding="utf-8"
     )
@@ -193,6 +353,109 @@ def run_experiment(
         "summary": summary,
         "effects": effects,
         "artifacts_dir": artifacts,
+    }
+
+
+def build_fixed_baseline_route_audit(
+    config: Config,
+    distance_matrix: np.ndarray,
+    duration_matrix: np.ndarray,
+    representative: dict[str, dict[str, list[dict]]],
+) -> dict:
+    """Describe and structurally validate the fixed comparator's road plans.
+
+    The benchmark fixes *when* and *what* to collect, but deliberately gives it
+    a fresh capacitated shortest-distance route at every scheduled dispatch.
+    That is a strong comparator, not a claim that one static path is globally
+    optimal or robust to every possible future condition.
+    """
+    if distance_matrix.shape != duration_matrix.shape:
+        raise ValueError("Fixed-baseline audit requires matching road matrices")
+    if not np.all(np.isfinite(distance_matrix)) or np.any(distance_matrix < 0):
+        raise ValueError("Fixed-baseline distance matrix must be finite and non-negative")
+    if not np.all(np.isfinite(duration_matrix)) or np.any(duration_matrix < 0):
+        raise ValueError("Fixed-baseline duration matrix must be finite and non-negative")
+    if not np.allclose(np.diag(distance_matrix), 0.0):
+        raise ValueError("Fixed-baseline distance matrix diagonal must be zero")
+    if not np.allclose(np.diag(duration_matrix), 0.0):
+        raise ValueError("Fixed-baseline duration matrix diagonal must be zero")
+
+    scenarios: dict[str, dict] = {}
+    for scenario_name, policies in representative.items():
+        events = policies.get("fixed", [])
+        routes = [route for event in events for route in event.get("route_bin_indices", [])]
+        invalid_endpoints = sum(
+            not route or route[0] != -1 or route[-1] != -1 for route in routes
+        )
+        duplicate_stops = sum(
+            len([index for index in route if index != -1])
+            != len(set(index for index in route if index != -1))
+            for route in routes
+        )
+        off_schedule = [
+            int(event["hour"])
+            for event in events
+            if not (
+                int(event["hour"])
+                >= config.operations.fixed_interval_days * 24
+                + config.operations.decision_hour
+                and (
+                    int(event["hour"])
+                    - config.operations.fixed_interval_days * 24
+                    - config.operations.decision_hour
+                )
+                % (config.operations.fixed_interval_days * 24)
+                == 0
+            )
+        ]
+        blocked_capacity = sum(
+            row.get("status") == "COLLECTION_BLOCKED_CAPACITY"
+            for event in events
+            for row in event.get("timeline", [])
+        )
+        scenarios[scenario_name] = {
+            "dispatches": len(events),
+            "trips": len(routes),
+            "planned_stops": sum(len(event.get("served_bins", [])) for event in events),
+            "unserved_required_stops": sum(
+                len(event.get("unserved_required_bins", [])) for event in events
+            ),
+            "collection_blocked_capacity_events": blocked_capacity,
+            "route_solver_methods": dict(
+                sorted(Counter(event.get("route_solver_method", "unknown") for event in events).items())
+            ),
+            "all_dispatches_on_fixed_schedule": not off_schedule,
+            "off_schedule_hours": off_schedule,
+            "all_routes_start_and_end_at_depot": invalid_endpoints == 0,
+            "routes_with_duplicate_stops": duplicate_stops,
+        }
+
+    return {
+        "baseline_definition": (
+            "Fixed three-day service timing and all-bin service intent; a fresh "
+            "capacitated shortest-distance road route is solved for each dispatch."
+        ),
+        "fairness": {
+            "same_osrm_distance_matrix_as_dynamic": True,
+            "same_osrm_duration_matrix_as_dynamic": True,
+            "same_vehicle_mass_and_trip_limits_as_dynamic": True,
+            "same_arrivals_and_sensor_noise_within_each_pair": True,
+            "fixed_has_reoptimized_path_each_dispatch": True,
+        },
+        "limitations": [
+            "OR-Tools returns a feasible heuristic route; this is not an exact global-optimality certificate.",
+            "The fixed comparator adapts route order and capacity assignment, but not collection timing or all-bin service intent.",
+            "Declared stress scenarios are bounded tests, not proof against every possible disruption.",
+            "The network matrix is a cached OSM/OSRM snapshot and does not prove live road availability.",
+        ],
+        "matrix": {
+            "location_count_including_depot": int(distance_matrix.shape[0]),
+            "finite_nonnegative": True,
+            "zero_diagonal": True,
+            "directed_distance_matrix": not np.allclose(distance_matrix, distance_matrix.T),
+            "directed_duration_matrix": not np.allclose(duration_matrix, duration_matrix.T),
+        },
+        "representative_replication_checks": scenarios,
     }
 
 
@@ -250,6 +513,11 @@ def build_provenance(
     config: Config,
     replications: int,
     scenarios: tuple[SimulationScenario, ...],
+    *,
+    artifact_set: str | None = None,
+    parallel_workers: int = 1,
+    distance_matrix: np.ndarray | None = None,
+    duration_matrix: np.ndarray | None = None,
 ) -> dict:
     packages = {}
     for package in [
@@ -267,14 +535,36 @@ def build_provenance(
             packages[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
             packages[package] = "not installed"
+    config_json = json.dumps(config.to_dict(), sort_keys=True, separators=(",", ":"))
     return {
-        "study_type": "terminating 30-day stochastic simulation with base and stress scenarios",
+        "study_type": (
+            "terminating 30-day stochastic simulation with patterned demand, "
+            "persistent regimes and operational stress scenarios"
+        ),
         "comparison": "paired common-random-number fixed vs smart policies",
         "paired_replications_per_scenario": replications,
         "scenario_count": len(scenarios),
         "total_policy_runs": replications * len(scenarios) * 2,
-        "scenarios": [item.__dict__ for item in scenarios],
+        "parallel_workers": int(parallel_workers),
+        "scenarios": [asdict(item) for item in scenarios],
         "base_seed": config.operations.base_seed,
+        "artifact_set": artifact_set or "historical-v1-root",
+        "policy_version": POLICY_VERSION,
+        "config_sha256": hashlib.sha256(config_json.encode("utf-8")).hexdigest(),
+        "forecast_model_version": "hist-gradient-boosting-multihorizon-q90-overflow-v3",
+        "telemetry_contract_version": "2.1",
+        "registry_version": "pilot-registry-2026-08-28",
+        "road_network_version": "subang-jaya-osrm-v1",
+        "distance_matrix_sha256": (
+            hashlib.sha256(np.ascontiguousarray(distance_matrix).tobytes()).hexdigest()
+            if distance_matrix is not None
+            else None
+        ),
+        "duration_matrix_sha256": (
+            hashlib.sha256(np.ascontiguousarray(duration_matrix).tobytes()).hexdigest()
+            if duration_matrix is not None
+            else None
+        ),
         "simulation_time_unit": "minute",
         "horizon_hours": config.operations.horizon_days * 24,
         "warm_up": (

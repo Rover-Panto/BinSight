@@ -12,9 +12,13 @@ def test_competition_scale_is_locked():
     assert config.pilot.commercial_units == 20
     assert config.operations.horizon_days == 30
     assert config.pilot.physical_prototype_bin_count == 3
-    assert config.pilot.bins_per_controller == 3
+    assert config.pilot.bins_per_service_site == 3
+    assert config.pilot.physical_controller_bin_count == 3
     assert config.pilot.bin_count == 33
     assert config.waste.household_kg_per_day == 7.03
     assert config.waste.bin_capacity_kg == 540.0
     assert config.operations.crane_lift_limit_kg == 1500
+    assert config.operations.uncertain_service_trigger_pct == 90
+    assert config.operations.smart_emergency_time_to_overflow_hours == 6
+    assert config.operations.next_planning_opportunity_hours == 6
     assert required_controller_sites(config) == 11

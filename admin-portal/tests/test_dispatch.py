@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -18,6 +19,8 @@ from binsight.dispatch import (
     parse_snapshot_json,
     route_loads_kg,
     save_mock_dispatch,
+    load_last_valid_readings,
+    update_last_valid_readings_file,
     validate_snapshot,
 )
 
@@ -43,8 +46,13 @@ def test_demo_snapshot_builds_capacity_feasible_collection_route():
 
     selected_ids = {row["bin_id"] for row in plan.selection_rows}
     assert plan.collection_required is True
-    assert {"UGB-004", "UGB-013", "UGB-025"}.issubset(selected_ids)
-    assert "UGB-005" in selected_ids  # useful sibling at UGB-004's site
+    assert "UGB-004" in selected_ids
+    assert 12 not in plan.required_bin_indices  # high risk remains value-tested, not mandatory
+    assert "UGB-025" not in selected_ids  # low-confidence evidence stays an inspection
+    assert "UGB-005" not in selected_ids  # co-location alone cannot force a pickup
+    assert next(row for row in plan.audit_rows if row["bin_id"] == "UGB-005")[
+        "collection_state"
+    ] == "Defer – wait or merge"
     assert plan.route_plan.distance_m > 0
     assert all(route[0] == -1 and route[-1] == -1 for route in plan.route_plan.routes)
     weights = snapshot["weight_kg"].to_numpy(dtype=float)
@@ -68,6 +76,55 @@ def test_complete_low_risk_snapshot_requires_no_collection():
     assert plan.collection_required is False
     assert plan.selected_count == 0
     assert plan.route_plan.routes == []
+
+
+def test_optional_consolidation_gap_defers_value_route_but_not_emergency():
+    config, bins, matrix = _project_inputs()
+    snapshot = make_snapshot_template(bins["bin_id"])
+    snapshot["fill_pct"] = 60.0
+    snapshot["weight_kg"] = bins["capacity_kg"].to_numpy() * 0.60
+    snapshot["time_to_overflow_hours"] = 48.0
+    snapshot["risk_level"] = "medium"
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+    )
+    normalized["overflow_probability_next_opportunity"] = 0.01
+    normalized["overflow_probability_48h"] = 0.95
+
+    allowed = build_dispatch_plan(normalized, bins, matrix, config)
+    deferred = build_dispatch_plan(
+        normalized,
+        bins,
+        matrix,
+        config,
+        optional_dispatch_allowed=False,
+    )
+    assert allowed.route_plan.routes
+    assert not allowed.required_bin_indices
+    assert deferred.route_plan.routes == []
+    assert deferred.route_plan.dispatch_reason == "optional_consolidation_gap"
+
+    low_fill = normalized.copy()
+    low_fill["fill_pct"] = 40.0
+    low_fill["weight_kg"] = bins["capacity_kg"].to_numpy() * 0.40
+    low_fill["time_to_overflow_hours"] = 120.0
+    low_fill_plan = build_dispatch_plan(low_fill, bins, matrix, config)
+    assert low_fill_plan.route_plan.routes == []
+    assert low_fill_plan.required_bin_indices == []
+
+    emergency = normalized.copy()
+    emergency.loc[0, "risk_level"] = "critical"
+    emergency_plan = build_dispatch_plan(
+        emergency,
+        bins,
+        matrix,
+        config,
+        optional_dispatch_allowed=False,
+    )
+    assert emergency_plan.route_plan.routes
+    assert 0 in emergency_plan.required_bin_indices
 
 
 def test_snapshot_validation_requires_all_unique_bins_and_timezone():
@@ -234,7 +291,32 @@ def test_missing_sensors_keep_ai_critical_bin_collection_relevant_with_safe_load
     assert route_loads_kg(plan, normalized)[0] == bins.iloc[0]["capacity_kg"]
 
 
-def test_last_valid_reading_is_aged_conservatively_for_low_confidence_data():
+def test_medium_long_horizon_bins_wait_instead_of_aggregating_false_trip_value():
+    config, bins, matrix = _project_inputs()
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    snapshot = _safe_snapshot(bins, now)
+    snapshot.loc[:10, "fill_pct"] = 30.0
+    snapshot.loc[:10, "weight_kg"] = bins.loc[:10, "capacity_kg"].to_numpy() * 0.30
+    snapshot.loc[:10, "time_to_overflow_hours"] = 69.0
+    snapshot.loc[:10, "risk_level"] = "medium"
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+        now_utc=now,
+    )
+    plan = build_dispatch_plan(normalized, bins, matrix, config)
+
+    assert not plan.required_bin_indices
+    assert not plan.route_plan.routes
+    assert plan.route_plan.dispatch_reason in {
+        "wait_has_lower_expected_cost",
+        "no_positive_value_route",
+        "no_candidate",
+    }
+
+
+def test_last_valid_reading_is_aged_conservatively_without_forcing_a_wasteful_trip():
     config, bins, matrix = _project_inputs()
     now = datetime.now(timezone.utc).replace(microsecond=0)
     snapshot = _safe_snapshot(bins, now)
@@ -254,5 +336,82 @@ def test_last_valid_reading_is_aged_conservatively_for_low_confidence_data():
     }
     plan = build_dispatch_plan(normalized, bins, matrix, config, history)
 
-    assert 0 in plan.required_bin_indices
+    assert 0 not in plan.required_bin_indices
+    assert 0 in plan.review_bin_indices
+    assert plan.inspection_required
     assert plan.audit_rows[0]["conservative_upper_fill_pct"] >= 80.5
+
+
+def test_uncertain_high_margin_requests_inspection_without_forcing_a_truck():
+    config, bins, matrix = _project_inputs()
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    snapshot = _safe_snapshot(bins, now)
+    snapshot.loc[0, ["fill_pct", "weight_kg", "confidence_flag", "risk_level"]] = [
+        80.0,
+        float(bins.iloc[0]["capacity_kg"]) * 0.80,
+        False,
+        "low",
+    ]
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+        now_utc=now,
+    )
+    plan = build_dispatch_plan(normalized, bins, matrix, config)
+
+    assert plan.audit_rows[0]["conservative_upper_fill_pct"] >= 90.0
+    assert 0 in plan.review_bin_indices
+    assert 0 not in plan.required_bin_indices
+    assert plan.collection_required is False
+
+
+def test_incompatible_physical_waste_streams_use_separate_trips():
+    config, all_bins, full_matrix = _project_inputs()
+    bins = all_bins.iloc[:3].reset_index(drop=True).copy()
+    bins["waste_stream"] = [
+        "mixed_general_waste",
+        "beverage_recycling",
+        "beverage_recycling",
+    ]
+    matrix = full_matrix[np.ix_([0, 1, 2, 3], [0, 1, 2, 3])]
+    snapshot = _safe_snapshot(bins, datetime.now(timezone.utc).replace(microsecond=0))
+    snapshot["fill_pct"] = 95.0
+    snapshot["weight_kg"] = bins["capacity_kg"].to_numpy(dtype=float) * 0.95
+    snapshot["risk_level"] = "critical"
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+    )
+
+    plan = build_dispatch_plan(normalized, bins, matrix, config)
+
+    assert len(plan.route_plan.routes) == 2
+    for route in plan.route_plan.routes:
+        streams = {bins.iloc[index]["waste_stream"] for index in route if index != -1}
+        assert len(streams) == 1
+    assert plan.route_plan.solver_method.startswith("stream_separated:")
+
+
+def test_history_read_merge_write_serializes_portal_and_runner_writers(tmp_path):
+    config, bins, _ = _project_inputs()
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    first = _safe_snapshot(bins, now)
+    second = _safe_snapshot(bins, now)
+    first["confidence_flag"] = False
+    second["confidence_flag"] = False
+    first.loc[0, "confidence_flag"] = True
+    second.loc[1, "confidence_flag"] = True
+    history_path = tmp_path / "last-valid.json"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(update_last_valid_readings_file, frame, bins, config, history_path)
+            for frame in (first, second)
+        ]
+        for future in futures:
+            future.result()
+
+    saved = load_last_valid_readings(history_path)
+    assert {str(bins.iloc[0]["bin_id"]), str(bins.iloc[1]["bin_id"])} <= set(saved)

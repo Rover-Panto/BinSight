@@ -36,16 +36,24 @@ async function main() {
 
     await page.getByText("Bin collection required", { exact: true }).waitFor({ timeout: 180000 });
     await page.getByRole("button", { name: "Send mock route to garbage truck" }).waitFor();
+    const sendDisabledBeforeApproval = await page
+      .getByRole("button", { name: "Send mock route to garbage truck" })
+      .isDisabled();
     const routeFrames = await page.locator("iframe").count();
     await page.screenshot({ path: path.join(outputDir, "collection-required.png"), fullPage: true });
 
+    await page.getByRole("button", { name: "Approve route proposal" }).click();
+    await page.getByText(/lifecycle ACCEPTED/).waitFor({ timeout: 30000 });
+    const sendEnabledAfterApproval = await page
+      .getByRole("button", { name: "Send mock route to garbage truck" })
+      .isEnabled();
     await page.getByRole("button", { name: "Send mock route to garbage truck" }).click();
-    await page.getByText(/Mock route sent to MOCK-TRUCK-01/).waitFor({ timeout: 30000 });
-    const successText = await page.getByText(/Mock route sent to MOCK-TRUCK-01/).first().innerText();
+    await page.getByText(/Mock route (recorded|already recorded) for MOCK-TRUCK-01/).waitFor({ timeout: 30000 });
+    const successText = await page.getByText(/Mock route (recorded|already recorded) for MOCK-TRUCK-01/).first().innerText();
     await page.screenshot({ path: path.join(outputDir, "mock-dispatch-sent.png"), fullPage: true });
 
     await page.getByRole("tab", { name: "Dispatch log" }).click();
-    await page.getByText("Dispatch records", { exact: true }).waitFor();
+    await page.getByText("Plans and mock dispatch records", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Download latest dispatch JSON" }).waitFor();
     await page.screenshot({ path: path.join(outputDir, "mock-dispatch-log.png"), fullPage: true });
 
@@ -86,6 +94,8 @@ async function main() {
 
     process.stdout.write(JSON.stringify({
       routeFrames,
+      sendDisabledBeforeApproval,
+      sendEnabledAfterApproval,
       successText,
       consoleErrors,
       pageErrors,
@@ -93,6 +103,7 @@ async function main() {
         overviewLoaded: true,
         demoSelected: true,
         collectionDecisionShown: true,
+        lifecycleApprovalRequired: sendDisabledBeforeApproval && sendEnabledAfterApproval,
         mockDispatchSent: true,
         auditLogShown: true,
         tabletLoaded: true,

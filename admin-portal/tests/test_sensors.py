@@ -38,12 +38,15 @@ def test_store_deduplicates_and_exports_model_schema(tmp_path):
         duplicate = store.ingest(_payload())
         assert len(first) == 3
         assert len(duplicate) == 3
+        assert all(receipt.inserted for receipt in first)
+        assert all(not receipt.inserted for receipt in duplicate)
+        assert all(receipt.status == "duplicate_already_stored" for receipt in duplicate)
         count = store.connection.execute("SELECT COUNT(*) FROM sensor_readings").fetchone()[0]
         assert count == 3
         output = tmp_path / "model.csv"
         store.export_model_csv(output)
         assert output.read_text(encoding="utf-8").splitlines()[0] == (
-            "timestamp_utc,bin_id,fill_pct,weight_kg,sensor_confidence,collected_flag"
+            "timestamp_utc,event_id,bin_id,fill_pct,weight_kg,sensor_confidence,collected_flag"
         )
     finally:
         store.close()

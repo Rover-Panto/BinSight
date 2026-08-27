@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0",
+  "registry_version": "pilot-registry-2026-08-27",
+  "profiles": [
+    {
+      "profile_id": "physical-pilot",
+      "label": "Three-bin Teensy 4.1 and ESP32-C3 physical pilot",
+      "source_mode": "hardware",
+      "bin_ids": ["UGB-001", "UGB-002", "UGB-003"],
+      "road_matrix_order": ["DEPOT", "UGB-001", "UGB-002", "UGB-003"],
+      "controller_topology": {
+        "TEENSY-PILOT-01": ["PILOT-BIN-01", "PILOT-BIN-02", "PILOT-BIN-03"]
+      },
+      "live_integration_enabled": false
+    },
+    {
+      "profile_id": "competition-simulation",
+      "label": "Thirty-three-bin competition simulation",
+      "source_mode": "synthetic",
+      "bin_ids": [
+        "UGB-001", "UGB-002", "UGB-003", "UGB-004", "UGB-005", "UGB-006",
+        "UGB-007", "UGB-008", "UGB-009", "UGB-010", "UGB-011", "UGB-012",
+        "UGB-013", "UGB-014", "UGB-015", "UGB-016", "UGB-017", "UGB-018",
+        "UGB-019", "UGB-020", "UGB-021", "UGB-022", "UGB-023", "UGB-024",
+        "UGB-025", "UGB-026", "UGB-027", "UGB-028", "UGB-029", "UGB-030",
+        "UGB-031", "UGB-032", "UGB-033"
+      ],
+      "road_matrix_order": [
+        "DEPOT", "UGB-001", "UGB-002", "UGB-003", "UGB-004", "UGB-005", "UGB-006",
+        "UGB-007", "UGB-008", "UGB-009", "UGB-010", "UGB-011", "UGB-012",
+        "UGB-013", "UGB-014", "UGB-015", "UGB-016", "UGB-017", "UGB-018",
+        "UGB-019", "UGB-020", "UGB-021", "UGB-022", "UGB-023", "UGB-024",
+        "UGB-025", "UGB-026", "UGB-027", "UGB-028", "UGB-029", "UGB-030",
+        "UGB-031", "UGB-032", "UGB-033"
+      ],
+      "controller_topology": {},
+      "live_integration_enabled": false
+    }
+  ],
+  "mappings": [
+    {
+      "hardware_bin_id": "PILOT-BIN-01",
+      "canonical_bin_id": "UGB-001",
+      "profile": "physical-pilot",
+      "controller_id": "TEENSY-PILOT-01",
+      "controller_channel": 1,
+      "service_site_id": "SJ-01",
+      "service_index": 1,
+      "latitude": 3.07528,
+      "longitude": 101.575341,
+      "capacity_kg": 540.0,
+      "capacity_litres": 4500.0,
+      "calibration_version": "pending-hardware-v1",
+      "bin_type": "general_waste",
+      "waste_stream": "mixed_general_waste"
+    },
+    {
+      "hardware_bin_id": "PILOT-BIN-02",
+      "canonical_bin_id": "UGB-002",
+      "profile": "physical-pilot",
+      "controller_id": "TEENSY-PILOT-01",
+      "controller_channel": 2,
+      "service_site_id": "SJ-01",
+      "service_index": 1,
+      "latitude": 3.07528,
+      "longitude": 101.575341,
+      "capacity_kg": 540.0,
+      "capacity_litres": 4500.0,
+      "calibration_version": "pending-hardware-v1",
+      "bin_type": "recycling_return",
+      "waste_stream": "beverage_recycling"
+    },
+    {
+      "hardware_bin_id": "PILOT-BIN-03",
+      "canonical_bin_id": "UGB-003",
+      "profile": "physical-pilot",
+      "controller_id": "TEENSY-PILOT-01",
+      "controller_channel": 3,
+      "service_site_id": "SJ-01",
+      "service_index": 1,
+      "latitude": 3.07528,
+      "longitude": 101.575341,
+      "capacity_kg": 540.0,
+      "capacity_litres": 4500.0,
+      "calibration_version": "pending-hardware-v1",
+      "bin_type": "recycling_return",
+      "waste_stream": "beverage_recycling"
+    }
+  ]
+}

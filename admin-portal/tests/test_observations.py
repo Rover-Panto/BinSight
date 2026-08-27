@@ -50,3 +50,31 @@ def test_feature_leakage_guard_rejects_hidden_and_future_state():
         assert_observation_only_columns(["fill_pct", "latent_fill_pct"])
     with pytest.raises(ValueError, match="Hidden or future state"):
         assert_observation_only_columns(["fill_pct", "future_growth"])
+
+
+def test_over_capacity_weight_does_not_emit_invalid_fill_percentage():
+    config = load_config(ROOT / "config.json")
+    sensor = replace(
+        config.sensor,
+        fill_random_sd_pct=0.0,
+        weight_random_sd_kg=0.0,
+        fill_bias_sd_pct=0.0,
+        weight_bias_sd_kg=0.0,
+        fill_drift_sd_pct_per_day=0.0,
+        weight_drift_sd_kg_per_day=0.0,
+        outlier_probability=0.0,
+        missing_probability=0.0,
+    )
+    bounded = replace(config, sensor=sensor)
+    scenario = generate_sensor_noise_scenario(bounded, 91, 1, 1)
+    batch = observe_sensors(
+        np.array([700.0]),
+        np.array([540.0]),
+        scenario,
+        0,
+        0,
+        bounded,
+    )
+
+    assert batch.fill_pct[0] == 100.0
+    assert batch.weight_kg[0] == 700.0

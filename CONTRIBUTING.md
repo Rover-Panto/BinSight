@@ -23,6 +23,10 @@ Check `git status --short` before editing. Do not delete, stage, or reformat fil
 
 Keep citizen and admin state separate. Changes to `web/src/model.ts`, `web/src/store.tsx`, storage keys, or migrations require an explanation and migration coverage in the pull request.
 
+Keep fill and recognition domains separate. The shared Teensy/PR #2 ESP32-C3 reports independently identified fill for one general-waste and two recycling bins; all three may enter routing. The OV5647/Grove Vision AI V2 and PR #3 ESP32-C3 produce recycling recognition/session events, which must never enter routing. Do not adapt classification into fill, use fill to decide item acceptance, or combine incompatible waste streams in one truck trip.
+
+Treat the 11 three-bin simulation groups as service topology. Physical controller topology belongs to the explicit three-channel pilot registry and must not be inferred from simulation names or row positions.
+
 Use simulated data. Label route output, KPI values, payouts, service status, and access control accurately.
 
 ## Required checks

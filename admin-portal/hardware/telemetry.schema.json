@@ -1,20 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://binsight.local/schemas/esp32-telemetry-1.0.json",
+  "$id": "https://binsight.local/schemas/esp32-telemetry-1.1.json",
   "title": "BinSight three-bin ESP32 telemetry",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "controller_id",
+    "boot_id",
     "sequence",
     "captured_at_utc",
     "firmware_version",
     "bins"
   ],
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "1.1"},
     "controller_id": {"type": "string", "pattern": "^[A-Z0-9][A-Z0-9_-]{2,31}$"},
+    "boot_id": {"type": "string", "pattern": "^[A-Z0-9][A-Z0-9_-]{2,31}$"},
     "sequence": {"type": "integer", "minimum": 0},
     "captured_at_utc": {"type": "string", "format": "date-time"},
     "firmware_version": {"type": "string", "minLength": 1, "maxLength": 32},

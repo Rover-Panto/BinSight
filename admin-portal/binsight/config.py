@@ -18,8 +18,9 @@ class PilotConfig:
     radius_m: int
     network_type: str
     bin_count: int
-    bins_per_controller: int
+    bins_per_service_site: int
     physical_prototype_bin_count: int
+    physical_controller_bin_count: int
     site_plan_file: str
     households: int
     commercial_units: int
@@ -56,6 +57,43 @@ class WasteConfig:
 
 
 @dataclass(frozen=True)
+class DemandEventTemplateConfig:
+    event_type: str
+    recurrence_days: int
+    first_day: int
+    start_hour: int
+    duration_hours: int
+    buildup_hours: int
+    decay_hours: int
+    intensity: float
+    known_lead_hours: int
+    target_area_types: tuple[str, ...]
+    target_site_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DemandModelConfig:
+    reference_start_utc: str
+    gamma_shape: float
+    residential_hourly_factors: tuple[float, ...]
+    commercial_hourly_factors: tuple[float, ...]
+    residential_day_of_week_factors: tuple[float, ...]
+    commercial_day_of_week_factors: tuple[float, ...]
+    month_of_year_factors: tuple[float, ...]
+    residential_annual_amplitude: float
+    commercial_annual_amplitude: float
+    residential_annual_peak_day: int
+    commercial_annual_peak_day: int
+    bin_pattern_amplitude: float
+    shared_regime_phi: float
+    shared_regime_sigma: float
+    local_regime_phi: float
+    local_regime_sigma: float
+    base_trend_per_year: float
+    event_templates: tuple[DemandEventTemplateConfig, ...]
+
+
+@dataclass(frozen=True)
 class SensorConfig:
     fill_random_sd_pct: float
     weight_random_sd_kg: float
@@ -75,6 +113,8 @@ class SensorConfig:
     stale_after_hours: float
     future_tolerance_minutes: float
     conservative_growth_pct_per_hour: float
+    live_stale_after_minutes: float
+    live_offline_after_minutes: float
 
 
 @dataclass(frozen=True)
@@ -91,10 +131,12 @@ class OperationsConfig:
     smart_max_dispatch_distance_km: float
     smart_dispatch_time_to_overflow_hours: float
     smart_emergency_current_trigger_pct: float
+    uncertain_service_trigger_pct: float
     smart_emergency_time_to_overflow_hours: float
     smart_sibling_include_current_pct: float
     smart_sibling_include_time_to_overflow_hours: float
     smart_optional_max_increment_km: float
+    smart_optional_min_central_fill_pct: float
     forecast_horizon_hours: int
     vehicle_archetype: str
     truck_body_volume_m3: float
@@ -126,6 +168,18 @@ class OperationsConfig:
     replications: int
     base_seed: int
     route_solver_milliseconds: int
+    dynamic_replan_interval_minutes: int
+    next_planning_opportunity_hours: float
+    overflow_service_probability: float
+    forecast_quantile: float
+    route_fixed_cost_m_equivalent: int
+    travel_time_cost_m_per_minute: float
+    service_cost_m_per_minute: float
+    low_fill_cost_m_per_pct: float
+    overflow_avoidance_value_m: float
+    emergency_avoidance_value_m: float
+    max_route_duration_minutes: float
+    minimum_route_value_m: float
 
 
 @dataclass(frozen=True)
@@ -143,6 +197,7 @@ class Config:
     project_name: str
     pilot: PilotConfig
     waste: WasteConfig
+    demand: DemandModelConfig
     sensor: SensorConfig
     operations: OperationsConfig
     stress: StressConfig
@@ -168,6 +223,38 @@ def load_config(path: str | Path) -> Config:
         project_name=payload["project_name"],
         pilot=PilotConfig(**payload["pilot"]),
         waste=WasteConfig(**waste_payload),
+        demand=DemandModelConfig(
+            **(
+                {
+                    **payload["demand_model"],
+                    "residential_hourly_factors": tuple(
+                        payload["demand_model"]["residential_hourly_factors"]
+                    ),
+                    "commercial_hourly_factors": tuple(
+                        payload["demand_model"]["commercial_hourly_factors"]
+                    ),
+                    "residential_day_of_week_factors": tuple(
+                        payload["demand_model"]["residential_day_of_week_factors"]
+                    ),
+                    "commercial_day_of_week_factors": tuple(
+                        payload["demand_model"]["commercial_day_of_week_factors"]
+                    ),
+                    "month_of_year_factors": tuple(
+                        payload["demand_model"]["month_of_year_factors"]
+                    ),
+                    "event_templates": tuple(
+                        DemandEventTemplateConfig(
+                            **{
+                                **item,
+                                "target_area_types": tuple(item["target_area_types"]),
+                                "target_site_ids": tuple(item["target_site_ids"]),
+                            }
+                        )
+                        for item in payload["demand_model"]["event_templates"]
+                    ),
+                }
+            )
+        ),
         sensor=SensorConfig(**payload["sensor"]),
         operations=OperationsConfig(**operations_payload),
         stress=StressConfig(**payload["stress"]),
@@ -177,9 +264,10 @@ def load_config(path: str | Path) -> Config:
 
 
 def validate_config(config: Config) -> None:
-    p, w, s, o, stress = (
+    p, w, d, s, o, stress = (
         config.pilot,
         config.waste,
+        config.demand,
         config.sensor,
         config.operations,
         config.stress,
@@ -204,12 +292,14 @@ def validate_config(config: Config) -> None:
         raise ValueError("radius_m must be between 300 and 20,000 metres")
     if p.bin_count < 3:
         raise ValueError("At least three bins are required by the competition brief")
-    if p.bins_per_controller != 3:
-        raise ValueError("The physical design requires exactly three bins per controller")
+    if p.bins_per_service_site != 3:
+        raise ValueError("The competition simulation groups exactly three bins per service site")
     if p.physical_prototype_bin_count != 3:
         raise ValueError("The physical prototype must contain exactly three bins")
-    if p.bin_count % p.bins_per_controller != 0:
-        raise ValueError("Digital bin_count must be divisible into three-bin controller clusters")
+    if p.physical_controller_bin_count != 3:
+        raise ValueError("The physical Teensy prototype must expose exactly three bin channels")
+    if p.bin_count % p.bins_per_service_site != 0:
+        raise ValueError("Digital bin_count must be divisible into three-bin service sites")
     if not p.site_plan_file.lower().endswith(".json"):
         raise ValueError("site_plan_file must be a JSON file")
     if p.households != 500 or p.commercial_units != 20:
@@ -232,6 +322,14 @@ def validate_config(config: Config) -> None:
         "base_fuel_l_per_km": o.base_fuel_l_per_km,
         "service_idle_l_per_hour": o.service_idle_l_per_hour,
         "depot_idle_l_per_hour": o.depot_idle_l_per_hour,
+        "sensor.live_stale_after_minutes": s.live_stale_after_minutes,
+        "sensor.live_offline_after_minutes": s.live_offline_after_minutes,
+        "operations.next_planning_opportunity_hours": o.next_planning_opportunity_hours,
+        "operations.travel_time_cost_m_per_minute": o.travel_time_cost_m_per_minute,
+        "operations.service_cost_m_per_minute": o.service_cost_m_per_minute,
+        "operations.overflow_avoidance_value_m": o.overflow_avoidance_value_m,
+        "operations.emergency_avoidance_value_m": o.emergency_avoidance_value_m,
+        "operations.max_route_duration_minutes": o.max_route_duration_minutes,
     }
     for name, value in positive.items():
         if value <= 0:
@@ -240,7 +338,53 @@ def validate_config(config: Config) -> None:
         raise ValueError("sizing_target_fill_pct must be in 50..95")
     if w.sizing_reserve_factor < 1 or w.sizing_reserve_factor > 2:
         raise ValueError("sizing_reserve_factor must be in 1..2")
-    if p.bin_count != required_controller_sites(config) * p.bins_per_controller:
+    demand_factor_lengths = {
+        "demand.residential_hourly_factors": (d.residential_hourly_factors, 24),
+        "demand.commercial_hourly_factors": (d.commercial_hourly_factors, 24),
+        "demand.residential_day_of_week_factors": (
+            d.residential_day_of_week_factors,
+            7,
+        ),
+        "demand.commercial_day_of_week_factors": (
+            d.commercial_day_of_week_factors,
+            7,
+        ),
+        "demand.month_of_year_factors": (d.month_of_year_factors, 12),
+    }
+    for name, (values, expected_length) in demand_factor_lengths.items():
+        if len(values) != expected_length or any(value <= 0 for value in values):
+            raise ValueError(
+                f"{name} must contain {expected_length} positive values"
+            )
+    if d.gamma_shape <= 0:
+        raise ValueError("demand.gamma_shape must be positive")
+    for name, value in {
+        "demand.shared_regime_phi": d.shared_regime_phi,
+        "demand.local_regime_phi": d.local_regime_phi,
+    }.items():
+        if not 0 <= value < 1:
+            raise ValueError(f"{name} must be in [0, 1)")
+    for name, value in {
+        "demand.shared_regime_sigma": d.shared_regime_sigma,
+        "demand.local_regime_sigma": d.local_regime_sigma,
+        "demand.bin_pattern_amplitude": d.bin_pattern_amplitude,
+        "demand.residential_annual_amplitude": d.residential_annual_amplitude,
+        "demand.commercial_annual_amplitude": d.commercial_annual_amplitude,
+    }.items():
+        if not 0 <= value < 1:
+            raise ValueError(f"{name} must be in [0, 1)")
+    for event in d.event_templates:
+        if (
+            event.recurrence_days < 1
+            or not 0 <= event.start_hour <= 23
+            or event.duration_hours < 1
+            or event.buildup_hours < 0
+            or event.decay_hours < 0
+            or event.intensity < 0
+            or event.known_lead_hours < 0
+        ):
+            raise ValueError(f"Invalid demand event template: {event.event_type}")
+    if p.bin_count != required_service_sites(config) * p.bins_per_service_site:
         raise ValueError("Digital bin_count does not match the documented capacity calculation")
     if o.horizon_days != 30:
         raise ValueError("The competition requires a 30-day digital simulation")
@@ -278,6 +422,14 @@ def validate_config(config: Config) -> None:
         raise ValueError(
             "Emergency fill threshold must be between the normal dispatch threshold and 100"
         )
+    if not (
+        o.smart_dispatch_current_trigger_pct
+        <= o.uncertain_service_trigger_pct
+        <= o.smart_emergency_current_trigger_pct
+    ):
+        raise ValueError(
+            "Uncertain-reading service threshold must be between normal and emergency fill thresholds"
+        )
     if not 0 <= o.smart_sibling_include_current_pct <= 100:
         raise ValueError("smart_sibling_include_current_pct must be in 0..100")
     if o.smart_sibling_include_time_to_overflow_hours < o.smart_dispatch_time_to_overflow_hours:
@@ -286,6 +438,10 @@ def validate_config(config: Config) -> None:
         )
     if o.smart_optional_max_increment_km < 0 or o.smart_optional_max_increment_km > 100:
         raise ValueError("smart_optional_max_increment_km must be in 0..100")
+    if not 0 <= o.smart_optional_min_central_fill_pct <= o.wasted_pickup_threshold_pct:
+        raise ValueError(
+            "smart_optional_min_central_fill_pct must be between 0 and the wasted-pickup threshold"
+        )
     if o.route_solver_milliseconds < 25 or o.route_solver_milliseconds > 10_000:
         raise ValueError("route_solver_milliseconds must be in 25..10,000")
     probabilities = {
@@ -312,6 +468,8 @@ def validate_config(config: Config) -> None:
         "sensor.conservative_growth_pct_per_hour": s.conservative_growth_pct_per_hour,
         "operations.turnaround_minutes": o.turnaround_minutes,
         "operations.payload_full_penalty_pct": o.payload_full_penalty_pct,
+        "operations.low_fill_cost_m_per_pct": o.low_fill_cost_m_per_pct,
+        "operations.minimum_route_value_m": o.minimum_route_value_m,
     }
     for name, value in nonnegative.items():
         if value < 0:
@@ -324,6 +482,16 @@ def validate_config(config: Config) -> None:
         raise ValueError("sensor.upper_uncertainty_z must be in (0, 5]")
     if s.stale_after_hours <= 0:
         raise ValueError("sensor.stale_after_hours must be positive")
+    if s.live_offline_after_minutes <= s.live_stale_after_minutes:
+        raise ValueError("live_offline_after_minutes must exceed live_stale_after_minutes")
+    if not 1 <= o.dynamic_replan_interval_minutes <= 24 * 60:
+        raise ValueError("dynamic_replan_interval_minutes must be in 1..1440")
+    if not 0 < o.overflow_service_probability < 1:
+        raise ValueError("overflow_service_probability must be in (0, 1)")
+    if not 0.5 < o.forecast_quantile < 1:
+        raise ValueError("forecast_quantile must be in (0.5, 1)")
+    if o.route_fixed_cost_m_equivalent < 0:
+        raise ValueError("route_fixed_cost_m_equivalent must be non-negative")
     traffic_hours = o.traffic_peak_hours + o.traffic_shoulder_hours
     if any(hour < 0 or hour > 23 for hour in traffic_hours):
         raise ValueError("Traffic hours must be in 0..23")
@@ -351,7 +519,7 @@ def validate_config(config: Config) -> None:
         raise ValueError("stress.truck_capacity_multiplier must be in (0, 1)")
 
 
-def required_controller_sites(config: Config) -> int:
+def required_service_sites(config: Config) -> int:
     daily_demand_kg = (
         config.pilot.households * config.waste.household_kg_per_day
         + config.pilot.commercial_units * config.waste.commercial_kg_per_day
@@ -362,9 +530,14 @@ def required_controller_sites(config: Config) -> int:
         * config.waste.sizing_reserve_factor
     )
     usable_capacity_per_site_kg = (
-        config.pilot.bins_per_controller
+        config.pilot.bins_per_service_site
         * config.waste.bin_capacity_kg
         * config.waste.sizing_target_fill_pct
         / 100.0
     )
     return math.ceil(design_demand_kg / usable_capacity_per_site_kg)
+
+
+def required_controller_sites(config: Config) -> int:
+    """Backward-compatible name for the simulated service-site count."""
+    return required_service_sites(config)

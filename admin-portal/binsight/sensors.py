@@ -5,12 +5,13 @@ import math
 import re
 import sqlite3
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
+LEGACY_SCHEMA_VERSION = "1.0"
 IDENTIFIER = re.compile(r"^[A-Z0-9][A-Z0-9_-]{2,31}$")
 
 
@@ -31,6 +32,8 @@ class FusedBinReading:
     captured_at_utc: str
     controller_id: str
     sequence: int
+    boot_id: str
+    event_id: str
     bin_id: str
     controller_channel: int
     ultrasonic_fill_pct: float | None
@@ -40,6 +43,17 @@ class FusedBinReading:
     sensor_confidence: float
     collected_flag: bool
     flags: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class IngestReceipt:
+    reading: FusedBinReading
+    inserted: bool
+    status: str
+
+    @property
+    def event_id(self) -> str:
+        return self.reading.event_id
 
 
 def load_calibrations(path: str | Path) -> dict[str, ChannelCalibration]:
@@ -86,7 +100,7 @@ def validate_controller_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
     if not isinstance(payload, dict) or not required.issubset(payload):
         raise ValueError("Controller payload is missing required fields")
-    if payload["schema_version"] != SCHEMA_VERSION:
+    if payload["schema_version"] not in {SCHEMA_VERSION, LEGACY_SCHEMA_VERSION}:
         raise ValueError(f"Unsupported schema_version: {payload['schema_version']}")
     if not isinstance(payload["controller_id"], str) or not IDENTIFIER.fullmatch(
         payload["controller_id"]
@@ -96,8 +110,14 @@ def validate_controller_payload(payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("sequence must be an integer")
     if payload["sequence"] < 0:
         raise ValueError("sequence must be non-negative")
+    if payload["schema_version"] == SCHEMA_VERSION:
+        boot_id = payload.get("boot_id")
+        if not isinstance(boot_id, str) or not IDENTIFIER.fullmatch(boot_id):
+            raise ValueError("boot_id is required and must use the accepted identifier format")
+    else:
+        boot_id = "LEGACY-UNSCOPED"
     timestamp = datetime.fromisoformat(str(payload["captured_at_utc"]).replace("Z", "+00:00"))
-    if timestamp.tzinfo is None:
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
         raise ValueError("captured_at_utc must include a timezone")
     bins = payload["bins"]
     if not isinstance(bins, list) or len(bins) != 3:
@@ -130,7 +150,13 @@ def validate_controller_payload(payload: dict[str, Any]) -> dict[str, Any]:
         )
         channels.add(channel)
         bin_ids.add(bin_id)
-    return dict(payload) | {"bins": cleaned_bins}
+    return dict(payload) | {
+        "schema_version": SCHEMA_VERSION,
+        "boot_id": boot_id,
+        "captured_at_utc": timestamp.astimezone(timezone.utc).isoformat(),
+        "bins": cleaned_bins,
+        "legacy_identity": payload["schema_version"] == LEGACY_SCHEMA_VERSION,
+    }
 
 
 def fuse_channel(
@@ -190,6 +216,11 @@ def fuse_channel(
         captured_at_utc=str(payload["captured_at_utc"]),
         controller_id=str(payload["controller_id"]),
         sequence=int(payload["sequence"]),
+        boot_id=str(payload["boot_id"]),
+        event_id=(
+            f"{payload['controller_id']}:{payload['boot_id']}:"
+            f"{payload['sequence']}:{calibration.bin_id}"
+        ),
         bin_id=calibration.bin_id,
         controller_channel=calibration.controller_channel,
         ultrasonic_fill_pct=ultrasonic_fill,
@@ -208,11 +239,16 @@ class SensorStore:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.calibrations = calibrations
         self.connection = sqlite3.connect(self.database_path)
+        self._ensure_schema()
+
+    def _create_current_table(self) -> None:
         self.connection.execute(
             """
             CREATE TABLE IF NOT EXISTS sensor_readings (
+                event_id TEXT NOT NULL PRIMARY KEY,
                 captured_at_utc TEXT NOT NULL,
                 controller_id TEXT NOT NULL,
+                boot_id TEXT NOT NULL,
                 sequence INTEGER NOT NULL,
                 bin_id TEXT NOT NULL,
                 controller_channel INTEGER NOT NULL,
@@ -223,10 +259,52 @@ class SensorStore:
                 sensor_confidence REAL NOT NULL,
                 collected_flag INTEGER NOT NULL,
                 flags_json TEXT NOT NULL,
-                PRIMARY KEY (controller_id, sequence, bin_id)
+                UNIQUE (controller_id, boot_id, sequence, bin_id)
             )
             """
         )
+
+    def _ensure_schema(self) -> None:
+        exists = self.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='sensor_readings'"
+        ).fetchone()
+        if not exists:
+            self._create_current_table()
+            self.connection.commit()
+            return
+        columns = {
+            row[1] for row in self.connection.execute("PRAGMA table_info(sensor_readings)")
+        }
+        if {"event_id", "boot_id"}.issubset(columns):
+            return
+        archive_name = "sensor_readings_legacy_v1"
+        if self.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (archive_name,)
+        ).fetchone():
+            raise RuntimeError(
+                "Cannot migrate sensor_readings: preserved legacy archive already exists"
+            )
+        with self.connection:
+            self.connection.execute(
+                f"ALTER TABLE sensor_readings RENAME TO {archive_name}"
+            )
+            self._create_current_table()
+            self.connection.execute(
+                f"""
+                INSERT OR IGNORE INTO sensor_readings (
+                    event_id, captured_at_utc, controller_id, boot_id, sequence,
+                    bin_id, controller_channel, ultrasonic_fill_pct,
+                    pressure_fill_pct, fill_pct, weight_kg, sensor_confidence,
+                    collected_flag, flags_json
+                )
+                SELECT controller_id || ':LEGACY-UNSCOPED:' || sequence || ':' || bin_id,
+                       captured_at_utc, controller_id, 'LEGACY-UNSCOPED', sequence,
+                       bin_id, controller_channel, ultrasonic_fill_pct,
+                       pressure_fill_pct, fill_pct, weight_kg, sensor_confidence,
+                       collected_flag, flags_json
+                FROM {archive_name}
+                """
+            )
         self.connection.commit()
 
     def close(self) -> None:
@@ -240,19 +318,21 @@ class SensorStore:
         ).fetchone()
         return float(row[0]) if row else None
 
-    def ingest(self, payload: dict[str, Any]) -> list[FusedBinReading]:
+    def ingest(self, payload: dict[str, Any]) -> list[IngestReceipt]:
         clean = validate_controller_payload(payload)
-        fused = []
+        receipts: list[IngestReceipt] = []
         for row in clean["bins"]:
             calibration = self.calibrations.get(row["bin_id"])
             if calibration is None:
                 raise ValueError(f"No calibration exists for {row['bin_id']}")
             reading = fuse_channel(clean, row, calibration, self._previous_fill(row["bin_id"]))
-            self.connection.execute(
-                "INSERT OR IGNORE INTO sensor_readings VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            cursor = self.connection.execute(
+                "INSERT OR IGNORE INTO sensor_readings VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
+                    reading.event_id,
                     reading.captured_at_utc,
                     reading.controller_id,
+                    reading.boot_id,
                     reading.sequence,
                     reading.bin_id,
                     reading.controller_channel,
@@ -265,16 +345,23 @@ class SensorStore:
                     json.dumps(reading.flags),
                 ),
             )
-            fused.append(reading)
+            inserted = cursor.rowcount == 1
+            receipts.append(
+                IngestReceipt(
+                    reading=reading,
+                    inserted=inserted,
+                    status="stored" if inserted else "duplicate_already_stored",
+                )
+            )
         self.connection.commit()
-        return fused
+        return receipts
 
     def export_model_csv(self, path: str | Path) -> None:
         output = Path(path)
         output.parent.mkdir(parents=True, exist_ok=True)
         rows = self.connection.execute(
-            "SELECT captured_at_utc, bin_id, fill_pct, weight_kg, sensor_confidence, "
-            "collected_flag FROM sensor_readings ORDER BY captured_at_utc, bin_id"
+            "SELECT captured_at_utc, event_id, bin_id, fill_pct, weight_kg, sensor_confidence, "
+            "collected_flag FROM sensor_readings ORDER BY captured_at_utc, event_id"
         ).fetchall()
         import csv
 
@@ -283,6 +370,7 @@ class SensorStore:
             writer.writerow(
                 [
                     "timestamp_utc",
+                    "event_id",
                     "bin_id",
                     "fill_pct",
                     "weight_kg",
@@ -293,5 +381,10 @@ class SensorStore:
             writer.writerows(rows)
 
 
-def reading_to_dict(reading: FusedBinReading) -> dict[str, Any]:
+def reading_to_dict(reading: FusedBinReading | IngestReceipt) -> dict[str, Any]:
+    if isinstance(reading, IngestReceipt):
+        return asdict(reading.reading) | {
+            "inserted": reading.inserted,
+            "storage_status": reading.status,
+        }
     return asdict(reading)

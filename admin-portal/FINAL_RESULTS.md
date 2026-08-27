@@ -1,4 +1,6 @@
-# BinSight locked simulation results
+# BinSight historical v1 locked simulation results
+
+> **Policy boundary:** these figures evaluate the retired safety-first threshold/5 km batching policy, not dynamic trip-value policy v2. They are retained to preserve the evidence trail and the failure that motivated v2. Current changed-policy output is versioned under `artifacts/dynamic_v2/` and summarized in `DYNAMIC_V2_RESULTS.md`; neither result is field evidence.
 
 ## Study lock
 
@@ -109,7 +111,7 @@ Raw 30-day totals lead to the same direction. For example, high-demand raw overf
 
 ## Model decision
 
-The smart candidate is accepted as a **research and operator decision-support policy**, not as an autonomous replacement for fixed collection. Adoption requires a prospective field trial showing that its overflow protection, inspection workflow, distance, fuel, and false-pickup costs satisfy operator thresholds on calibrated data.
+The historical smart candidate was accepted only as **research evidence and an operator decision-support precursor**, not as an autonomous replacement for fixed collection. It is now superseded in software by dynamic trip-value v2. Adoption still requires a prospective field trial showing that overflow protection, inspection workflow, distance, fuel, calibration and false-pickup costs satisfy pre-registered operator thresholds.
 
 The recommended field sequence is:
 

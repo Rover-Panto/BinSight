@@ -2,7 +2,7 @@
 
 ## Decision
 
-Use **33 underground bins at 11 sites**, with **three 4.5 m3 bins controlled by one ESP32 at each site**. The physical competition prototype remains one controller plus three bins; the digital district scales that unit to 11 installations.
+Use **33 underground bins at 11 simulated service sites**, with **three co-located 4.5 m3 bins per service group**. This is a capacity/routing topology only; it does not claim 11 deployed controllers. The separate physical profile maps one Teensy 4.1 with three fill/health channels through the shared PR #2 ESP32-C3 relay.
 
 ## Capacity calculation
 
@@ -28,22 +28,22 @@ Therefore the district needs `11 x 3 = 33 bins`. The site allocation was also ch
 
 The requested coordinates below are planning anchors. The OSM/OSRM coordinate is the road-service point used in the model, not an approved excavation point.
 
-All three bins assigned to one controller share that site's coordinate. The map intentionally draws one consolidated marker and lists the three IDs in its popup; it does not spread co-located bins apart for visibility. The optimization did not add any bins, sites, or trucks beyond this budgeted design.
+All three bins assigned to one simulation service group share that site's coordinate. The map intentionally draws one consolidated marker and lists the three IDs in its popup; it does not spread co-located bins apart for visibility. The optimization did not add any bins, sites, or trucks beyond this service-capacity design.
 
-| Site | Planning area | Controller | Bins | Households | Commercial | Daily kg | Requested latitude, longitude | OSM road point latitude, longitude | Snap m |
+| Site | Planning area | Simulation group | Bins | Households | Commercial | Daily kg | Requested latitude, longitude | OSM road point latitude, longitude | Snap m |
 |---|---|---:|---:|---:|---:|---:|---|---|---:|
-| SJ-01 | SS12 residential cluster | ESP32-001 | 3 | 46 | 1 | 327.81 | 3.075400, 101.575500 | 3.075280, 101.575341 | 22.1 |
-| SJ-02 | SS13 residential cluster | ESP32-002 | 3 | 46 | 1 | 327.81 | 3.076500, 101.584400 | 3.076501, 101.584349 | 5.7 |
-| SJ-03 | SS14 residential cluster | ESP32-003 | 3 | 46 | 1 | 327.81 | 3.071000, 101.587700 | 3.071135, 101.587700 | 14.9 |
-| SJ-04 | SS15 commercial-residential cluster | ESP32-004 | 3 | 44 | 6 | 335.90 | 3.076300, 101.588800 | 3.076361, 101.588738 | 9.6 |
-| SJ-05 | SS17 residential cluster | ESP32-005 | 3 | 46 | 1 | 327.81 | 3.067800, 101.578700 | 3.067696, 101.578797 | 15.8 |
-| SJ-06 | SS18 residential cluster | ESP32-006 | 3 | 46 | 1 | 327.81 | 3.066200, 101.574400 | 3.066065, 101.574445 | 15.7 |
-| SJ-07 | SS19 residential cluster | ESP32-007 | 3 | 46 | 1 | 327.81 | 3.082000, 101.579300 | 3.081999, 101.579284 | 1.8 |
-| SJ-08 | USJ 1 mixed-use cluster | ESP32-008 | 3 | 45 | 2 | 325.21 | 3.059000, 101.588700 | 3.059093, 101.588700 | 10.3 |
-| SJ-09 | USJ 2 residential cluster | ESP32-009 | 3 | 46 | 1 | 327.81 | 3.058000, 101.581500 | 3.058000, 101.581488 | 1.3 |
-| SJ-10 | USJ 4 residential cluster | ESP32-010 | 3 | 46 | 1 | 327.81 | 3.046500, 101.580000 | 3.046619, 101.580001 | 13.2 |
-| SJ-11 | Bandar Sunway mixed-use cluster | ESP32-011 | 3 | 43 | 4 | 320.01 | 3.073900, 101.607300 | 3.073879, 101.607300 | 2.3 |
-| **Total** |  | **11 controllers** | **33** | **500** | **20** | **3,603.60** |  |  |  |
+| SJ-01 | SS12 residential cluster | SIM-GROUP-001 | 3 | 46 | 1 | 327.81 | 3.075400, 101.575500 | 3.075280, 101.575341 | 22.1 |
+| SJ-02 | SS13 residential cluster | SIM-GROUP-002 | 3 | 46 | 1 | 327.81 | 3.076500, 101.584400 | 3.076501, 101.584349 | 5.7 |
+| SJ-03 | SS14 residential cluster | SIM-GROUP-003 | 3 | 46 | 1 | 327.81 | 3.071000, 101.587700 | 3.071135, 101.587700 | 14.9 |
+| SJ-04 | SS15 commercial-residential cluster | SIM-GROUP-004 | 3 | 44 | 6 | 335.90 | 3.076300, 101.588800 | 3.076361, 101.588738 | 9.6 |
+| SJ-05 | SS17 residential cluster | SIM-GROUP-005 | 3 | 46 | 1 | 327.81 | 3.067800, 101.578700 | 3.067696, 101.578797 | 15.8 |
+| SJ-06 | SS18 residential cluster | SIM-GROUP-006 | 3 | 46 | 1 | 327.81 | 3.066200, 101.574400 | 3.066065, 101.574445 | 15.7 |
+| SJ-07 | SS19 residential cluster | SIM-GROUP-007 | 3 | 46 | 1 | 327.81 | 3.082000, 101.579300 | 3.081999, 101.579284 | 1.8 |
+| SJ-08 | USJ 1 mixed-use cluster | SIM-GROUP-008 | 3 | 45 | 2 | 325.21 | 3.059000, 101.588700 | 3.059093, 101.588700 | 10.3 |
+| SJ-09 | USJ 2 residential cluster | SIM-GROUP-009 | 3 | 46 | 1 | 327.81 | 3.058000, 101.581500 | 3.058000, 101.581488 | 1.3 |
+| SJ-10 | USJ 4 residential cluster | SIM-GROUP-010 | 3 | 46 | 1 | 327.81 | 3.046500, 101.580000 | 3.046619, 101.580001 | 13.2 |
+| SJ-11 | Bandar Sunway mixed-use cluster | SIM-GROUP-011 | 3 | 43 | 4 | 320.01 | 3.073900, 101.607300 | 3.073879, 101.607300 | 2.3 |
+| **Total** |  | **11 service groups** | **33** | **500** | **20** | **3,603.60** |  |  |  |
 
 ## Depot
 

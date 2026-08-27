@@ -4,9 +4,9 @@
 
 BinSight should be presented as a **forecast-then-optimize decision-support prototype**, not an autonomous municipal system:
 
-1. one ESP32 samples three ultrasonic and three pressure/load channels;
-2. the Raspberry Pi validates, calibrates, stores, and exports the atomic three-bin message;
-3. a locally trained tree model estimates 48-hour growth from observed data;
+1. one Teensy 4.1 samples three fill/health channels—one general-waste and two recycling-return—and the PR #2 ESP32-C3 relays them;
+2. the producer API validates, stores, acknowledges and replays stable, boot-scoped three-bin events;
+3. locally trained tree models estimate 6/24/48/168-hour growth and calibrated synthetic overflow probabilities from observable data;
 4. a safe three-state decision separates collection from inspection and no-action;
 5. OR-Tools builds capacity-feasible trips from OSM/OSRM road costs; and
 6. a paired SimPy experiment reports the safety/cost trade-off against a corrected fixed baseline.
@@ -35,7 +35,7 @@ At 80% design fill, one three-bin site provides `3 × 540 × 0.80 = 1,296 kg`. F
 
 `ceil(3,603.6 × 3 × 1.25 ÷ 1,296) = 11 sites`
 
-At three bins per ESP32, this gives **33 bins and 11 controllers**. Every site is checked individually in `SITING_PLAN.md`. Optimization did not add assets beyond this design.
+At three bins per simulated service group, this gives **33 bins and 11 service groups**. Every site is checked individually in `SITING_PLAN.md`. This is a routing/capacity model, not 11 deployed controllers. The physical profile is one Teensy 4.1/C3 relay with one registered general-waste bin and two recycling-return bins. Their fill channels are routing inputs, while the separate vision/session domain is not.
 
 ## OpenStreetMap and OSRM
 
@@ -47,11 +47,11 @@ Normal human map viewing must preserve visible attribution and comply with the O
 
 The depot at **3.06192, 101.55272** is a provisional routing anchor, not operator authorization.
 
-## Electronics and MQTT
+## Legacy electronics/MQTT reference and current target
 
-Espressif documents raw and millivolt ADC APIs for Arduino-ESP32: [Arduino-ESP32 ADC](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html). Every real pressure/load channel needs rated structural hardware, overload protection, conditioning, and a maximum 3.3 V ESP32 input. A hobby FSR is not a safe full-container weighing solution.
+The retained ESP32/gateway implementation is a legacy executable reference, not the approved physical producer. The current fill target keeps all three fill channels on Teensy 4.1 and uses the PR #2 ESP32-C3 only as the relay. A separate PR #3 ESP32-C3 relays Grove Vision AI V2 recognition/session results for recycling returns; those events never feed fill routing. Every real pressure/load channel needs rated structural hardware, overload protection and conditioning. A hobby FSR is not a safe full-container weighing solution.
 
-The controller publishes a three-bin JSON message. Its maximum harness case fits the configured 1,024-byte MQTT buffer. The current PubSubClient firmware publishes at QoS 0; retries and a four-message RAM queue reduce loss but do not provide acknowledgement or persistence. The Raspberry Pi uses Eclipse Paho, validates schema/message IDs, stores both sensor channels, and can export model-ready CSV: [Paho Python client](https://eclipse.dev/paho/files/paho.mqtt.python/html/index.html).
+The legacy controller publishes a three-bin JSON message. Its maximum harness case fits the configured 1,024-byte MQTT buffer. PubSubClient QoS 0, retries and a RAM queue do not provide acknowledged durable delivery. The current producer must instead satisfy telemetry-routing 2.1 event identity/type, acknowledgement/replay, UTC and quality gates before live integration is enabled.
 
 ## Observation and decision safety
 
@@ -69,11 +69,13 @@ The 0.45 L/km base rate, 3.0 L/hour idle rate, 15% full-payload penalty, and tra
 
 ## Forecast and experiment design
 
-The forecaster is trained on a separate 45-day synthetic pre-period and scored on the last chronological 20%. The policy comparison uses 30 paired replications per scenario. Fixed and smart share arrivals and observation noise within each pair. Raw and equal three-day post-warm-up metrics are both saved.
+The v2 forecaster is trained on a separate 730-day patterned synthetic pre-period. Train, calibration and untouched holdout timestamps are separated by the complete 168-hour maximum target horizon; calibration fits the 48-hour q90 adjustment, while holdout reports 6/24/48/168-hour errors, time-to-overflow error, alert quality, interval coverage and probability calibration. The 30-day operational window is excluded. The policy comparison uses 30 paired replications per scenario. Fixed and dynamic policies share arrivals, events and observation noise within each pair. Raw and equal three-day post-warm-up metrics are both saved.
 
-Scenarios are base, 1.45× high demand, 1.35× traffic, 18% missing/8% outlier sensor failure, and 0.65× truck capacity. They must be reported separately. Confidence intervals represent Monte Carlo variation under assumptions, not field causality.
+Eleven separate scenarios cover normal patterned demand, a high-demand season, event-heavy demand, persistent and localized surges, gradual trend, abrupt change, traffic disruption, sensor failure, reduced capacity and combined demand/operational stress. The demand equation combines normalized hourly/day/week/month/year factors, targeted event shapes, bounded trends, district/local AR(1) regimes and non-negative Gamma arrivals. Confidence intervals represent Monte Carlo variation under assumptions, not field causality.
 
 <!-- LOCKED_RESEARCH_RESULTS_START -->
+
+The following numbers are the retained **historical v1** result. They do not describe the changed dynamic-v2 demand or routing model; current v2 evidence is regenerated separately in `artifacts/dynamic_v2/` and `DYNAMIC_V2_RESULTS.md`.
 
 The final forecaster achieved **2.484 percentage-point MAE** on the synthetic chronological 48-hour holdout, versus **7.646** for the naive benchmark (67.52% improvement).
 
@@ -81,7 +83,7 @@ In the primary equal three-day post-warm-up base comparison, fixed service avera
 
 The safety value appears under stress. At 1.45× demand, smart reduced overflow incidents from 62.667 to 2.733 (95.64%) and spill from 3,006.703 to 58.828 kg (98.04%), but used 59.09% more fuel. At 0.65× truck capacity it reduced incidents from 7.133 to 0.100 and unserved required bins from 9.900 to 0.633, but used 25.62% more fuel. Under sensor failure, fixed remained at zero overflow while smart averaged 0.167 and more than doubled fuel.
 
-The result does **not** support routine fuel-saving deployment. It supports a future hybrid: fixed service in the validated normal regime, with forecast-driven emergency routing activated only under verified high-demand/capacity risk. Earlier claims of 5.08% lower distance/fuel are withdrawn.
+The v1 result does **not** support routine fuel-saving deployment. It motivated the v2 trip-value and demand-model revision. Earlier claims of 5.08% lower distance/fuel remain withdrawn.
 
 <!-- LOCKED_RESEARCH_RESULTS_END -->
 

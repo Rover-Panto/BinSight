@@ -21,7 +21,7 @@ class BinSpec:
     commercial_units: int
     capacity_kg: float
     area_type: str
-    controller_id: str = "ESP32-001"
+    controller_id: str = "SIM-GROUP-001"
     controller_channel: int = 1
     site_id: str = "SITE-01"
     site_label: str = "Prototype site"
@@ -44,7 +44,7 @@ def _split_integer(total: int, parts: int) -> list[int]:
 def load_site_plan(path: str | Path, config: Config) -> list[dict]:
     site_path = Path(path)
     sites = json.loads(site_path.read_text(encoding="utf-8"))
-    expected_sites = config.pilot.bin_count // config.pilot.bins_per_controller
+    expected_sites = config.pilot.bin_count // config.pilot.bins_per_service_site
     if not isinstance(sites, list) or len(sites) != expected_sites:
         raise ValueError(f"Site plan must contain exactly {expected_sites} sites")
     required = {"site_id", "label", "latitude", "longitude", "households", "commercial_units"}
@@ -57,7 +57,7 @@ def load_site_plan(path: str | Path, config: Config) -> list[dict]:
     if sum(int(site["commercial_units"]) for site in sites) != config.pilot.commercial_units:
         raise ValueError("Site-plan commercial total does not match the competition scenario")
     usable_site_capacity_kg = (
-        config.pilot.bins_per_controller
+        config.pilot.bins_per_service_site
         * config.waste.bin_capacity_kg
         * config.waste.sizing_target_fill_pct
         / 100.0
@@ -86,10 +86,10 @@ def build_district(
     service_network: ServiceNetwork,
     site_plan_path: str | Path,
 ) -> tuple[int, list[BinSpec]]:
-    controller_count = config.pilot.bin_count // config.pilot.bins_per_controller
+    service_site_count = config.pilot.bin_count // config.pilot.bins_per_service_site
     sites = load_site_plan(site_plan_path, config)
-    if len(sites) != controller_count:
-        raise ValueError("Controller count and site plan are inconsistent")
+    if len(sites) != service_site_count:
+        raise ValueError("Service-site count and site plan are inconsistent")
     if service_network.service_count != len(sites) + 1:
         raise ValueError("OSRM network must contain depot plus every collection site")
     depot = 0
@@ -105,13 +105,13 @@ def build_district(
                 f"{site['site_id']} is {snap_distance:.1f} m from an accessible drive node"
             )
         household_counts = _split_integer(
-            int(site["households"]), config.pilot.bins_per_controller
+            int(site["households"]), config.pilot.bins_per_service_site
         )
         commercial_counts = _split_integer(
-            int(site["commercial_units"]), config.pilot.bins_per_controller
+            int(site["commercial_units"]), config.pilot.bins_per_service_site
         )
-        for channel in range(config.pilot.bins_per_controller):
-            index = site_index * config.pilot.bins_per_controller + channel
+        for channel in range(config.pilot.bins_per_service_site):
+            index = site_index * config.pilot.bins_per_service_site + channel
             commercial = commercial_counts[channel]
             bins.append(
                 BinSpec(
@@ -127,7 +127,7 @@ def build_district(
                         if int(site["commercial_units"]) >= 2
                         else "residential"
                     ),
-                    controller_id=f"ESP32-{site_index + 1:03d}",
+                    controller_id=f"SIM-GROUP-{site_index + 1:03d}",
                     controller_channel=channel + 1,
                     site_id=str(site["site_id"]),
                     site_label=str(site["label"]),
@@ -160,40 +160,13 @@ def save_district(bins: list[BinSpec], path: str | Path) -> None:
 def generate_hourly_waste(
     bins: list[BinSpec], config: Config, seed: int, horizon_hours: int, start_day: int = 0
 ) -> np.ndarray:
-    """Pre-generate exogenous hourly waste so policies use common random numbers."""
-    rng = np.random.default_rng(seed)
-    arrivals = np.zeros((horizon_hours, len(bins)), dtype=float)
-    residential_curve = np.array(
-        [0.35, 0.25, 0.20, 0.18, 0.20, 0.35, 0.65, 0.95, 1.15, 1.05, 0.95, 0.90,
-         0.95, 0.90, 0.85, 0.85, 0.95, 1.20, 1.55, 1.75, 1.65, 1.35, 0.90, 0.55]
-    )
-    commercial_curve = np.array(
-        [0.15, 0.10, 0.10, 0.10, 0.15, 0.30, 0.65, 1.10, 1.55, 1.70, 1.65, 1.55,
-         1.45, 1.45, 1.50, 1.55, 1.45, 1.20, 0.95, 0.70, 0.50, 0.35, 0.25, 0.20]
-    )
-    residential_curve /= residential_curve.mean()
-    commercial_curve /= commercial_curve.mean()
-    event_days = set(config.waste.event_days)
-    for hour_index in range(horizon_hours):
-        absolute_day = start_day + hour_index // 24
-        hour = hour_index % 24
-        weekday = absolute_day % 7
-        weekend = weekday in (5, 6)
-        for bin_index, item in enumerate(bins):
-            residential_mean = (
-                item.households * config.waste.household_kg_per_day / 24.0
-                * residential_curve[hour]
-                * (1.10 if weekend else 1.0)
-            )
-            commercial_mean = (
-                item.commercial_units * config.waste.commercial_kg_per_day / 24.0
-                * commercial_curve[hour]
-                * (0.88 if weekend else 1.0)
-            )
-            mean = residential_mean + commercial_mean
-            if absolute_day in event_days and item.area_type == "mixed/commercial":
-                mean *= config.waste.event_multiplier
-            # Gamma noise is non-negative and more variable than a Gaussian rate.
-            shape = 5.0
-            arrivals[hour_index, bin_index] = rng.gamma(shape, max(mean, 1e-9) / shape)
-    return arrivals
+    """Backward-compatible arrival-only view of the patterned demand model."""
+    from .demand import generate_demand_realization
+
+    return generate_demand_realization(
+        bins,
+        config,
+        seed,
+        horizon_hours,
+        start_day=start_day,
+    ).arrivals_kg

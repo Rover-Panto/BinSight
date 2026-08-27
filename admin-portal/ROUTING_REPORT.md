@@ -1,5 +1,11 @@
 # BinSight predictive collection routing subsystem
 
+> **Historical v1 report:** this Markdown and the generated DOCX/PDF describe the retired threshold/5 km policy and legacy ESP32 topology. They are retained as prior competition evidence, not as documentation of dynamic trip-value v2. Current architecture, model and results are in `README.md`, `DYNAMIC_ROUTING_MODEL.md`, `DYNAMIC_V2_RESULTS.md` and `docs/TELEMETRY_ROUTING_CONTRACT.md`.
+
+## Current v2 evidence addendum (28 August 2026)
+
+The definitive dynamic-v2 evaluation contains 660 policy runs: 11 scenarios, 30 matched replications and two policies. Under normal patterned demand, dynamic v2 reduced mean overflow incidents from 3.97 to 0.90 and spill from 281.52 kg to 24.16 kg, but increased trips from 17.70 to 24.13, distance from 505.27 km to 718.89 km, fuel from 409.38 L to 505.84 L and low-fill pickups from 21.73 to 32.97. Under sensor failure it was worse on both overflow and efficiency. It therefore remains a shadow-mode safety experiment, with the fixed three-day policy retained as the operational fallback. See `DYNAMIC_V2_RESULTS.md` for paired confidence intervals, forecast diagnostics, scenario outcomes and reproducibility artifacts.
+
 **Focus Area C technical implementation report**
 
 **Pilot:** Subang Jaya, Selangor
@@ -11,7 +17,7 @@
 
 ## Executive summary
 
-BinSight converts a complete 33-bin predictive snapshot into a safe operator decision and, when collection is required, a capacity-feasible route over OpenStreetMap-derived roads. The pilot represents 500 households and 20 commercial units using 33 Dutch-style 4.5 m³ underground bins at 11 sites. Each site has three genuinely co-located bins controlled by one ESP32. No extra bins, sites, or trucks were added during optimization.
+BinSight v1 converted a complete 33-bin predictive snapshot into a safe operator decision and, when collection was required, a capacity-feasible route over OpenStreetMap-derived roads. The historical simulation represents 500 households and 20 commercial units using 33 Dutch-style 4.5 m³ underground bins at 11 three-bin service groups. Those groups are not a deployed-controller claim. The current physical target is one Teensy 4.1 with one general-waste and two recycling-return fill channels relayed by the PR #2 ESP32-C3; recognition/session events use the separate PR #3 path and do not enter routing.
 
 The implemented chain is:
 
@@ -36,8 +42,8 @@ This report covers only the Focus Area C sensing-to-routing subsystem. It does n
 | Service population | 500 households + 20 commercial units |
 | Evaluation horizon | 30 days |
 | Underground bins | 33 × 4.5 m³ |
-| Sites/controllers | 11 sites; 1 ESP32 + 3 bins per site |
-| Physical model unit | 1 ESP32 + 3 instrumented bins |
+| Simulation service topology | 11 sites; 3 bins per service group |
+| Current physical model unit | 1 Teensy 4.1 + 3 fill channels + shared PR #2 ESP32-C3 relay |
 | Depot | Provisional Batu Tiga/Subang Jaya point, 3.06192, 101.55272 |
 | Truck archetype | VDL Maxxum/UGS family, 22 m³ body assumption |
 | Route payload | 9,000 kg assumption |

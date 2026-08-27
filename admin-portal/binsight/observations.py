@@ -149,6 +149,10 @@ def observe_sensors(
         np.maximum(fill, weight_fill_pct),
         np.where(np.isfinite(fill), fill, weight_fill_pct),
     )
+    # Fused fill is a percentage field at the routing boundary. Over-capacity
+    # weight remains available in `weight_kg`; it must not turn fill_pct into
+    # an invalid >100 value that crashes a safety-critical evaluation.
+    fused = np.clip(fused, 0.0, 100.0)
 
     score = np.ones(len(mass), dtype=float)
     score -= 0.45 * missing.astype(float)

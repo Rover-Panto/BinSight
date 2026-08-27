@@ -1,22 +1,23 @@
 # BinSight Focus Area C — Subang Jaya
 
-This directory contains BinSight's independent operations and routing prototype. It serves a synthetic pilot of **500 households and 20 commercial units** with **33 Dutch-style 4.5 m³ underground bins at 11 sites**. Every site has three co-located bins connected to one ESP32; the competition hardware prototype represents one of those sites.
+This directory contains BinSight's independent operations and routing prototype. The `competition-simulation` profile serves a synthetic district of **500 households and 20 commercial units** with **33 Dutch-style 4.5 m³ underground bins at 11 service sites**. The separate `physical-pilot` profile explicitly maps one three-bin Teensy 4.1/C3 hardware producer to canonical routing IDs. Simulation service groups are not represented as 11 deployed controllers.
 
 The portal is decision support, not an autonomous municipal dispatch system. Site coordinates, demand, vehicle performance, and sensor behavior are configurable planning assumptions.
 
 ## Implemented system
 
-- ESP32 firmware for three ultrasonic and three pressure/load channels, including bounded buffering and retry logging.
-- Raspberry Pi MQTT/JSON gateway, calibration, conservative sensor fusion, SQLite storage, and CSV export.
+- A retained legacy ESP32 producer/gateway reference for three ultrasonic and three pressure/load channels. The current physical handoff target is the shared three-channel Teensy 4.1/PR #2 C3 producer documented in `../docs/TELEMETRY_ROUTING_CONTRACT.md`.
+- A versioned telemetry-routing 2.1 adapter (with validated 2.0 legacy normalization), explicit hardware-to-canonical registry, per-bin acquisition/receipt time, event identity, bin type/waste stream, forecast availability, quality and source-mode provenance.
 - A hidden physical fill state separated from noisy observations, with bias, drift, outliers, missing values, confidence, and freshness checks.
-- A chronological 48-hour forecaster that receives observed data only; hidden state is used only to construct training labels and score simulation outcomes.
-- Three operator decisions: `COLLECTION_REQUIRED`, `INSPECTION_REQUIRED`, and `NO_COLLECTION_REQUIRED`.
-- Capacity-feasible OR-Tools routes over cached OSRM road distance and duration matrices, with a deterministic fallback.
+- A patterned demand generator with normalized hourly/day/week/month/year factors, shaped events, trend/change points, persistent district/local AR(1) regimes and non-negative Gamma arrivals.
+- A chronological multi-horizon forecaster trained on a separate 730-day pre-period; the 30-day operational window is excluded and hidden state is used only for labels/outcomes.
+- Three operator decisions: `COLLECTION_REQUIRED`, `INSPECTION_REQUIRED`, and `NO_COLLECTION_REQUIRED`, plus a trip-value gate that can defer a non-urgent route when waiting/merging is cheaper.
+- Prize-collecting OR-Tools routes over cached OSRM road distance and duration matrices. Emergency/service-level stops are mandatory; optional pickups are accepted only when their avoided-overflow value exceeds fixed-trip, distance, time, service and low-fill costs. Mass, compacted volume, route duration and daily trip limits are enforced.
 - Minute-level SimPy execution with travel, per-bin service, unloading, turnaround, traffic, payload-dependent fuel, and overflow during an active trip.
 - A fair fixed baseline whose first collection occurs after its configured interval, plus a three-day common warm-up report for both policies.
-- Five paired scenarios: base, high demand, traffic, sensor failure, and reduced truck capacity.
+- Eleven paired scenarios spanning normal patterns, seasonal/event demand, persistent/local surges, trend/change point, traffic, sensor failure, reduced capacity and combined stress.
 - Eleven consolidated site markers, three-bin status popups, bounded Subang Jaya maps, route layers, and mock truck tracking.
-- Strict 33-bin CSV/JSON intake, a local-only mock dispatch record, and a full decision audit.
+- Profile-aware legacy or telemetry-routing 2.0/2.1 intake; immutable draft/accepted/completed/cancelled plans; idempotent local-only mock dispatch; and full source/decision provenance.
 
 ## Fixed physical design
 
@@ -24,35 +25,35 @@ The portal is decision support, not an autonomous municipal dispatch system. Sit
 | --- | --- |
 | Underground bins | 33 total; 4.5 m³ each |
 | Service sites | 11; exactly 3 bins per site |
-| Controller topology | 1 ESP32 per 3-bin site |
-| Physical competition model | 1 ESP32 and 3 bins |
+| Simulation grouping | 11 service groups of 3 bins; no deployed-controller claim |
+| Physical competition model | 1 Teensy 4.1/C3 producer and 3 bins |
 | Depot | Provisional Subang Jaya/Batu Tiga point at 3.06192, 101.55272 |
 | Vehicle archetype | VDL Maxxum/UGS underground-container collection system |
 | Route payload assumption | 9,000 kg, maximum 2 trips per calendar day |
 
 No bins, sites, or trucks were added by the optimization work.
 
-## Locked finding
+## Evidence status
 
-The corrected 30-pair base result does **not** show routine fuel savings. After the equal three-day warm-up, smart routing used 23.79% more road distance and 18.90% more fuel than the fixed schedule. Its value appears under stress: it reduced overflow incidents by 95.64% at 1.45× demand and 98.60% at 0.65× truck capacity, at the cost of more trips and fuel. Treat it as an emergency-capacity decision aid; keep fixed service as the field safeguard until a calibrated hybrid policy passes an untouched field evaluation. See [FINAL_RESULTS.md](FINAL_RESULTS.md).
+The corrected 30-pair v1 result does **not** show routine fuel savings: after equal warm-up it used 23.79% more road distance and 18.90% more fuel than the fixed schedule. That result motivated dynamic trip-value policy v2; it remains historical evidence and is not a performance claim for v2. The current policy's matched simulation evidence is written to `artifacts/dynamic_v2/` and summarized separately in [DYNAMIC_V2_RESULTS.md](DYNAMIC_V2_RESULTS.md). Neither version is field evidence.
 
 ## Run on Windows
 
 From the repository root, run `Setup-BinSight-Admin.cmd` once and then `Start-BinSight-Admin.cmd`. For development from this directory:
 
 ```powershell
-py -3.12 -m venv .venv
+py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m binsight.cli prepare
-.\.venv\Scripts\python.exe -m binsight.cli run --replications 30
+.\.venv\Scripts\python.exe -m binsight.cli run --artifact-set dynamic_v2 --replications 30 --parallel-workers 4
 .\.venv\Scripts\streamlit.exe run app.py
 ```
 
 Ordinary reruns use the committed road matrices. Use `--refresh-map` only when deliberately refreshing OSRM inputs.
 
-## Predictive-AI snapshot contract
+## Routing input contracts
 
-Open **Route input** and upload CSV/JSON, paste JSON, or use the built-in demo. Submit one row for each `UGB-001` through `UGB-033`.
+Open **Route input** and upload CSV/JSON, paste JSON, or use the built-in demo. The legacy competition snapshot has one row for each `UGB-001` through `UGB-033`. The preferred telemetry-routing 2.1 envelope contains the three registered physical-pilot fill channels and carries per-bin event kind, bin type/waste stream, timing, availability, quality and forecast provenance. The one general-waste and two beverage-return recycling channels may be planned together, but generated truck trips never mix streams. Vision recognition/session events remain outside routing. See [TELEMETRY_ROUTING_CONTRACT.md](../docs/TELEMETRY_ROUTING_CONTRACT.md).
 
 ```text
 timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence_flag
@@ -67,7 +68,18 @@ timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence
 
 The dispatcher never silently converts an uncertain record into a safe record. Stale, low-confidence, missing, or disagreeing readings can produce `INSPECTION_REQUIRED`; imminent risk still produces `COLLECTION_REQUIRED` with an operator-review warning. Accepted last-valid observations are persisted locally and aged conservatively.
 
-Selecting **Send mock route to garbage truck** writes only to `data/mock_truck_dispatches.jsonl`. It does not contact a truck, driver app, MQTT broker, or municipal API.
+Every proposal is first stored as an immutable `DRAFT` in `data/routing_plans.sqlite3`. An operator must accept or cancel it. Sending an accepted mock route creates at most one transactional mock-dispatch record for that plan. It does not contact a truck, driver app, MQTT broker, or municipal API. The old JSONL file remains read-only historical audit input.
+
+## Planner commands
+
+```powershell
+.\.venv\Scripts\python.exe -m binsight.cli plan-once --snapshot .\tests\fixtures\telemetry_v2_valid.json --profile physical-pilot
+.\.venv\Scripts\python.exe -m binsight.cli planner-start --snapshot .\tests\fixtures\telemetry_v2_valid.json --profile physical-pilot
+.\.venv\Scripts\python.exe -m binsight.cli planner-status
+.\.venv\Scripts\python.exe -m binsight.cli planner-stop
+```
+
+The periodic planner is opt-in and single-worker. It proposes drafts; it never auto-accepts or sends a route. Repeated identical input inside one 15-minute planning bucket is idempotent. A telemetry event during an accepted trip can freeze the active leg and produce a separate residual-capacity suffix draft without mutating the accepted plan.
 
 ## Raspberry Pi gateway
 
@@ -81,19 +93,20 @@ Process a saved controller payload:
   --export-csv data/model_readings.csv
 ```
 
-For MQTT mode, set `BINSIGHT_MQTT_HOST`, `BINSIGHT_MQTT_PORT`, `BINSIGHT_MQTT_USER`, and `BINSIGHT_MQTT_PASSWORD`, then replace `--input-json ...` with `--mqtt`.
+For MQTT mode, set `BINSIGHT_MQTT_HOST`, `BINSIGHT_MQTT_PORT`, `BINSIGHT_MQTT_USERNAME`, and `BINSIGHT_MQTT_PASSWORD`, then replace `--input-json ...` with `--mqtt`.
 
-## Firmware
+## Legacy firmware reference
 
-Open `firmware/esp32_binsight` in PlatformIO, copy `include/secrets.example.h` to `include/secrets.h`, enter Wi-Fi/MQTT settings, and calibrate all six channels. The source uses a 1,024-byte MQTT buffer; the harness verifies that a maximum three-bin payload and packet fit without truncation. PubSubClient publishes at QoS 0, so firmware retries and the local bounded queue reduce loss but do not provide broker acknowledgement. A field deployment requiring QoS 1 must use a client library with acknowledged publish support.
+`firmware/esp32_binsight` and the Raspberry Pi gateway remain an executable legacy-reference path, now using schema 1.1 boot/event identity so a reboot cannot cause valid readings to be discarded as duplicates. They are not the current physical producer architecture. Hardware PR #2 must emit the routing handoff contract from the Teensy 4.1/C3 path and pass the shared fixture/schema checks.
 
 ## Evidence and documentation
 
 - [SITING_PLAN.md](SITING_PLAN.md) — capacity equation and preliminary coordinates.
 - [METHODS.md](METHODS.md) — simulation, observation, forecast, routing, fuel, and inference method.
+- [DYNAMIC_ROUTING_MODEL.md](DYNAMIC_ROUTING_MODEL.md) — exact v2 objective, provisional weights, constraints and deferral rule.
 - [FINAL_RESULTS.md](FINAL_RESULTS.md) — locked 30-pair base and stress results.
 - [ROUTING_REPORT.md](ROUTING_REPORT.md) — complete Focus Area C implementation report.
-- [Final routing report (DOCX)](reports/BinSight_Routing_Subsystem_Report_Improved.docx) and [PDF](reports/BinSight_Routing_Subsystem_Report_Improved.pdf) — generated competition-facing report.
+- [Historical v1 routing report (DOCX)](reports/BinSight_Routing_Subsystem_Report_Improved.docx) and [PDF](reports/BinSight_Routing_Subsystem_Report_Improved.pdf) — retained generated evidence for the retired threshold/legacy-topology version; not current v2 documentation.
 - [ROUTE_DISPLAY.md](ROUTE_DISPLAY.md) — map and tracking behavior.
 - [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md) — external evidence versus prototype assumptions.
 - [hardware/SENSOR_CONTRACT.md](hardware/SENSOR_CONTRACT.md) — controller/gateway data contract.

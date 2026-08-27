@@ -14,8 +14,9 @@ def maximum_supported_payload() -> tuple[str, bytes]:
     controller_id = "C" * 32
     topic = TOPIC_PREFIX + controller_id
     payload = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "controller_id": controller_id,
+        "boot_id": "BOOT-FFFFFFFF-FFFFFFFF",
         "sequence": 4_294_967_295,
         "captured_at_utc": "2099-12-31T23:59:59Z",
         "firmware_version": "F" * 32,

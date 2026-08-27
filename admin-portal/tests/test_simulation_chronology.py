@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import binsight.simulation as simulation_module
 from binsight.config import load_config
 from binsight.district import BinSpec
 from binsight.simulation import fixed_service_due, run_policy
@@ -175,8 +176,8 @@ def test_daily_trip_limit_is_shared_by_morning_and_evening_decisions():
     bins = [_bin(0)]
     distance, duration = _matrices(1, 60.0)
     arrivals = np.zeros((24, 1), dtype=float)
-    arrivals[6, 0] = 80.0
-    arrivals[18, 0] = 80.0
+    arrivals[6, 0] = 95.0
+    arrivals[18, 0] = 20.0
     result = run_policy(
         "smart",
         0,
@@ -191,7 +192,7 @@ def test_daily_trip_limit_is_shared_by_morning_and_evening_decisions():
 
     assert result.metrics["collection_trips"] == 1
     assert len(result.route_events) == 1
-    assert result.final_fill_kg[0] == pytest.approx(80.0)
+    assert result.final_fill_kg[0] == pytest.approx(20.0)
 
 
 def test_two_missing_sensors_request_inspection_without_fabricating_full_bin():
@@ -214,5 +215,106 @@ def test_two_missing_sensors_request_inspection_without_fabricating_full_bin():
     )
 
     assert result.metrics["collection_trips"] == 0
-    assert result.metrics["inspection_events"] == 2
+    # The dynamic policy evaluates every six-hour sensor update, not only 06:00/18:00.
+    assert result.metrics["inspection_events"] == 4
     assert result.final_fill_kg[0] == 0.0
+
+
+def test_completed_collection_resets_history_before_missing_followup_reading():
+    base = _config(horizon_days=1)
+    config = replace(
+        base,
+        sensor=replace(
+            base.sensor,
+            missing_probability=0.0,
+            low_confidence_margin_pct=15.0,
+            conservative_growth_pct_per_hour=0.75,
+        ),
+        operations=replace(
+            base.operations,
+            smart_emergency_current_trigger_pct=90.0,
+            uncertain_service_trigger_pct=90.0,
+        ),
+    )
+    bins = [_bin(0)]
+    distance, duration = _matrices(1, 60.0)
+    arrivals = np.zeros((24, 1), dtype=float)
+    arrivals[0, 0] = 95.0
+
+    result = run_policy(
+        "smart",
+        0,
+        bins,
+        config,
+        distance,
+        duration,
+        arrivals,
+        17,
+        forecaster=ZeroGrowthForecaster(),
+    )
+
+    assert result.metrics["collection_trips"] == 1
+    assert result.metrics["wasted_pickups"] == 0
+
+
+def test_paired_policies_receive_identical_sensor_noise(monkeypatch):
+    config = _config(horizon_days=1)
+    noisy_sensor = replace(
+        load_config(ROOT / "config.json").sensor,
+        missing_probability=0.0,
+        outlier_probability=0.0,
+    )
+    config = replace(config, sensor=noisy_sensor)
+    bins = [_bin(0)]
+    distance, duration = _matrices(1, 60.0)
+    arrivals = np.zeros((24, 1), dtype=float)
+    original = simulation_module.observe_sensors
+    observed_runs = []
+    current = []
+
+    def recording_observer(*args, **kwargs):
+        batch = original(*args, **kwargs)
+        current.append(
+            (
+                batch.fill_pct.copy(),
+                batch.weight_kg.copy(),
+                batch.confidence_flag.copy(),
+            )
+        )
+        return batch
+
+    monkeypatch.setattr(simulation_module, "observe_sensors", recording_observer)
+    for policy in ("fixed", "smart"):
+        current = []
+        run_policy(
+            policy,
+            0,
+            bins,
+            config,
+            distance,
+            duration,
+            arrivals,
+            31415,
+            forecaster=ZeroGrowthForecaster() if policy == "smart" else None,
+        )
+        observed_runs.append(current)
+
+    assert len(observed_runs[0]) == len(observed_runs[1])
+    for fixed_batch, smart_batch in zip(*observed_runs):
+        for fixed_values, smart_values in zip(fixed_batch, smart_batch):
+            np.testing.assert_array_equal(fixed_values, smart_values)
+
+
+def test_fixed_policy_reserves_full_capacity_for_unknown_loads():
+    base = _config(horizon_days=2, truck_capacity_kg=100.0, max_daily_trips=1)
+    config = replace(base, sensor=replace(base.sensor, missing_probability=1.0))
+    bins = [_bin(0, 100.0), _bin(1, 100.0)]
+    distance, duration = _matrices(2, 60.0)
+    arrivals = np.zeros((48, 2), dtype=float)
+
+    result = run_policy(
+        "fixed", 0, bins, config, distance, duration, arrivals, 2718
+    )
+
+    assert result.metrics["collection_stops"] == 1
+    assert result.metrics["unserved_required_bins"] == 1

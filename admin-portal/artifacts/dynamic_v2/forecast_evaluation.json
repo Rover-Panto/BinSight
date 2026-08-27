@@ -1,0 +1,60 @@
+{
+  "training_rows": 61083.0,
+  "calibration_rows": 15312.0,
+  "holdout_rows": 17193.0,
+  "calibration_start_hour": -6246.0,
+  "chronological_cutoff_hour": -3294.0,
+  "training_target_end_before_hour": -6246.0,
+  "calibration_target_end_before_hour": -3294.0,
+  "forecast_horizon_hours": 48.0,
+  "maximum_evaluation_horizon_hours": 168.0,
+  "operational_evaluation_start_hour": 0.0,
+  "latest_historical_feature_hour": -174.0,
+  "latest_historical_target_end_hour": -6.0,
+  "model_mae_growth_pct_horizon": 7.625880147026206,
+  "naive_mae_growth_pct_horizon": 33.29280302716845,
+  "model_improvement_pct": 77.09450856149559,
+  "upper_quantile": 0.9,
+  "upper_adjustment_pct": 2.492571371206341,
+  "upper_empirical_coverage": 0.8291746641074856,
+  "upper_coverage_error": 0.07082533589251438,
+  "upper_pinball_loss": 2.3532645105333416,
+  "upper_mean_width_pct": 11.124197874434564,
+  "time_to_overflow_mae_hours": 52.83897600387815,
+  "overflow_alert_precision_48h": 0.92661961635903,
+  "overflow_alert_recall_48h": 0.9899468342194296,
+  "overflow_probability_brier_48h": 0.02122462531612247,
+  "overflow_probability_brier_6h": 0.005139515671023137,
+  "overflow_alert_precision_6h_at_10pct": 0.979203878540444,
+  "overflow_alert_recall_6h_at_10pct": 0.9979196463398777,
+  "overflow_probability_calibration": [
+    {
+      "predicted": 0.00020663023815631215,
+      "observed": 0.0
+    },
+    {
+      "predicted": 0.06430521486042531,
+      "observed": 0.07870099473376244
+    },
+    {
+      "predicted": 0.9261883848623379,
+      "observed": 0.9302933488237003
+    },
+    {
+      "predicted": 0.9997220103176176,
+      "observed": 1.0
+    },
+    {
+      "predicted": 0.9997495099622442,
+      "observed": 1.0
+    }
+  ],
+  "model_mae_growth_6h_pct": 1.594663499574171,
+  "naive_mae_growth_6h_pct": 4.565328911065752,
+  "model_mae_growth_24h_pct": 4.47063999020332,
+  "naive_mae_growth_24h_pct": 16.696785626947836,
+  "model_mae_growth_48h_pct": 7.625880147026206,
+  "naive_mae_growth_48h_pct": 33.29280302716845,
+  "model_mae_growth_168h_pct": 16.97584598141266,
+  "naive_mae_growth_168h_pct": 116.17512006886687
+}
