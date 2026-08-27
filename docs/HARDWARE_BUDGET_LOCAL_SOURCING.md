@@ -67,10 +67,49 @@ The recycling model has not been supplied yet. The ESP32-S3 purchase therefore p
 2. **MakerHub basket: RM107.70.** The selected boards and parts are listed as ready stock in Sungai Besi, Kuala Lumpur, with dispatch within 24 hours and self-pickup or same-day Klang Valley delivery available. Use ordinary courier or pickup; only use same-day delivery if its checkout price stays within the RM15 reserve.
 3. The exact MakerHub charge cannot be verified without the final Selangor postcode and checkout session. If it exceeds RM15, use pickup or move compatible accessories to the free-shipping Cytron basket before paying.
 
+## Evaluated replacement: Grove Vision AI Module V2
+
+The Grove Vision AI Module V2 can replace the ESP32-S3 camera board for the recycling-return station, but it is not a one-board substitution. It performs local inference but needs a separate CSI camera and a Wi-Fi-capable host to send results to the BinSight server.
+
+This remains an evaluated option rather than the selected baseline until the team's model and the close-range camera image are tested.
+
+| Replacement component | Local listing | Qty | Line total (RM) | Status at check |
+| --- | --- | ---: | ---: | --- |
+| Grove AI Vision Module V2 | [Cytron](https://my.cytron.io/p-grove-ai-vision-module-v2) | 1 | 95.00 | RM95; two units shown available |
+| OV5647 5MP CSI camera | [Cytron](https://my.cytron.io/p-5mp-camera-board-for-raspberry-pi) | 1 | 29.00 | RM29; local stock shown |
+| Dedicated ESP32-C3 Super Mini | [MakerHub](https://makerhub.my/shop/microcontroller/esp32-super-mini-ultra-small-size-esp32-c3-risc-v-low-power-consumption/) | 1 | 17.95 | RM17.95; ready stock in Kuala Lumpur |
+| Grove-to-female cable | [Cytron](https://my.cytron.io/p-grove-4-pin-buckled-to-female-cable) | 1 | 1.50 | RM1.50; local stock shown |
+| **Grove replacement subtotal** |  |  | **143.45** | Replaces the RM56.95 ESP32-S3 camera line |
+
+With this replacement, the electronics subtotal becomes **RM433.30**. After the existing RM15 delivery reserve, RM40 fabrication reserve and ten-percent contingency, the planned competition total becomes **RM537.13**. This leaves **RM66.40** below the RM603.53 converted ceiling and **RM42.87** below the internal RM580 purchasing limit. If the Teensy is the only owned component, the resulting cash-to-buy figure is RM378.13.
+
+### Connectivity
+
+```text
+OV5647 CSI camera
+  -> Grove Vision AI V2: image processing and local classification
+  -> I2C at address 0x62 or hardware UART inference-result link
+  -> dedicated ESP32-C3: session logic, server Wi-Fi and servo command
+  -> authenticated BinSight ingestion endpoint
+```
+
+The Grove module has USB-C, I2C, UART, SPI and CSI, but no built-in Wi-Fi radio. Seeed's documented network configuration adds a XIAO ESP32-C3; the budget substitutes the locally stocked ESP32-C3 Super Mini and requires its wiring and SSCMA protocol compatibility to be tested. The official SSCMA documentation lists ESP32-C3 support over both I2C and hardware UART. Prefer I2C for compact inference results. Use UART image transfer only for sampled evidence, not every item.
+
+Power the vision module from the verified 5V rail and use 3.3V signalling with the C3 and a common ground. Do not power the camera module or Wi-Fi radio from a microcontroller's 3.3V pin. Drive the SG90 signal from the C3 while powering the servo from the shared 5V rail. Measure the assembled system during inference, Wi-Fi transmission and servo movement; the module's published power figure does not prove that the complete prototype remains below 10W continuous.
+
+### Model and optical gates
+
+- Do not purchase this replacement solely because a model is labelled YOLO. The uploaded model must be exported and tested as fully integer `int8_vela.tflite` for the Grove V2. Seeed recommends square inputs and no more than 240x240; its worked deployment uses 192x192.
+- Re-evaluate class accuracy, rejection thresholds, latency and confusion after integer quantisation. A successful model upload is not an acceptance test.
+- The listed OV5647 camera is specified for focus from approximately one metre to infinity, while a return chute is likely much closer. Test cans and bottles at the actual mounting distance before accepting this camera. Use a verified close-focus or adjustable-focus OV5647 alternative if labels and container features are blurred.
+- Keep the Grove result, C3 transport result and server storage acknowledgement as separate states. A local classification does not prove that the return was logged or paid.
+- If the model cannot be converted, uses unsupported operators or loses unacceptable accuracy, retain the ESP32-S3 capture path with laptop inference rather than weakening the classifier claim.
+
 ## Purchase gates
 
 - Buy only **one** ESP32-C3 for the three-bin Teensy controller unless the physical layout later makes one shared UART/Wi-Fi bridge impractical.
 - Buy only **one** ESP32-S3 camera board for the required recycling-return station. Each additional recycling camera station adds at least RM56.95 before enclosure and power distribution.
+- Do not replace the ESP32-S3 line with Grove V2 parts until the model and close-range camera checks above pass. If approved, revise this baseline and the Claude handoff together so contributors do not build both camera paths.
 - Revise any final proposal sentence that says each normal bin has its own Teensy. The budgeted prototype has one Teensy servicing three independently identified scaled bins.
 - Confirm the ESP32-S3 camera example works and can upload a labelled still image before integrating the unseen classifier.
 - Load-test the 5V rail during Wi-Fi transmission and servo movement. The 5V3A label is a supply rating, not proof that the assembled prototype is stable or below the competition's 10W continuous target.
