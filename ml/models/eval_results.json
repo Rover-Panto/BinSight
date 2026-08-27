@@ -1,0 +1,33 @@
+{
+  "results": [
+    {
+      "model": "baseline_naive_extrapolation",
+      "MAE_hours": 25.485,
+      "RMSE_hours": 48.847,
+      "risk_level_accuracy": 0.429,
+      "critical_recall": 0.714
+    },
+    {
+      "model": "baseline_linear_regression",
+      "MAE_hours": 10.229,
+      "RMSE_hours": 13.31,
+      "risk_level_accuracy": 0.436,
+      "critical_recall": 0.164
+    },
+    {
+      "model": "random_forest",
+      "MAE_hours": 5.424,
+      "RMSE_hours": 8.712,
+      "risk_level_accuracy": 0.733,
+      "critical_recall": 0.803
+    },
+    {
+      "model": "xgboost",
+      "MAE_hours": 5.262,
+      "RMSE_hours": 8.207,
+      "risk_level_accuracy": 0.704,
+      "critical_recall": 0.668
+    }
+  ],
+  "selected_model": "xgboost"
+}
