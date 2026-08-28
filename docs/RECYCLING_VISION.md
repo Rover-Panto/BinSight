@@ -49,8 +49,8 @@ This threshold is a routing policy, not a calibrated probability. It should be e
 Before opening a PR, verify the command-line interfaces without starting a long training run:
 
 ```powershell
-python train_recycling.py --help
-python webcam_recycling.py --help
+python recycling_vision/train.py --help
+python recycling_vision/webcam.py --help
 ```
 
 For a real test, use a small epoch count and confirm that `best.pt` is created, then run webcam inference against that weight file.
@@ -73,7 +73,7 @@ The exact Vela output filename depends on the Ultralytics export version. Record
 
 `recycling_vision/relay.py` defines the image-free metadata payload for the dedicated recycling relay. It contains the schema version, event/session identifiers, station/device/boot identity, sequence, material, confidence, object count, timing, model version, and simulation flag. It contains no JPEG, base64 image, video, webcam URL, or stream field. The server—not the relay—owns confidence/stability, idempotency, session binding, and the accepted/rejected decision.
 
-The relay transport (SSCMA over the selected I2C or hardware UART pins, baud rate, firmware and library versions) must be recorded with the physical deployment evidence before this PR is considered hardware-complete.
+The physical target is one shared ESP32-C3. PR2 owns the common gateway, Teensy UART/fill queue and Wi-Fi services; PR3 supplies the Grove SSCMA I2C recognition module, recognition queue and station-feedback hooks. Recognition and fill use separate queues and sequence spaces. The relay transport (SSCMA I2C pins, firmware and library versions) must be recorded with physical deployment evidence before this PR is hardware-complete.
 
 ## Evidence required before merge
 

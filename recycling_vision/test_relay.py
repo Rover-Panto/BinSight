@@ -20,6 +20,22 @@ class RelayContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             sample("ceramic")
 
+    def test_boolean_numeric_fields_are_rejected(self):
+        with self.assertRaises(ValueError):
+            InferenceMetadata(**{**sample().__dict__, "sequence": True})
+        with self.assertRaises(ValueError):
+            InferenceMetadata(**{**sample().__dict__, "object_count": 1.0})
+
+    def test_identifiers_and_timestamp_are_strict(self):
+        with self.assertRaises(ValueError):
+            InferenceMetadata(**{**sample().__dict__, "station_id": " "})
+        with self.assertRaises(ValueError):
+            InferenceMetadata(**{**sample().__dict__, "observed_at": "2026-08-27T09:30:12"})
+
+    def test_simulation_flag_must_be_boolean(self):
+        with self.assertRaises(ValueError):
+            InferenceMetadata(**{**sample().__dict__, "is_simulation": "true"})
+
 
 if __name__ == "__main__":
     unittest.main()
