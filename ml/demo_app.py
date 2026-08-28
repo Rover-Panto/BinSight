@@ -36,18 +36,28 @@ def run_tests() -> None:
         test_raw_log_exists_and_well_formed,
         test_feature_table_has_no_nans,
         test_labeled_dataset_has_valid_labels,
-        test_model_artifacts_exist,
+        test_model_artifacts_and_manifest_exist_and_agree,
         test_model_beats_baselines,
-        test_serve_wrapper_returns_valid_prediction
+        test_feature_builder_handles_pr2_payload_without_weight,
+        test_feature_builder_handles_single_reading_cold_start,
+        test_feature_builder_handles_duplicate_timestamps,
+        test_feature_builder_handles_irregular_sampling_and_gaps,
+        test_serve_wrapper_returns_valid_prediction,
+        test_serve_wrapper_handles_empty_and_invalid_inputs
     )
     
     tests = [
         ("Raw Sensor Log Validation", test_raw_log_exists_and_well_formed),
         ("Feature Table NaN Check", test_feature_table_has_no_nans),
         ("Labeled Dataset Target Validity", test_labeled_dataset_has_valid_labels),
-        ("Model Artifacts Verification", test_model_artifacts_exist),
+        ("Model Artifacts & Manifest SHA-256", test_model_artifacts_and_manifest_exist_and_agree),
         ("Model vs Baselines Benchmark", test_model_beats_baselines),
-        ("Inference Serve API Contract", test_serve_wrapper_returns_valid_prediction),
+        ("PR2 Telemetry Compatibility", test_feature_builder_handles_pr2_payload_without_weight),
+        ("Single Reading Cold Start", test_feature_builder_handles_single_reading_cold_start),
+        ("Duplicate Timestamps Guard", test_feature_builder_handles_duplicate_timestamps),
+        ("Irregular Gaps Rate Recovery", test_feature_builder_handles_irregular_sampling_and_gaps),
+        ("Inference Contract Output", test_serve_wrapper_returns_valid_prediction),
+        ("Invalid & Empty Input Handling", test_serve_wrapper_handles_empty_and_invalid_inputs),
     ]
     
     passed = 0

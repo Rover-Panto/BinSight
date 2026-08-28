@@ -1,12 +1,17 @@
 """
 Feature engineering for BinSight overflow-risk model.
-Operates on a raw sensor log with columns: timestamp, bin_id, fill_pct, weight_kg, confidence_flag.
-Produces the model-ready feature table (see FEATURE_COLUMNS below).
 
-Run from anywhere: `python3 features.py` or `python3 src/features.py`.
+Operates on raw sensor telemetry streams. Primary input columns:
+    - timestamp (ISO-8601 string or datetime)
+    - bin_id (str)
+    - fill_pct (float, 0-100)
+    - confidence_flag (int, 0 or 1)
+    - optional: estimated_density (float), weight_kg (float)
+
+Compatible with PR2 edge-to-cloud schemas. Does NOT require weight_kg.
+Produces model-ready feature table (FEATURE_COLUMNS).
 """
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 
@@ -14,10 +19,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 
 FEATURE_COLUMNS = [
-    "fill_pct", "weight_kg", "density_proxy",
-    "fill_rate_1h", "fill_rate_6h", "weight_rate_1h",
-    "hour_sin", "hour_cos", "dow_sin", "dow_cos", "is_weekend",
-    "hist_avg_rate_same_slot", "time_since_reset_hours",
+    "fill_pct",
+    "fill_rate_1h",
+    "fill_rate_6h",
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos",
+    "is_weekend",
+    "hist_avg_rate_same_slot",
+    "time_since_reset_hours",
 ]
 
 
@@ -26,13 +37,7 @@ def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
     Extract calendar and cyclical time features from sensor timestamps.
     
     Transforms timestamp into sine/cosine encodings for hour-of-day (24h periodicity)
-    and day-of-week (7d periodicity) to allow tree models to capture daily and weekly cycles smoothly.
-    
-    Args:
-        df: DataFrame containing at least a 'timestamp' column.
-        
-    Returns:
-        DataFrame with added columns: hour_sin, hour_cos, dow_sin, dow_cos, is_weekend.
+    and day-of-week (7d periodicity).
     """
     df = df.copy()
     df["timestamp"] = pd.to_datetime(df["timestamp"])
@@ -48,40 +53,98 @@ def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_rate_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute rolling rate-of-change metrics per bin over 1-hour and 6-hour windows.
+    Compute rolling rate-of-change metrics per bin over elapsed-time windows (1-hour and 6-hour).
     
-    Calculates:
-    - `fill_rate_1h`: Rate of fill percentage change (%/hour) over the last hour.
-    - `fill_rate_6h`: Smoothed trend rate of fill percentage change (%/hour) over 6 hours.
-    - `weight_rate_1h`: Rate of weight change (kg/hour) over the last hour.
-    
-    Args:
-        df: DataFrame sorted by bin_id and timestamp.
-        
-    Returns:
-        DataFrame with rolling rate features added per bin.
+    Uses exact timestamp differences rather than row indices to correctly handle:
+    - Single readings (cold start -> rate = 0.0)
+    - Duplicate timestamps (deduplicated or delta guarded)
+    - Irregular sampling intervals and telemetry gaps
+    - Collection events (rates are not calculated across collection resets)
     """
-    df = df.sort_values(["bin_id", "timestamp"]).copy()
+    df = df.copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    # Sort and deduplicate timestamps per bin
+    df = df.sort_values(["bin_id", "timestamp"]).drop_duplicates(subset=["bin_id", "timestamp"], keep="last")
+    
     out = []
     for bin_id, g in df.groupby("bin_id", sort=False):
         g = g.copy()
-        # infer step size in hours from median timestamp delta
-        dt_hours = g["timestamp"].diff().median().total_seconds() / 3600.0
-        steps_1h = max(int(round(1.0 / dt_hours)), 1)
-        steps_6h = max(int(round(6.0 / dt_hours)), 1)
+        n = len(g)
+        if n <= 1:
+            g["fill_rate_1h"] = 0.0
+            g["fill_rate_6h"] = 0.0
+            out.append(g)
+            continue
+        
+        ts_values = g["timestamp"].to_numpy()
+        fill_values = g["fill_pct"].to_numpy(dtype=float)
+        
+        fill_rate_1h = np.zeros(n, dtype=float)
+        fill_rate_6h = np.zeros(n, dtype=float)
+        
+        # Calculate rates by looking back in elapsed time
+        for i in range(1, n):
+            t_curr = ts_values[i]
+            f_curr = fill_values[i]
+            
+            best_idx_1h = -1
+            best_diff_1h = float("inf")
+            
+            best_idx_6h = -1
+            best_diff_6h = float("inf")
+            
+            for j in range(i - 1, -1, -1):
+                dt_ns = t_curr - ts_values[j]
+                dt_sec = dt_ns / np.timedelta64(1, 's')
+                
+                # Check for collection reset: if a large drop occurred, do not search across reset
+                if fill_values[j+1] - fill_values[j] < -30.0:
+                    break
+                
+                # 1-hour window check (within 15m to 2h)
+                diff_1h = abs(dt_sec - 3600.0)
+                if 900.0 <= dt_sec <= 7200.0 and diff_1h < best_diff_1h:
+                    best_diff_1h = diff_1h
+                    best_idx_1h = j
+                    
+                # 6-hour window check (within 1.5h to 9h)
+                diff_6h = abs(dt_sec - 21600.0)
+                if 5400.0 <= dt_sec <= 32400.0 and diff_6h < best_diff_6h:
+                    best_diff_6h = diff_6h
+                    best_idx_6h = j
+            
+            # Fallback for 1-hour if no reading in [15m, 2h] but prior reading exists within 24h
+            if best_idx_1h == -1:
+                dt_prev = (t_curr - ts_values[i-1]) / np.timedelta64(1, 's')
+                if 60.0 <= dt_prev <= 86400.0 and (fill_values[i] - fill_values[i-1] >= -30.0):
+                    best_idx_1h = i - 1
+            
+            # Compute 1h rate (% per hour)
+            if best_idx_1h != -1:
+                dt_h = (t_curr - ts_values[best_idx_1h]) / np.timedelta64(3600, 's')
+                if dt_h > 0.01:
+                    fill_rate_1h[i] = (f_curr - fill_values[best_idx_1h]) / dt_h
+            
+            # Compute 6h rate (% per hour)
+            if best_idx_6h != -1:
+                dt_6h = (t_curr - ts_values[best_idx_6h]) / np.timedelta64(3600, 's')
+                if dt_6h > 0.01:
+                    fill_rate_6h[i] = (f_curr - fill_values[best_idx_6h]) / dt_6h
+            else:
+                # If <6h of history, fallback to 1h rate
+                fill_rate_6h[i] = fill_rate_1h[i]
 
-        g["fill_rate_1h"] = (g["fill_pct"] - g["fill_pct"].shift(steps_1h)) / max(dt_hours * steps_1h, 1e-6)
-        g["fill_rate_6h"] = (g["fill_pct"] - g["fill_pct"].shift(steps_6h)) / max(dt_hours * steps_6h, 1e-6)
-        g["weight_rate_1h"] = (g["weight_kg"] - g["weight_kg"].shift(steps_1h)) / max(dt_hours * steps_1h, 1e-6)
+        g["fill_rate_1h"] = np.clip(fill_rate_1h, -50.0, 50.0)
+        g["fill_rate_6h"] = np.clip(fill_rate_6h, -50.0, 50.0)
         out.append(g)
+        
     return pd.concat(out, ignore_index=True)
 
 
-def add_reset_features(df: pd.DataFrame, drop_pct: float = 40.0) -> pd.DataFrame:
+def add_reset_features(df: pd.DataFrame, drop_pct: float = 35.0) -> pd.DataFrame:
     """
     Detect collection/reset events (a sharp drop in fill_pct) per bin and compute
-    time_since_reset_hours. Also assigns a cycle_id if not already present, used
-    for leakage-safe labeling in label.py.
+    time_since_reset_hours.
     """
     df = df.sort_values(["bin_id", "timestamp"]).copy()
     out = []
@@ -123,29 +186,20 @@ def add_historical_slot_average(df: pd.DataFrame) -> pd.DataFrame:
 def build_feature_table(raw_log: pd.DataFrame) -> pd.DataFrame:
     """
     Full feature pipeline: transform raw sensor logs into a model-ready feature table.
-    
-    Pipeline Steps:
-    1. Cyclical time encoding (hour_sin/cos, dow_sin/cos, is_weekend).
-    2. Short-term and medium-term rate of fill/weight change (fill_rate_1h, fill_rate_6h, weight_rate_1h).
-    3. Density proxy estimation (weight_kg / fill_pct).
-    4. Reset event detection & cycle elapsed time (time_since_reset_hours, cycle_id).
-    5. Historical same-slot average fill rate without future leakage (hist_avg_rate_same_slot).
-    6. Handling cold starts and filling initial NaNs with 0.0.
+    Does NOT require weight_kg; works seamlessly on PR2 telemetry payloads.
     
     Args:
-        raw_log: Raw DataFrame with columns [timestamp, bin_id, fill_pct, weight_kg, confidence_flag].
+        raw_log: Raw DataFrame with columns [timestamp, bin_id, fill_pct, confidence_flag].
         
     Returns:
         DataFrame containing all FEATURE_COLUMNS sorted by bin_id and timestamp.
     """
     df = add_time_features(raw_log)
     df = add_rate_features(df)
-    df["density_proxy"] = df["weight_kg"] / df["fill_pct"].clip(lower=1.0)
     df = add_reset_features(df)
     df = add_historical_slot_average(df)
 
-    # first-row-per-bin rate features will be NaN (no prior sample) -> fill with 0 (no observed change yet)
-    for col in ["fill_rate_1h", "fill_rate_6h", "weight_rate_1h", "hist_avg_rate_same_slot"]:
+    for col in ["fill_rate_1h", "fill_rate_6h", "hist_avg_rate_same_slot", "time_since_reset_hours"]:
         df[col] = df[col].fillna(0.0)
 
     return df.sort_values(["bin_id", "timestamp"]).reset_index(drop=True)

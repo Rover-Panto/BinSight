@@ -1,10 +1,7 @@
 [
   "fill_pct",
-  "weight_kg",
-  "density_proxy",
   "fill_rate_1h",
   "fill_rate_6h",
-  "weight_rate_1h",
   "hour_sin",
   "hour_cos",
   "dow_sin",

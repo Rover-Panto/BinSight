@@ -1,0 +1,101 @@
+{
+  "model_name": "xgboost",
+  "estimator_class": "XGBRegressor",
+  "model_version": "1.1.0",
+  "sha256_checksum": "0d207497f1f6f32f5a86d86ebc61f52854686dd58837b00b89c75a4210e59e1e",
+  "selected_on": "validation_set",
+  "split_strategy": {
+    "type": "chronological_holdout",
+    "train_period": "2026-01-01 to 2026-03-01",
+    "val_period": "2026-03-01 to 2026-03-16",
+    "test_period": "2026-03-16 to 2026-03-31",
+    "train_samples": 38245,
+    "val_samples": 9853,
+    "test_samples": 9794
+  },
+  "target_definitions": {
+    "overflow_threshold_pct": 90.0,
+    "risk_boundaries_hours": [
+      4.0,
+      12.0,
+      24.0
+    ],
+    "risk_levels": [
+      "Critical",
+      "High",
+      "Medium",
+      "Low"
+    ]
+  },
+  "hyperparameters": {
+    "n_estimators": 200,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "random_state": 42
+  },
+  "feature_columns": [
+    "fill_pct",
+    "fill_rate_1h",
+    "fill_rate_6h",
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos",
+    "is_weekend",
+    "hist_avg_rate_same_slot",
+    "time_since_reset_hours"
+  ],
+  "validation_metrics": {
+    "model": "xgboost",
+    "MAE_hours": 6.166,
+    "RMSE_hours": 9.904,
+    "risk_level_accuracy": 0.692,
+    "critical_recall": 0.612
+  },
+  "test_holdout_metrics": {
+    "model": "xgboost",
+    "MAE_hours": 4.663,
+    "RMSE_hours": 7.328,
+    "risk_level_accuracy": 0.732,
+    "critical_recall": 0.655
+  },
+  "all_test_comparisons": [
+    {
+      "model": "baseline_naive_extrapolation",
+      "MAE_hours": 26.487,
+      "RMSE_hours": 49.895,
+      "risk_level_accuracy": 0.454,
+      "critical_recall": 0.72
+    },
+    {
+      "model": "baseline_linear_regression",
+      "MAE_hours": 9.496,
+      "RMSE_hours": 12.35,
+      "risk_level_accuracy": 0.478,
+      "critical_recall": 0.158
+    },
+    {
+      "model": "random_forest",
+      "MAE_hours": 4.753,
+      "RMSE_hours": 7.83,
+      "risk_level_accuracy": 0.77,
+      "critical_recall": 0.83
+    },
+    {
+      "model": "xgboost",
+      "MAE_hours": 4.663,
+      "RMSE_hours": 7.328,
+      "risk_level_accuracy": 0.732,
+      "critical_recall": 0.655
+    }
+  ],
+  "dependencies": {
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.4.1",
+    "pandas": "3.0.5",
+    "numpy": "2.5.1",
+    "joblib": "1.5.3"
+  }
+}

@@ -1,33 +1,48 @@
 {
+  "selected_model": "xgboost",
+  "validation_metrics": {
+    "model": "xgboost",
+    "MAE_hours": 6.166,
+    "RMSE_hours": 9.904,
+    "risk_level_accuracy": 0.692,
+    "critical_recall": 0.612
+  },
+  "test_metrics": {
+    "model": "xgboost",
+    "MAE_hours": 4.663,
+    "RMSE_hours": 7.328,
+    "risk_level_accuracy": 0.732,
+    "critical_recall": 0.655
+  },
   "results": [
     {
       "model": "baseline_naive_extrapolation",
-      "MAE_hours": 25.485,
-      "RMSE_hours": 48.847,
-      "risk_level_accuracy": 0.429,
-      "critical_recall": 0.714
+      "MAE_hours": 26.487,
+      "RMSE_hours": 49.895,
+      "risk_level_accuracy": 0.454,
+      "critical_recall": 0.72
     },
     {
       "model": "baseline_linear_regression",
-      "MAE_hours": 10.229,
-      "RMSE_hours": 13.31,
-      "risk_level_accuracy": 0.436,
-      "critical_recall": 0.164
+      "MAE_hours": 9.496,
+      "RMSE_hours": 12.35,
+      "risk_level_accuracy": 0.478,
+      "critical_recall": 0.158
     },
     {
       "model": "random_forest",
-      "MAE_hours": 5.424,
-      "RMSE_hours": 8.712,
-      "risk_level_accuracy": 0.733,
-      "critical_recall": 0.803
+      "MAE_hours": 4.753,
+      "RMSE_hours": 7.83,
+      "risk_level_accuracy": 0.77,
+      "critical_recall": 0.83
     },
     {
       "model": "xgboost",
-      "MAE_hours": 5.262,
-      "RMSE_hours": 8.207,
-      "risk_level_accuracy": 0.704,
-      "critical_recall": 0.668
+      "MAE_hours": 4.663,
+      "RMSE_hours": 7.328,
+      "risk_level_accuracy": 0.732,
+      "critical_recall": 0.655
     }
   ],
-  "selected_model": "xgboost"
+  "sha256": "0d207497f1f6f32f5a86d86ebc61f52854686dd58837b00b89c75a4210e59e1e"
 }

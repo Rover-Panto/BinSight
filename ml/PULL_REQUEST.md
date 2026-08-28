@@ -1,60 +1,43 @@
-# Pull Request: Integrate BinSight Overflow-Risk ML Component
+# Pull Request: Integrate BinSight Overflow-Risk ML Subsystem
 
-## 📌 Summary of Changes
-This pull request integrates the complete, end-to-end **BinSight Overflow-Risk ML Subsystem** into the repository. It provides predictive analytics to forecast hours until smart waste bins reach overflow threshold (>=90%) and derives operational risk categories (`Critical`, `High`, `Medium`, `Low`) to optimize collection routes and dispatch alerts.
+## 📌 Summary of Changes & PR Review Remedies
+This pull request integrates the complete, end-to-end **BinSight Overflow-Risk ML Subsystem** (`ml/`) into the repository. It addresses all findings from the recent PR review ([PR_REVIEW_2026-08-28.md](file:///c:/Users/user/Desktop/A/BinSight/docs/PR_REVIEW_2026-08-28.md)):
 
----
-
-## 🚀 Key Features & Capabilities
-
-1. **Synthetic Telemetry Simulation (`src/simulate.py`)**:
-   - Generates realistic multi-bin longitudinal telemetry across 3 bin usage archetypes (Residential, Commercial High-Traffic, Event Surge).
-   - Incorporates realistic diurnal/weekly usage patterns, Poisson arrival dynamics, load-cell/ultrasonic noise, and MCU sensor confidence flags.
-
-2. **Feature Engineering Pipeline (`src/features.py`)**:
-   - Cyclical temporal embeddings (`hour_sin`, `hour_cos`, `dow_sin`, `dow_cos`, `is_weekend`).
-   - Multi-scale rolling fill and weight velocity estimators (`fill_rate_1h`, `fill_rate_6h`, `weight_rate_1h`).
-   - Physical density proxy (`weight_kg / fill_pct`) to detect dense waste or sensor disagreement.
-   - Cycle reset event detection and non-leaking historical time-slot expanding averages.
-
-3. **Leakage-Free Labeling & Evaluation (`src/label.py`, `src/train.py`)**:
-   - Calculates exact time-to-overflow hours bounded within each physical fill cycle.
-   - Partitions dataset by complete (bin, cycle) units (70% train / 15% val / 15% test) stratified across profiles.
-   - Benchmarks Naive Extrapolation vs. Linear Regression vs. Random Forest vs. XGBoost.
-
-4. **Production Inference Wrapper (`src/serve.py`)**:
-   - Exposes `OverflowRiskModel.predict_from_history(bin_history_df)` for clean single-line integration with IoT gateways and backend servers.
-
-5. **Automated Testing & Demos (`tests/test_pipeline.py`, `demo_app.py`)**:
-   - Comprehensive sanity test suite validating data schemas, NaN absence, baseline outperformance, and inference output contracts.
-   - Interactive scenario demo with live prediction visualizer across all three archetypes.
+1. **PR2 Ingestion Compatibility (R2 Remedy)**: Implemented a dedicated **fill-only feature pipeline** that natively supports PR2 edge-to-cloud telemetry payloads (`timestamp`, `bin_id`, `fill_pct`, `confidence_flag`, `estimated_density`) without requiring `weight_kg`.
+2. **Model Manifest & Checksum Agreement (R3 Remedy)**: Consolidated training export into a unified `models/manifest.json` recording model architecture (`XGBRegressor`), exact feature lists, dependencies, evaluation metrics, and SHA-256 artifact checksum.
+3. **Validation-Based Selection & Chronological Holdout (R5 Remedy)**: Model selection is performed strictly on validation data (March 1–16), followed by evaluation on an untouched chronological holdout (March 16–31, 9,794 samples).
+4. **Elapsed-Time Rate Lookback & Gap Recovery (R6 Remedy)**: Replaced row-offset shifts with true elapsed-time lookbacks, deduplicating timestamps and preventing rate distortion across Wi-Fi gaps and cold starts.
+5. **Inference Hardening**: Empty inputs, single-reading cold starts, and non-finite model predictions return structured statuses (`"cold_start"`, `"model_error"`, `"invalid_input"`) with null timestamps/hours rather than fake "Low" risk.
 
 ---
 
-## 📊 Benchmark Results (Test Set: 8,589 samples)
+## 🚀 Key Features & Subsystem Components
+
+- **`ml/src/simulate.py`**: Multi-bin telemetry simulator across Residential, Commercial High-Traffic, and Event Surge archetypes.
+- **`ml/src/features.py`**: Real elapsed-time rolling velocity features (`fill_rate_1h`, `fill_rate_6h`), cyclical time encodings, reset detection, and non-leaking historical slot expanding averages.
+- **`ml/src/label.py`**: Cycle-bounded ground-truth labeling and deterministic risk-category mapping.
+- **`ml/src/train.py`**: Chronological 60d/15d/15d train/val/test splitting, validation-based model selection, and unified manifest generation.
+- **`ml/src/serve.py`**: Production inference class `OverflowRiskModel.predict_from_history(bin_history_df)` for clean integration with PR1 routing and IoT gateways.
+- **`ml/tests/test_pipeline.py`**: Automated pipeline validation and regression test suite (11/11 tests passing).
+- **`ml/demo_app.py` & `ml/test_model_inference.py`**: Live prediction demonstration and multi-archetype verification.
+
+---
+
+## 📊 Benchmark Results (Chronological Test Holdout: 9,794 samples)
 
 | Model | MAE (hours) | RMSE (hours) | Risk Category Accuracy | Critical Recall (Safety) |
 |---|---|---|---|---|
-| Naive Extrapolation | 25.49 | 48.85 | 42.9% | 71.4% |
-| Linear Regression | 10.23 | 13.31 | 43.6% | 16.4% |
-| **Random Forest Regressor** | **5.42** | **8.71** | **73.3%** | **80.3%** |
-| **XGBoost Regressor** | **5.26** | **8.21** | **70.4%** | **66.8%** |
+| Naive Extrapolation (Rule-based) | 26.49 | 49.90 | 45.4% | 72.0% |
+| Linear Regression | 9.50 | 12.35 | 47.8% | 15.8% |
+| **Random Forest Regressor** | **4.75** | **7.83** | **77.0%** | **83.0%** |
+| **XGBoost Regressor (Selected)** | **4.66** | **7.33** | **73.2%** | **65.5%** |
 
 ---
 
 ## 🛠️ Verification & Test Plan
-- [x] Ran automated sanity test suite (`python tests/test_pipeline.py`) - all tests pass.
-- [x] Verified inference API contract on multi-archetype sensor streams (`python test_model_inference.py`).
-- [x] Ran live interactive demonstration (`python demo_app.py`).
-- [x] Verified full pipeline execution script (`./run_all.sh`).
-- [x] Codebase fully documented with docstrings, type annotations, and technical specification in `docs/IMPLEMENTATION_SPEC.md`.
-
----
-
-## 📦 File Layout
-- `src/` — Pipeline implementation (`simulate.py`, `features.py`, `label.py`, `train.py`, `serve.py`)
-- `data/` — Generated sensor logs, feature tables, and labeled dataset
-- `models/` — Serialized model artifact (`overflow_model.joblib`), feature columns, evaluation metrics
-- `tests/` — Test suite (`test_pipeline.py`)
-- `docs/` — Full architectural specification (`IMPLEMENTATION_SPEC.md`)
-- `demo_app.py` & `quick_train_rf.py` & `test_model_inference.py` — Demo and standalone scripts
+- [x] Automated pipeline sanity and regression test suite passing: 11/11 tests passed (`python ml/tests/test_pipeline.py`).
+- [x] PR2 telemetry payload compatibility verified (`test_feature_builder_handles_pr2_payload_without_weight`).
+- [x] Single reading cold start and duplicate timestamp handling verified.
+- [x] Model artifact and manifest SHA-256 agreement verified.
+- [x] Multi-archetype live prediction demo verified (`python ml/demo_app.py`).
+- [x] Codebase fully documented with docstrings, type annotations, and technical specification in `ml/docs/IMPLEMENTATION_SPEC.md`.
