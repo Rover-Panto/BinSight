@@ -3,7 +3,9 @@ BinSight Serial Bridge
 =====================================================================
 Bridges the Teensy 4.1's USB-serial telemetry stream to the FastAPI
 cloud backend over HTTP. This exists because the prototype has no
-Ethernet/WiFi hardware (Teensy 4.1, 2x ultrasonic, 3x buttons only) —
+Ethernet/WiFi hardware on this path (Teensy 4.1, 1x ultrasonic sensor
+[changed 2026-08-28 from 2x], 3x buttons only; an optional ESP32 Wi-Fi
+gateway is available separately, see esp_link.h on the Teensy side) —
 Task 3 on the MCU writes each packaged reading as a framed line over
 USB serial, and this script reads it, parses the JSON, and POSTs it to
 the backend with the API key attached.

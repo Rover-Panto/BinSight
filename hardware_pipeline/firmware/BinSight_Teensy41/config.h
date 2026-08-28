@@ -20,16 +20,16 @@
 // ============================================================
 // PIN MAP
 // ============================================================
-// Ultrasonic sensor 1 — primary fill-level sensor, mounted at the lid,
-// facing straight down at the waste surface.
+// Ultrasonic sensor — fill-level sensor, mounted at the lid, facing
+// straight down at the waste surface.
+//
+// [Changed 2026-08-28] This bin now uses a SINGLE ultrasonic sensor per
+// bin (previously two — see "Known changes" in README.md). The former
+// US2_TRIG_PIN (4) / US2_ECHO_PIN (5) are no longer defined and are free
+// for other use; the cross-sensor disagreement check that used to feed
+// confidence_flag is gone too (see sensors.cpp's computeConfidenceFlag).
 #define US1_TRIG_PIN             2
 #define US1_ECHO_PIN             3
-
-// Ultrasonic sensor 2 — redundant / cross-check sensor. Slightly offset
-// from sensor 1 so the two readings disagree if something is blocking
-// or angling one beam (used to derive confidence_flag).
-#define US2_TRIG_PIN              4
-#define US2_ECHO_PIN              5
 
 // Push buttons — manual waste-type injection (there is no load cell, so a
 // human operator classifies what was just dropped in during testing/demo).
@@ -47,7 +47,9 @@
 #define BIN_FULL_DISTANCE_CM      8.0f    // ultrasonic distance reading when bin is full to the brim
 #define US_VALID_MIN_CM           2.0f    // HC-SR04 datasheet minimum
 #define US_VALID_MAX_CM           400.0f  // HC-SR04 datasheet maximum
-#define US_SENSOR_DISAGREEMENT_CM 6.0f    // beyond this delta between US1/US2 -> flag low confidence
+// [Removed 2026-08-28] US_SENSOR_DISAGREEMENT_CM no longer applies —
+// there's only one ultrasonic sensor now, so there's nothing to disagree
+// with. See computeConfidenceFlag() in sensors.cpp for the new definition.
 
 // ============================================================
 // PSEUDO-DENSITY MODEL

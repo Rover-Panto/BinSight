@@ -15,12 +15,11 @@ static uint32_t calibrateHeldSinceMs = 0;
 static const uint32_t LONG_PRESS_MS = 2000;
 
 void begin() {
+  // [Changed 2026-08-28] US2_TRIG_PIN/US2_ECHO_PIN init removed — single
+  // ultrasonic sensor per bin now, see config.h's PIN MAP comment.
   pinMode(US1_TRIG_PIN, OUTPUT);
   pinMode(US1_ECHO_PIN, INPUT);
-  pinMode(US2_TRIG_PIN, OUTPUT);
-  pinMode(US2_ECHO_PIN, INPUT);
   digitalWrite(US1_TRIG_PIN, LOW);
-  digitalWrite(US2_TRIG_PIN, LOW);
 
   pinMode(STATUS_LED_PIN, OUTPUT);
 
@@ -120,13 +119,17 @@ float estimateDensity(float fillRateDeltaPctPerSec, WasteTypeHint hint) {
   return estimate < 0.0f ? 0.0f : estimate;
 }
 
-uint8_t computeConfidenceFlag(float us1Cm, float us2Cm) {
-  // Either sensor timed out / out of range -> not trustworthy.
-  if (us1Cm < 0 || us2Cm < 0) return 0;
-
-  // Sensors disagree beyond tolerance -> likely blockage or angled echo.
-  if (fabsf(us1Cm - us2Cm) > US_SENSOR_DISAGREEMENT_CM) return 0;
-
+// [Changed 2026-08-28] Single-sensor version — see the header comment on
+// this function's declaration in sensors.h for what's lost by no longer
+// having a second sensor to cross-check against.
+uint8_t computeConfidenceFlag(float us1Cm) {
+  // Timed out / out of range -> not trustworthy. This is really just
+  // re-checking what readUltrasonicCm() already decided (it returns
+  // -1.0f for the same reason), kept as its own function/field so the
+  // rest of the pipeline (packaging, cloud schema, dashboard) doesn't
+  // need to change now or if a smarter confidence heuristic replaces
+  // this later.
+  if (us1Cm < 0) return 0;
   return 1;
 }
 

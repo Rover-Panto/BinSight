@@ -1,9 +1,14 @@
 #pragma once
 /*
- * sensors.h — low-level acquisition for the 2x ultrasonic sensors and
- * 3x push buttons, plus the pseudo-density estimator. Called exclusively
+ * sensors.h — low-level acquisition for the ultrasonic sensor and 3x
+ * push buttons, plus the pseudo-density estimator. Called exclusively
  * from Task 1 (Sensing), which owns this hardware — no other task should
  * touch these pins, so no mutex is needed around the reads themselves.
+ *
+ * [Changed 2026-08-28] Previously 2x ultrasonic sensors, cross-checked
+ * against each other to derive confidence_flag. Now a single sensor per
+ * bin — see computeConfidenceFlag() below for how that flag is computed
+ * without a second sensor to compare against.
  */
 
 #include <Arduino.h>
@@ -37,8 +42,16 @@ float distanceToFillPct(float distanceCm);
 // having a physical load cell.
 float estimateDensity(float fillRateDeltaPctPerSec, WasteTypeHint hint);
 
-// Cross-checks the two ultrasonic sensors and validates range to produce
-// confidence_flag (1 = trustworthy, 0 = noisy/blocked/out-of-range).
-uint8_t computeConfidenceFlag(float us1Cm, float us2Cm);
+// [Changed 2026-08-28] Was a two-sensor cross-check (computeConfidenceFlag
+// (us1, us2)); with a single sensor there's nothing left to cross-check
+// against, so this now just validates that the one reading is in range.
+// Trade-off worth knowing about: this can no longer catch a single
+// sensor giving a plausible-but-wrong reading (e.g. an angled echo off
+// waste near the rim) the way disagreement-with-a-second-sensor used to
+// — it only catches an outright timeout/out-of-range echo. If that
+// distinction matters, consider re-adding some form of cross-check
+// (e.g. consistency across consecutive samples) rather than assuming
+// this is equivalent to the old behavior.
+uint8_t computeConfidenceFlag(float us1Cm);
 
 }  // namespace Sensors

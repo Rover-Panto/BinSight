@@ -19,13 +19,20 @@ enum WasteTypeHint : uint8_t {
 };
 
 // Output of Task 1 (Sensing). One per acquisition cycle.
+//
+// [Changed 2026-08-28] us2_distance_cm removed — the bin now uses a
+// single ultrasonic sensor (see config.h's PIN MAP section), so there's
+// no second reading to carry. confidence_flag's meaning narrowed
+// accordingly: it used to also catch two-sensor disagreement (a blocked
+// or angled beam on just one sensor); now it only reflects whether the
+// one sensor's reading was in valid range. See computeConfidenceFlag()
+// in sensors.cpp.
 struct RawReading {
   uint32_t     millis_timestamp;   // millis() at capture, converted to epoch later
   float        us1_distance_cm;    // -1.0f if timed out / invalid
-  float        us2_distance_cm;    // -1.0f if timed out / invalid
-  float        fill_pct_raw;       // derived from us1 (primary), before filtering
+  float        fill_pct_raw;       // derived from us1, before filtering
   float        estimated_density;  // pseudo-density proxy, before filtering
-  uint8_t      confidence_flag;    // 1 = good reading, 0 = noisy/blocked/disagreement
+  uint8_t      confidence_flag;    // 1 = valid in-range reading, 0 = timed out / out of range
   WasteTypeHint waste_hint;        // latest active button classification
 };
 

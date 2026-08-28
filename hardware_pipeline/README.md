@@ -17,9 +17,11 @@ This package covers ingestion and validation only — the cloud-hosted
 ML overflow-risk model is a future phase; the dashboard has a clearly
 labeled placeholder where it will plug in.
 
-> **No Ethernet/WiFi hardware assumed.** The available parts list is
-> Teensy 4.1, 2x ultrasonic sensors, 3x push buttons, breadboard, jumper
-> wires — no network module. `tools/serial_bridge.py` bridges the Teensy's
+> **No Ethernet/WiFi hardware assumed** (for the USB-serial path — an
+> optional ESP32 Wi-Fi gateway is available too, see below). The available
+> parts list is Teensy 4.1, 1x ultrasonic sensor per bin **(changed
+> 2026-08-28 from 2x — see "Known changes" below)**, 3x push buttons,
+> breadboard, jumper wires. `tools/serial_bridge.py` bridges the Teensy's
 > USB-serial telemetry stream to the cloud backend over HTTP, so no extra
 > hardware is required. See `SETUP_AND_WIRING_GUIDE.md` for full step-by-step
 > instructions, including the wiring diagram and safety notes.
@@ -29,7 +31,7 @@ labeled placeholder where it will plug in.
 ```mermaid
 flowchart LR
     subgraph Teensy41["Teensy 4.1 — Edge (FreeRTOS, 3 prioritized tasks)"]
-        T1["Task 1: Sensing\n(HIGH priority)\nultrasonic x2, buttons x3\nconfidence_flag, estimated_density"]
+        T1["Task 1: Sensing\n(HIGH priority)\nultrasonic x1, buttons x3\nconfidence_flag, estimated_density"]
         T2["Task 2: Filter & Package\n(MEDIUM priority)\nmoving avg + sanity filter\nJSON schema packaging"]
         T3["Task 3: Secure Transmit\n(LOW priority)\nframed JSON, sent independently\nover USB serial AND ESP32 UART"]
         T1 -- "RawReading\n(queue)" --> T2
@@ -85,7 +87,7 @@ so a slow/degraded transport (Task 3) can never stall sensing (Task 1):
 
 | Task | Priority | Period | Responsibility |
 |---|---|---|---|
-| 1. Sensing | High (3) | 200 ms | Poll 2x ultrasonic + 3x buttons, compute `confidence_flag` and `estimated_density` |
+| 1. Sensing | High (3) | 200 ms | Poll 1x ultrasonic + 3x buttons, compute `confidence_flag` and `estimated_density` |
 | 2. Filter & Package | Medium (2) | 500 ms | Moving-average + sanity filter, package into the JSON schema with timestamp + `bin_id` |
 | 3. Secure Transmit | Low (1) | 2000 ms | Frame + write JSON over USB serial for `tools/serial_bridge.py` to forward |
 
@@ -214,3 +216,21 @@ on it.
   was unreachable (Wi-Fi/HTTP failure). Failed sends are now queued to
   `pending_readings.jsonl` and retried automatically once the backend is
   reachable again.
+
+## Known changes in this branch
+
+- **2026-08-28 — single ultrasonic sensor per bin.** Previously each bin
+  used 2x HC-SR04 sensors, cross-checked against each other to derive
+  `confidence_flag` (disagreement between them meant a likely blockage or
+  angled echo). Now there's one sensor per bin: `config.h` no longer
+  defines `US2_TRIG_PIN`/`US2_ECHO_PIN` (freeing pins 4/5) or
+  `US_SENSOR_DISAGREEMENT_CM`, `types.h`'s `RawReading` no longer carries
+  `us2_distance_cm`, and `sensors.cpp`'s `computeConfidenceFlag()` now
+  takes a single reading. **Trade-off:** `confidence_flag` now only
+  catches an outright timed-out/out-of-range reading — it can no longer
+  detect a single sensor giving a plausible-but-wrong reading (e.g. an
+  angled echo off waste near the rim) the way disagreement with a second
+  sensor used to. If that detection matters for the demo, worth revisiting
+  with a different heuristic (e.g. consistency across consecutive
+  samples) rather than assuming this is a like-for-like swap. See
+  `SETUP_AND_WIRING_GUIDE.md` Part B for the updated (simpler) wiring.

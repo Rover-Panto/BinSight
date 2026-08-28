@@ -47,10 +47,15 @@ void Task1_Sensing(void *pvParameters) {
   uint32_t lastSampleMs = millis();
 
   for (;;) {
+    // [Changed 2026-08-28] Single ultrasonic sensor per bin now — the
+    // second read (US2_TRIG_PIN/US2_ECHO_PIN) and the two-sensor
+    // confidence cross-check are gone. computeConfidenceFlag() now takes
+    // just the one reading; see sensors.h/sensors.cpp for what that
+    // trades away (no more detecting a plausible-but-wrong single-sensor
+    // reading, only outright timeout/out-of-range).
     float us1 = Sensors::readUltrasonicCm(US1_TRIG_PIN, US1_ECHO_PIN);
-    float us2 = Sensors::readUltrasonicCm(US2_TRIG_PIN, US2_ECHO_PIN);
 
-    uint8_t confidence = Sensors::computeConfidenceFlag(us1, us2);
+    uint8_t confidence = Sensors::computeConfidenceFlag(us1);
     float fillPct = Sensors::distanceToFillPct(us1);
 
     uint32_t now = millis();
@@ -70,7 +75,6 @@ void Task1_Sensing(void *pvParameters) {
     // config.h to silence it once wiring is validated).
     if (xSemaphoreTake(g_serialMutex, 0) == pdTRUE) {
       Serial.print("[Task1] US1=");  Serial.print(us1, 1);
-      Serial.print("cm US2=");        Serial.print(us2, 1);
       Serial.print("cm fill=");        Serial.print(fillPct, 1);
       Serial.print("% density=");       Serial.print(density, 2);
       Serial.print(" conf=");            Serial.print(confidence);
@@ -89,7 +93,8 @@ void Task1_Sensing(void *pvParameters) {
     RawReading reading{};
     reading.millis_timestamp  = now;
     reading.us1_distance_cm   = us1;
-    reading.us2_distance_cm   = us2;
+    // [Removed 2026-08-28] reading.us2_distance_cm — field no longer
+    // exists on RawReading (types.h), single-sensor now.
     reading.fill_pct_raw      = fillPct;
     reading.estimated_density = density;
     reading.confidence_flag   = confidence;

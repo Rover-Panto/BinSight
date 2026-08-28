@@ -120,13 +120,18 @@ close, but don't run the script yet.
 
 ### B.1 Parts list
 
-From your kit: Teensy 4.1, 2x HC-SR04 ultrasonic sensors, 3x push buttons,
+> **[Changed 2026-08-28]** This bin now uses **one ultrasonic sensor**
+> instead of two. If you already built the two-sensor version, the
+> second sensor and its divider are no longer used by the firmware —
+> you can leave them wired (harmless, just unused) or remove them.
+
+From your kit: Teensy 4.1, 1x HC-SR04 ultrasonic sensor, 3x push buttons,
 breadboard, jumper wires (mostly male-male).
 
-**You'll also need 4 resistors that aren't in the original kit list** — see
+**You'll also need 2 resistors that aren't in the original kit list** — see
 the safety note below for why. Any of these combinations work (±10% is
-fine): **2x 1kΩ + 2x 2kΩ**, or **2x 1kΩ + 2x 1.8kΩ**. These are extremely
-common values in any basic resistor kit or electronics starter pack.
+fine): **1kΩ + 2kΩ**, or **1kΩ + 1.8kΩ**. These are extremely common
+values in any basic resistor kit or electronics starter pack.
 
 > **⚠️ Why the resistors are required — read this before wiring anything.**
 > The HC-SR04 ultrasonic sensor's ECHO pin outputs a **5V** signal. The
@@ -141,18 +146,20 @@ common values in any basic resistor kit or electronics starter pack.
 
 | Signal | Teensy 4.1 pin |
 |---|---|
-| Ultrasonic #1 TRIG | 2 |
-| Ultrasonic #1 ECHO (via divider) | 3 |
-| Ultrasonic #2 TRIG | 4 |
-| Ultrasonic #2 ECHO (via divider) | 5 |
+| Ultrasonic TRIG | 2 |
+| Ultrasonic ECHO (via divider) | 3 |
 | Button 1 — Heavy/Wet | 6 |
 | Button 2 — Dry/Recyclable | 7 |
 | Button 3 — Calibrate/Reset (long-press) | 8 |
 | Status LED | 13 (Teensy's built-in LED — no wiring needed) |
-| 5V supply for sensors | VIN |
+| 5V supply for sensor | VIN |
 | Ground | GND |
 
-### B.3 Voltage divider (build this twice, one per ultrasonic sensor)
+> Pins 4 and 5 (the old ultrasonic #2 TRIG/ECHO) are free now — available
+> if you need them for something else later (e.g. the ESP32 gateway link
+> in Part D uses 14/15, unrelated to these).
+
+### B.3 Voltage divider (build this once)
 
 ```
    ECHO ──┬── R1 (1kΩ) ──┬── Teensy pin (3 or 5)
@@ -164,9 +171,8 @@ common values in any basic resistor kit or electronics starter pack.
 
 In words: the ECHO pin connects to one end of a 1kΩ resistor. The other
 end of that 1kΩ resistor is the "tap point" — it connects both to a 2kΩ
-resistor going to GND, *and* to the Teensy's input pin (3 for sensor 1, 5
-for sensor 2). This divides the 5V ECHO signal down to about 3.33V, safely
-within the Teensy's input range.
+resistor going to GND, *and* to the Teensy's pin 3. This divides the 5V
+ECHO signal down to about 3.33V, safely within the Teensy's input range.
 
 ### B.4 Step-by-step wiring
 
@@ -175,19 +181,18 @@ Unplug the Teensy from USB before wiring anything.
 1. **Seat the Teensy 4.1** across the center gap of the breadboard, pins straddling the gap so each pin's row is separately accessible.
 2. **Ground rail:** jumper wire from a Teensy GND pin to the breadboard's blue (−) rail.
 3. **5V rail:** jumper wire from the Teensy's VIN pin to the breadboard's red (+) rail. (VIN outputs ~5V here because the Teensy will be powered over USB — that's exactly what you want for the sensors.)
-4. **Ultrasonic sensor #1:**
+4. **Ultrasonic sensor:**
    - VCC → red (+) rail
    - GND → blue (−) rail
    - TRIG → Teensy pin 2 (direct wire)
    - ECHO → build the divider from B.3, with the Teensy-pin end going to **pin 3**
-5. **Ultrasonic sensor #2:** repeat step 4, but TRIG → **pin 4**, divider output → **pin 5**.
-6. **Buttons** (all 3 wired the same way — internal pull-ups are enabled in firmware, so no extra resistor is needed per button):
+5. **Buttons** (all 3 wired the same way — internal pull-ups are enabled in firmware, so no extra resistor is needed per button):
    - Button 1: one leg → pin 6, opposite leg → blue (−) rail
    - Button 2: one leg → pin 7, opposite leg → blue (−) rail
    - Button 3: one leg → pin 8, opposite leg → blue (−) rail
-7. **Double-check before powering on:**
-   - No wire connects the red (5V) rail directly to any Teensy signal pin (2–8) — only to VCC pins on the sensors and through the resistor dividers.
-   - Both ECHO lines go through their divider, not straight to the Teensy.
+6. **Double-check before powering on:**
+   - No wire connects the red (5V) rail directly to any Teensy signal pin (2–8) — only to the sensor's VCC pin and through the resistor divider.
+   - The ECHO line goes through the divider, not straight to the Teensy.
    - Everything shares one common ground (blue rail ↔ Teensy GND).
 
 ### B.5 Flash the firmware
@@ -211,15 +216,15 @@ Bin ID: bin_01
 Initializing serial-bridge transport...
 Serial-bridge transport ready — run tools/serial_bridge.py on the host.
 Starting scheduler — control now passes to RTOS tasks.
-[Task1] US1=45.2cm US2=44.8cm fill=48.4% density=1.20 conf=1 hint=0
-[Task1] US1=45.1cm US2=44.9cm fill=48.6% density=1.20 conf=1 hint=0
+[Task1] US1=45.2cm fill=48.4% density=1.20 conf=1 hint=0
+[Task1] US1=45.1cm fill=48.6% density=1.20 conf=1 hint=0
 ...
 ```
 
 Work through this checklist:
 
-- **Wave your hand in front of sensor 1** — `fill=` should rise as your hand gets closer, fall as it moves away.
-- **Cover/block sensor 2 only** — `conf=` should drop to `0` (the two sensors now disagree). Uncover it and confirm `conf=1` returns.
+- **Wave your hand in front of the sensor** — `fill=` should rise as your hand gets closer, fall as it moves away.
+- **Point the sensor at nothing in range** (e.g. off the edge of a table, or cover it entirely) — `conf=` should drop to `0` (the reading is out of range/timed out). Point it back at a surface within range and confirm `conf=1` returns. Note: as of the 2026-08-28 single-sensor change, this only catches an outright invalid reading — it can no longer catch a plausible-but-wrong reading the way the old two-sensor disagreement check could.
 - **Press Button 1 (Heavy/Wet)** — `hint=` should change to `1`, and `density=` should jump toward ~3.0, holding for about 8 seconds before decaying back.
 - **Press Button 2 (Dry/Recyclable)** — `hint=` should change to `2`, `density=` should drop toward ~0.6.
 - **Hold Button 3 for 2+ seconds** — you should see a one-time `[Task1] Calibration requested` message.
