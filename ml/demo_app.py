@@ -43,7 +43,11 @@ def run_tests() -> None:
         test_feature_builder_handles_duplicate_timestamps,
         test_feature_builder_handles_irregular_sampling_and_gaps,
         test_serve_wrapper_returns_valid_prediction,
-        test_serve_wrapper_handles_empty_and_invalid_inputs
+        test_serve_wrapper_handles_empty_and_invalid_inputs,
+        test_serve_wrapper_supports_pr1_snapshot_contract,
+        test_forecast_provider_multi_bin_snapshot_and_missing_bins,
+        test_forecast_provider_horizons_and_probabilities,
+        test_forecast_provider_simulation_interface,
     )
     
     tests = [
@@ -58,6 +62,10 @@ def run_tests() -> None:
         ("Irregular Gaps Rate Recovery", test_feature_builder_handles_irregular_sampling_and_gaps),
         ("Inference Contract Output", test_serve_wrapper_returns_valid_prediction),
         ("Invalid & Empty Input Handling", test_serve_wrapper_handles_empty_and_invalid_inputs),
+        ("PR1 Snapshot Filtering Contract", test_serve_wrapper_supports_pr1_snapshot_contract),
+        ("Multi-Bin Coverage & Missing Bins", test_forecast_provider_multi_bin_snapshot_and_missing_bins),
+        ("Multi-Horizon Probabilities (6-168h)", test_forecast_provider_horizons_and_probabilities),
+        ("PR1 Simulation Interface Caller", test_forecast_provider_simulation_interface),
     ]
     
     passed = 0
@@ -132,7 +140,7 @@ def demonstrate_scenarios() -> None:
     with open(BASE_DIR / "models" / "eval_results.json") as f:
         eval_data = json.load(f)
     
-    print("  Comparison on 8,589 held-out cycle test samples:")
+    print("  Comparison on 9,794 untouched chronological holdout test samples:")
     print(f"  {'Model':<32} {'MAE (h)':<10} {'RMSE (h)':<10} {'Accuracy':<10} {'Critical Recall'}")
     print("  " + "-" * 75)
     for res in eval_data["results"]:
