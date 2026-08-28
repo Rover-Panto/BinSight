@@ -16,15 +16,29 @@ Confirmed requirements:
 - PR4 owns forecasting. PR1 owns collection decisions, routing, approvals and operational KPIs.
 - Main-owned server code owns return sessions, recognition decisions and simulated RM0.20 credits. The citizen does not choose an item category. No camera stream goes to either website.
 - Accept plastic, metal and glass at confidence >=0.70 after three consecutive matching samples within five seconds. Other materials reject; the resident can try another item.
+- Run a physical demo using the existing one-Teensy, one-ESP, one-Grove arrangement with the laptop as server. Hardware gates H01/H02 are required for demo readiness.
+- Include minimal admin ticket closing, backed by a shared report API. This scope is confirmed; the API and admin controls are not implemented yet.
 - Preserve existing records and image attachments. Use fictional identities and simulated payouts. Do not add real payment connections, publish services, purchase hosting or merge into `main` during branch preparation.
 
-Owner decisions pending; do not silently treat these as final requirements:
+Owner decisions, updated after the 28 August discussion:
 
-| ID | Question | Working assumption for test preparation |
+| ID | Status | Decision or remaining question |
 | --- | --- | --- |
-| D1 | Where will the first integrated demo run, and who needs access? | One laptop on local Wi-Fi. Bind services to loopback until access and authentication are reviewed. |
-| D2 | What actions should admins take on citizen waste reports in this version? | Preserve the existing citizen report flow. A shared report/status workflow needs an explicit scope decision and server API. |
-| D3 | How should the two recycling bins share a return station and QR session? | One Grove/camera return point; three independent fill channels. Do not infer two cameras, simultaneous users or a material-to-chute map. |
+| D1 | Confirmed | Physical Teensy, shared ESP and Grove; laptop server, using the existing local demonstration arrangement. No public deployment. |
+| D2 | Confirmed scope | Minimal admin ticket closing. Main owns report/photo/status storage and API; PR1 owns the operator view. See the detailed scope below. |
+| D3 | Layout pending | The owner expects one Grove per recycling bin in a future installation and is considering a split-bin demo. Keep the current one-Grove budget until the owner selects the arrangement and material-to-compartment map. See [station options](RECYCLING_STATION_OPTIONS.md). |
+
+### Physical demo access
+
+Develop and run software preflight on loopback. For the bench demo, configure the required device API listeners on the laptop's local Wi-Fi address, with device authentication and restricted firewall access; an ESP cannot reach the laptop through `localhost`. Keep other services on loopback unless the demo needs them on the LAN. Document the real ports and addresses after implementation and test them before the run.
+
+Use fictional citizen accounts and simulated payments. Mock OTP does not secure a LAN service. Do not expose the admin, shutdown controls or data stores to the public internet. Record the board revisions, wiring, firmware/model hashes, power measurements and recovery results. Both websites still need the main-owned server work before physical data can appear in the citizen flow.
+
+### Minimal report workflow
+
+Give the admin an open/closed filter, report details with retained photos, and a `Close ticket` action with a short resolution note. A closed ticket maps to the existing citizen `Resolved` status. Provide `Reopen` on a closed ticket as a correction path, mapping to the existing `Reviewed` status. Keep the original report and append actor/time/status history; retries must not duplicate updates or notifications.
+
+Main owns authenticated report creation/read/status APIs, attachment storage, ownership checks and persistence. PR1 consumes those APIs through an adapter and owns the minimal controls. Preserve current browser-only reports until an explicit import/migration flow exists. Exclude assignment queues, bulk actions and report deletion from this version. Closing a ticket must not reset fill telemetry or mark a truck route collected.
 
 ## 2. Ownership and Connections
 
@@ -45,11 +59,11 @@ flowchart LR
 
 | Owner | Deliverable | Do not duplicate |
 | --- | --- | --- |
-| PR1 | Telemetry consumer, route policy/solver, approval/audit, admin UI, route/KPI simulation | PR4 training/features; PR2 gateway/ingestion; citizen sessions or credits |
+| PR1 | Telemetry consumer, route policy/solver, approval/audit, admin UI, route/KPI simulation, minimal ticket-closing view | PR4 training/features; PR2 gateway/ingestion; citizen sessions, credits or report backend |
 | PR2 | Three-channel Teensy target, shared C3 shell/network/fill module, telemetry API/storage, diagnostic tools | A second operations dashboard as the product; a separate PR3 firmware image |
 | PR3 | Grove model/export evidence, SSCMA recognition adapter, recognition queue and station feedback module | QR/login/session API, acceptance policy, credit ledger or routing |
 | PR4 | Installable forecast provider, feature preparation, trained bundle, evaluation and capability declarations | Dispatch decisions, another telemetry store, another operations website |
-| Main integration / Codex | Shared contract review, combined C3 build, return API/storage, citizen client/migrations, integration evidence | Reimplementing contributors' owned algorithms |
+| Main integration / Codex | Shared contract review, combined C3 build, return and report APIs/storage, citizen client/migrations, integration evidence | Reimplementing contributors' owned algorithms |
 
 Keep the PR2 telemetry dashboard and PR4 model demo as optional developer diagnostics, not additional citizen/admin websites. Inventory PR1's earlier hardware/MQTT and forecast code; retire active duplicates only after their replacement passes tests. Preserve useful tests and historical results.
 
@@ -66,7 +80,7 @@ Use [the forecast guide](PR1_PR4_FORECAST_INTEGRATION.md), [the gateway contract
 | C3 to return server | Planned authenticated `POST /api/v1/recycling/inferences`, using the existing image-free recognition example. Main validates station/session/inspection binding, event identity, freshness and sequence. The endpoint is not implemented yet. |
 | Citizen to return server | QR station identity survives mock login; main creates the session and inspection. A small client polls/subscribes for decisions and stops on navigation/finish. Keep a separate mock mode; an API failure must not silently generate a mock acceptance. |
 | Return server to C3 | Matching session/inspection/command ID, expiry and terminal outcome. Deduplicate execution; boot/network recovery cannot replay old acceptance. Define removal/re-arm acknowledgement before enabling the next inspection. |
-| Citizen/admin reports | If D2 includes this workflow, use a main-owned report/photo/status API with authorisation and audit. Neither app reads the other's browser storage. No automatic upload of existing local records. |
+| Citizen/admin reports | Main-owned report/photo/status API with authorisation, audit and retry/concurrent-update protection. PR1 lists/views/closes/reopens; the citizen sees their retained photos and status. Neither app reads the other's browser storage. No automatic upload of existing local records. |
 
 The coordinator will publish the session/inspection/decision endpoint schemas and mock fixtures before PR3 depends on them. PR3 should use a replaceable transport adapter meanwhile. No contributor should invent production credentials or a second citizen backend to unblock their branch.
 
@@ -103,7 +117,7 @@ Each gate starts `not_run`. Record pass/fail against exact code and fixture revi
 | G10 Data preservation | Main/PR1/PR2 | Back up before migrations; old citizen schemas and photos survive; legacy bottles do not acquire invented materials; telemetry/route history persists. Future schemas fail safely. Backup/restore and rollback run on copies. |
 | G11 Model delivery | PR3/PR4 | Reproducible install outside repository cwd; approved artifact origin/hash and class/features/target/dependency versions agree before loading. Held-out results distinguish synthetic data, calibrated probabilities and actual hardware evidence. |
 | G12 Runtime and operations | Main/all | Document commands/config/ports/health for both websites and required services; start/stop only owned processes, preserve records, no import-time training. Citizen Account cannot become an unauthorised whole-stack shutdown endpoint. Resource usage is measured on the demo laptop. |
-| G13 Shared report workflow | Main/PR1 | Pending D2. If included: citizen photo report reaches authorised admin, audited status update returns to its citizen, reload preserves images, unrelated users cannot read it. Otherwise record explicit owner deferral and exclude this feature from the demo claim. |
+| G13 Shared report workflow | Main/PR1 | Citizen photo report reaches authorised admin; close with a resolution note and reopen persist across reload/restart, retain photos/history and return one status notification to its citizen. Unrelated users cannot read it. Retry/concurrent updates cannot lose changes. Closing does not alter fill or route service state. |
 | H01 Concurrent hardware | PR2/PR3/Main | On the actual board, fill reporting continues during Grove inference and servo/network activity; each peripheral fault is bounded; shared power/reset affects both streams and recovers without stale acceptance. Record pins, current, queue limits and firmware hashes. |
 | H02 Physical item handling | PR3/Main | Deployed Grove artifact/class map matches evidence. Test plastic/metal/glass and rejects under demo lighting; one held item cannot re-credit; removal/re-arm and loss of power/network leave the chute non-accepting. |
 
@@ -130,12 +144,12 @@ pnpm build
 
 Playwright starts and stops its own test server when the test port is free. Do not point these tests at an existing personal-data browser/session or stopkill unrelated processes to free a port. The foundation workflow runs these same checks in isolated GitHub runners. Its green result means **foundation regression passed**, not G02-H02 passed.
 
-`integration/candidate.json` records candidate PR heads and outstanding gates. `python -m integration.check_readiness --require-ready` fails while software gates or staged commits are missing. Add `--hardware` to require the physical gates too. This is a ledger/ancestry check, not a substitute for running tests or a permission to merge. The owner must approve decisions and merge readiness.
+`integration/candidate.json` records candidate PR heads, `demo_mode: physical` and outstanding gates. `python -m integration.check_readiness --require-ready` requires software AND physical gates for this demo. Use `--software-only` for an explicitly labelled preflight; it does not establish physical demo readiness. `--hardware` can also request hardware gates explicitly. This is a ledger/ancestry check, not a substitute for running tests or permission to merge. The owner must approve decisions and merge readiness.
 
-Contributors add real component and cross-service test commands as implementations land; do not satisfy this plan with tests that only assert mock responses or file existence. Pin the fixture revision and both producer/consumer versions. Hardware tests may remain pending for a software-only demo, which must say so.
+Contributors add real component and cross-service test commands as implementations land; do not satisfy this plan with tests that only assert mock responses or file existence. Pin the fixture revision and both producer/consumer versions. Hardware tests may remain pending during development, but not for the owner-confirmed physical demo.
 
 ## 7. Evidence and Next Handoff
 
 Use [the baseline record](INTEGRATION_BASELINE_2026-08-28.md). For each new result include: gate ID, candidate/component SHAs, command/environment, fixture/model hash, expected/observed outcome, log or CI link, data-impact check and remaining limitations. Store sanitised evidence under `integration/evidence/` or attach it to the PR; keep generated reports, databases and photos out of Git.
 
-Current main-owned backlog: session/inspection API and durable decision/credit storage; station authentication and polling/commands; citizen mock/API client separation and migrations; shared gateway assembly; a safe runtime launcher. The owner answers D1-D3 before we finalise deployment, report management and station concurrency. Contributors can repair their existing defects and agree interfaces in parallel with those decisions.
+Current main-owned backlog: session/inspection API and durable decision/credit storage; station authentication and polling/commands; report/photo/status API and audit; citizen mock/API client separation and migrations; shared gateway assembly; a safe runtime launcher. D1/D2 now have owner direction. D3 still needs a physical layout, material-to-compartment map and session-concurrency decision. Contributors can repair existing defects and prepare adapters while that choice remains open.

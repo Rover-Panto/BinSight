@@ -56,7 +56,9 @@ The initial integration keeps PR1's Streamlit website under `admin-portal/` and 
 
 `codex/integration-test` starts from the documentation/server-policy foundation at `68f1283`. It does not initially contain PR1-4. It adds [the integration test plan](INTEGRATION_TEST_PLAN.md), synthetic fixtures, a candidate ledger and foundation CI. Component, cross-service and hardware gates remain distinct from the existing citizen/policy checks.
 
-The owner has been asked to confirm the first demo's location/audience, admin report-management scope, and the shared return station/QR arrangement. These remain pending decisions, not implemented capabilities. Contributors keep their PR branches and report exact tested SHAs; Codex stages reviewed changes for combined testing before any owner-approved merge into `main`.
+The owner confirmed D1: a physical demo using the existing Teensy, shared ESP and Grove with the laptop as server. Hardware gates H01/H02 are now required by default in the readiness ledger. D2 confirms minimal admin ticket closing; main owns its report/photo/status backend and PR1 owns the operator view. Neither the shared report workflow nor the return HTTP integration is implemented yet.
+
+D3 remains open: the owner expects one Grove per recycling bin in a future installation and is considering a split-bin demo. [The station options](RECYCLING_STATION_OPTIONS.md) compare the costs and physical/session consequences. Keep the current one-Grove budget; do not assume a second camera or a material-to-compartment mapping. Contributors keep their PR branches and report exact tested SHAs; Codex stages reviewed changes for combined testing before any owner-approved merge into `main`.
 
 ## Integration ownership
 
@@ -73,6 +75,8 @@ The owner confirmed PR #4 as the forecasting owner, not merely a fallback. PR #1
 ## Hardware sourcing baseline
 
 The USD150 demonstrator uses one Teensy 4.1 for three fill channels, one OV5647/Grove Vision AI V2 stack for recycling inference, and one ESP32-C3 for both Wi-Fi relay functions and station feedback. The C3 receives Teensy data over hardware UART and Grove metadata over I2C. It does not run the model or make server decisions. The owned Teensy is counted at full local replacement value inside the competition ceiling.
+
+The number of Grove modules and the split-station mechanism remain a D3 design question, not a purchase authorisation. A shared housing can contain two removable, independently measured recycling bins; it must not reduce three fill channels to two or imply three separately sorted material streams.
 
 See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for the dated Malaysian listings, Selangor delivery assumptions, budget totals and purchase gates.
 

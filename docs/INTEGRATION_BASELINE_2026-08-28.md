@@ -74,6 +74,10 @@ Each comment names the component owner, completed work to retain, required chang
 
 Contributors should reply with their updated commit SHA and test evidence. The coordinator then reviews that revision before including it in a combined candidate. These comments do not approve a merge or change the PR base branches.
 
-## Outstanding Owner Decisions and Main Work
+## Owner Follow-up and Main Work
 
-D1 demo audience/location, D2 report-management scope and D3 shared station/QR behavior remain pending. Main integration still owns the return API, durable decision/credit storage, station/session authentication, citizen transport client and migrations, safe runtime controls and combined gateway assembly. No camera stream, real payment service or public deployment was added.
+After the foundation handoff, the owner confirmed D1: a physical Teensy/ESP/Grove demo with the laptop as server, using the existing local setup. D2 now includes minimal ticket-closing controls in PR1, with report/photo/status APIs and durable history owned by main. D3 remains pending: the owner expects one Grove per recycling bin in a future installation and asked for split-bin ideas. See [the layout comparison](RECYCLING_STATION_OPTIONS.md). No material-to-compartment map or second vision stack has been approved.
+
+The candidate now declares `demo_mode: physical`. The readiness command requires H01/H02 by default; `--software-only` is a labelled preflight, not physical demo approval. Follow-up verification on this decision-update tree: integration tests **17 passed**, server-policy tests **16 passed**, and `git diff --check` passed. Both default and software-only `--require-ready` checks correctly returned exit 1 for the outstanding candidate work; the default included H01/H02. These results supplement, not replace, the earlier foundation evidence. Frontend files and stored records were not changed in this follow-up.
+
+Remote PR1-4 heads still matched the captured revisions when publishing this decision update. No PR was merged or marked ready. Main integration still owns the return API, durable decision/credit storage, station/session authentication, shared report/attachment/status API, citizen client and migrations, safe runtime controls and combined gateway assembly. No camera stream, real payment service or public deployment was added.

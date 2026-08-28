@@ -6,6 +6,8 @@ Owner requirement confirmed: 28 August 2026. This is an integration contract, no
 
 The demo uses one Teensy 4.1, one ESP32-C3, one Grove Vision AI V2/camera return point, and three fill-sensing bins: one general waste and two recycling. The two recycling fill channels do not imply two simultaneous vision stations.
 
+The owner confirmed a physical laptop-hosted demo under D1. The one-Grove arrangement is the current budget baseline while D3 considers [separate versus split recycling stations](RECYCLING_STATION_OPTIONS.md). Do not add a second ESP or Grove, hardcode a material-to-bin mapping, or claim concurrent return users before that decision. PR2's three fill channels remain required under either layout.
+
 ```text
 Three fill sensors -> Teensy 4.1 -- hardware UART --+
                                                   |

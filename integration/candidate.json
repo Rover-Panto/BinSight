@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "branch": "codex/integration-test",
+  "demo_mode": "physical",
   "captured_at": "2026-08-28",
   "foundation_sha": "68f12831a3a0551502e78f19df83a509e11af4ff",
   "main_sha": "9fca9d47afb805f40034da970bb47d791ba8f0b4",
@@ -11,9 +12,9 @@
     {"pr": 4, "owner": "Niccc8", "path": "ml", "sha": "038e262044a1bc29cee08d189c6fe4f78c970caf", "review": "changes_required"}
   ],
   "decisions": [
-    {"id": "D1", "status": "pending", "question": "Demo location and audience"},
-    {"id": "D2", "status": "pending", "question": "Admin report workflow scope"},
-    {"id": "D3", "status": "pending", "question": "Shared station and QR session topology"}
+    {"id": "D1", "status": "confirmed", "question": "Demo location and audience", "evidence": ["Owner direction 2026-08-28: physical ESP, Teensy and Grove with laptop server; docs/INTEGRATION_TEST_PLAN.md#physical-demo-access"]},
+    {"id": "D2", "status": "confirmed", "question": "Admin report workflow scope", "evidence": ["Owner direction 2026-08-28: minimal ticket-closing controls; docs/ADMIN_INTEGRATION.md#minimal-ticket-closing; implementation pending"]},
+    {"id": "D3", "status": "pending", "question": "Separate or split recycling demo, material-to-compartment map and QR session topology", "evidence": ["Owner expects one Grove per recycling bin in a future installation; demo layout not chosen; docs/RECYCLING_STATION_OPTIONS.md"]}
   ],
   "gates": [
     {"id": "G01", "level": "software", "status": "partial", "evidence": ["https://github.com/Rover-Panto/BinSight/actions/runs/33165774817", "docs/INTEGRATION_BASELINE_2026-08-28.md: local and CI foundation passed at f682bef; rerun on combined candidate"]},

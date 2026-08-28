@@ -12,10 +12,15 @@ HARDWARE_GATES = {"H01", "H02"}
 SHA = re.compile(r"[0-9a-f]{40}")
 
 
-def blockers(candidate, is_included, hardware=False):
+def blockers(candidate, is_included, hardware=None):
     """Return outstanding requirements; malformed ledgers fail closed."""
     if not isinstance(candidate, dict) or type(candidate.get("schema_version")) is not int or candidate["schema_version"] != 1:
         raise ValueError("Unsupported candidate schema")
+    demo_mode = candidate.get("demo_mode")
+    if demo_mode not in ("physical", "software"):
+        raise ValueError("The candidate must declare physical or software demo_mode")
+    if hardware is None:
+        hardware = demo_mode == "physical"
     components = candidate.get("components", [])
     if len(components) != 4 or {c["pr"] for c in components} != {1, 2, 3, 4}:
         raise ValueError("The candidate must track PR1, PR2, PR3 and PR4 once each")
@@ -69,7 +74,11 @@ def is_staged(sha):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--require-ready", action="store_true", help="Exit 1 if requirements remain")
-    parser.add_argument("--hardware", action="store_true", help="Include physical hardware gates")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--hardware", dest="hardware", action="store_const", const=True,
+                       help="Require physical hardware gates (default for a physical candidate)")
+    scope.add_argument("--software-only", dest="hardware", action="store_const", const=False,
+                       help="Preflight only; exclude hardware gates without declaring demo readiness")
     args = parser.parse_args()
     try:
         candidate = json.loads((ROOT / "integration/candidate.json").read_text(encoding="utf-8"))
@@ -78,6 +87,11 @@ def main():
         print(f"INVALID READINESS RECORD: {error}")
         return 2
     print("Recorded readiness only; this does not run integration tests or authorise a merge.")
+    include_hardware = args.hardware if args.hardware is not None else candidate["demo_mode"] == "physical"
+    if include_hardware:
+        print("Scope: software and physical hardware gates.")
+    else:
+        print("Scope: software-only preflight; this does not establish physical demo readiness.")
     if outstanding:
         print("NOT READY")
         for item in outstanding:

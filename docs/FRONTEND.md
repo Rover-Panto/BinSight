@@ -74,7 +74,9 @@ The planned hardware integration receives decision metadata from the laptop serv
 
 The resident selects an issue, location, observation time, description, safety flag, and up to three images. The browser converts JPG, PNG, and WEBP files into compressed local attachments. The report detail page keeps them visible after submission and reload.
 
-Reports currently stay in that browser. Admin report management is pending owner decision D2. Connecting it requires a report/photo/status API and an explicit migration/import design; do not claim Streamlit can already see these records or automatically upload old local images.
+Reports currently stay in that browser. Under D2 the owner confirmed minimal admin ticket closing. The planned Streamlit view lists and opens reports, closes them with a resolution note, and provides a correction/reopen action. Closing maps to the existing `Resolved` status; reopening maps to `Reviewed`. The citizen must retain their photos and see the audited status update after reload.
+
+Connecting the websites requires a main-owned report/photo/status API, authorisation, durable history and an explicit migration/import design. This backend and the cross-app controls are not implemented. Do not claim Streamlit already sees local records or automatically upload old images. Keep routing/collection state independent of ticket status. See [the minimal admin scope](ADMIN_INTEGRATION.md#minimal-ticket-closing).
 
 ### Disposal guidance
 

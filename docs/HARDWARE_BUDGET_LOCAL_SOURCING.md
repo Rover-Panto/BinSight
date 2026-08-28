@@ -37,6 +37,8 @@ The Grove V2 owns recycling image preprocessing and model inference. The single 
 
 The budget includes one shared Grove/camera return point for the two recycling-bin demonstrators. If each recycling bin needs its own simultaneous insertion point, a second Grove/camera and its gateway connectivity require a new budget check. Do not present the one-module demonstrator as two independently operating vision stations.
 
+On 28 August the owner confirmed a physical laptop-hosted demo and asked to compare one Grove per recycling bin with a split station. D3 remains open; [the layout comparison](RECYCLING_STATION_OPTIONS.md) does not change this bill of materials. Keeping the other dated lines fixed, a second RM125.50 vision stack would bring the total to RM655.44 including contingency, before extra bus hardware or actuation. A one-Grove split station instead needs its diverter, close-focus optics and deposit-confirmation costs checked before approval. Neither option has a completed mechanical or power test.
+
 ## Recommended local bill of materials
 
 | Item | Seller and live listing | Qty | Unit (RM) | Line total (RM) | Reason |

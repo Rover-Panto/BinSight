@@ -6,7 +6,7 @@ The admin area will let an authorised operator inspect fill status across the th
 
 BinSight has two bin types across three physical bins. A single ESP32-C3 sends PR #2 fill telemetry for all three bins and PR #3 recycling-recognition events. Keep these as separate server contracts even though they share one gateway and may refer to the same recycling bin.
 
-The initial integration keeps PR1's existing Streamlit application in `admin-portal/` separate from the React citizen site in `web/`. Do not rewrite it as React to satisfy older route guidance. A shared-origin `/admin` prefix is a future deployment option, not an implemented React route. Finalise demo access with the owner under D1 in [the integration plan](INTEGRATION_TEST_PLAN.md).
+The initial integration keeps PR1's existing Streamlit application in `admin-portal/` separate from the React citizen site in `web/`. Do not rewrite it as React to satisfy older route guidance. A shared-origin `/admin` prefix is a future deployment option, not an implemented React route. The owner confirmed a physical local demo with the laptop as server under D1 in [the integration plan](INTEGRATION_TEST_PLAN.md); LAN access still requires authenticated APIs and restricted listeners.
 
 The following are logical operator views, not routes currently implemented in `web/`:
 
@@ -17,9 +17,24 @@ The following are logical operator views, not routes currently implemented in `w
 | `/admin/routes` | Fixed-baseline and priority-route comparison |
 | `/admin/routes/:id` | Route stops, assumptions, and simulated outcome |
 | `/admin/kpis` | KPI definitions, comparison windows, and trends |
-| `/admin/reports` | Citizen reports relevant to operations, pending owner decision D2 and a server-backed report API |
+| `/admin/reports` | Minimal ticket list/detail, close and correction/reopen workflow; scope confirmed under D2, server-backed implementation pending |
 
 Do not add admin links to the citizen mobile navigation. Use a separate admin shell and a role gate. A mock role is acceptable for the prototype, but the interface must label it as simulated access.
+
+## Minimal ticket closing
+
+The owner requested minimal controls on 28 August 2026. PR1 owns this view in Streamlit; main integration owns the report/photo/status API and durable records. The following is the implementation contract, not existing functionality:
+
+- List open and closed reports; display issue, location, description and retained attachments in the detail view.
+- `Close ticket` requires a short resolution note and maps to the existing citizen `Resolved` status. Keep the other citizen status values for compatibility; an open filter includes `Submitted`, `Reviewed` and `Assigned`.
+- `Reopen` is a correction action on a closed ticket and maps to `Reviewed`. Keep earlier closure history rather than replacing it.
+- The server records the authorised actor, server timestamp, old/new status and note. Use a revision check and idempotent mutation identity so two tabs or retries cannot lose history or duplicate citizen notifications.
+- The citizen sees their own current status and resolution note after reload. Photos remain accessible only to the report owner and authorised admins.
+- Keep assignment controls, bulk actions, deletion and additional workflow configuration out of the first version.
+
+Closing a report is not a collection event. It must not zero a sensor reading, complete a route or overwrite route approvals. A mock admin role is only a UI fixture; it cannot authorise writes on the physical demo's LAN API.
+
+Current reports live in citizen browser storage. Do not read that storage from Streamlit or upload old local photos without an explicit import flow. Main will publish the shared schemas and fixtures before PR1 connects its adapter. Until then, mark report fixtures as mock and API-unavailable states as unavailable. Gate G13 covers cross-app visibility, closure/reopen, authorisation, persistence, images and duplicate/concurrent requests.
 
 ## Code boundary
 

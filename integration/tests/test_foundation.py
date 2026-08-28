@@ -1,10 +1,13 @@
+from contextlib import redirect_stdout
+from io import StringIO
 import json
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
-from integration.check_readiness import blockers
+from integration.check_readiness import blockers, main
 from server.recycling_policy import InferenceSample, RecyclingInspection
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -95,11 +98,64 @@ class ReadinessTests(unittest.TestCase):
         candidate["decisions"][2]["status"] = "deferred"
         self.assertEqual(len(blockers(candidate, lambda sha: True)), 2)
 
-    def test_hardware_is_a_separate_gate(self):
+    def test_physical_demo_requires_both_hardware_gates_by_default(self):
         candidate = self.ready_record()
+        candidate["demo_mode"] = "physical"
+        for gate in candidate["gates"][-2:]:
+            gate["status"] = "not_run"
+        result = blockers(candidate, lambda sha: True)
+        self.assertEqual({r.split(":")[0] for r in result}, {"H01", "H02"})
+
+    def test_software_only_preflight_must_be_explicit_for_physical_demo(self):
+        candidate = self.ready_record()
+        candidate["demo_mode"] = "physical"
+        candidate["gates"][-1]["status"] = "not_run"
+        self.assertEqual(blockers(candidate, lambda sha: True, hardware=False), [])
+        self.assertEqual(len(blockers(candidate, lambda sha: True)), 1)
+
+    def test_software_candidate_can_require_hardware_explicitly(self):
+        candidate = self.ready_record()
+        candidate["demo_mode"] = "software"
         candidate["gates"][-1]["status"] = "not_run"
         self.assertEqual(blockers(candidate, lambda sha: True), [])
         self.assertEqual(len(blockers(candidate, lambda sha: True, hardware=True)), 1)
+
+    def test_missing_or_unknown_demo_mode_fails_closed(self):
+        for mode in (None, "", "unknown", True):
+            with self.subTest(mode=mode):
+                candidate = self.ready_record()
+                candidate["demo_mode"] = mode
+                with self.assertRaises(ValueError):
+                    blockers(candidate, lambda sha: True)
+        del candidate["demo_mode"]
+        with self.assertRaises(ValueError):
+            blockers(candidate, lambda sha: True)
+
+    def test_cli_default_cannot_skip_physical_gates(self):
+        candidate = self.ready_record()
+        candidate["demo_mode"] = "physical"
+        candidate["gates"][-1]["status"] = "not_run"
+        output = StringIO()
+        with patch("sys.argv", ["check_readiness", "--require-ready"]), \
+             patch("pathlib.Path.read_text", return_value=json.dumps(candidate)), \
+             patch("integration.check_readiness.is_staged", return_value=True), \
+             redirect_stdout(output):
+            self.assertEqual(main(), 1)
+        self.assertIn("software and physical hardware gates", output.getvalue())
+        self.assertIn("H02: not_run", output.getvalue())
+
+    def test_cli_software_only_labels_its_limited_scope(self):
+        candidate = self.ready_record()
+        candidate["demo_mode"] = "physical"
+        candidate["gates"][-1]["status"] = "not_run"
+        output = StringIO()
+        with patch("sys.argv", ["check_readiness", "--require-ready", "--software-only"]), \
+             patch("pathlib.Path.read_text", return_value=json.dumps(candidate)), \
+             patch("integration.check_readiness.is_staged", return_value=True), \
+             redirect_stdout(output):
+            self.assertEqual(main(), 0)
+        self.assertIn("does not establish physical demo readiness", output.getvalue())
+        self.assertNotIn("H02: not_run", output.getvalue())
 
     def test_pass_without_evidence_is_not_ready(self):
         candidate = self.ready_record()
