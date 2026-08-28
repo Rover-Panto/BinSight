@@ -2,7 +2,7 @@
 
 Start with [the integration test plan](../docs/INTEGRATION_TEST_PLAN.md).
 
-This branch contains the existing citizen prototype, a simulation-only return API, a candidate ledger, shared example fixtures and foundation regression checks. It does not contain PR1-4. The citizen UI still uses its mock path; the return API is not a physical deployment.
+This branch contains the existing citizen prototype, a simulation-only return API, main's merged PR4 forecast package, a candidate ledger, shared example fixtures and foundation regression checks. PR1, PR2 and PR3 remain separate. The citizen UI still uses its mock path; the return API is not a physical deployment and forecasting is not yet connected to routing.
 
 - `candidate.json`: captured PR revisions, owner decisions, demo mode and gate status; update after review, not simply after a push.
 - `fixtures/`: synthetic examples for contributor tests, not deployed IDs or complete wire schemas.

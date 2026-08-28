@@ -7,9 +7,9 @@ PR4 re-reviewed 29 August 2026 on `codex/integration-test`; the other rows retai
 | #1 routing/admin | `8b34c9651b4b2ef4cef7abe6f45bb54c4017a3df` | 111 passed | Changes required; not staged |
 | #2 fill/gateway | `84952d2b59f3636d006cbe7518f895face0774a4` | No host/firmware test suite supplied | Changes required; not staged |
 | #3 vision | `819ff37b41a78208ba1624ad0060f8bec0358346` | 3 passed; PR3 serializer passed real-HTTP server preflight | Changes required; not staged |
-| #4 forecast | `28509cc4e90b2c1e2c3c3c2e026244e5a6e86dee` | 32 passed; broader checks: 12 passed / 17 failed | Accepted for controlled demo integration testing; not staged |
+| #4 forecast | `28509cc4e90b2c1e2c3c3c2e026244e5a6e86dee` | 32 passed again after merge; broader checks: 12 passed / 17 failed | Owner merged into main at `3297f43`; included on this branch |
 
-Passing component tests do not establish combined or physical readiness. PR1-4 remain outside this branch and `main`. The main-owned return API remains simulation-only. PR2 has a newer unreviewed push; its findings below apply to `84952d2`, not that newer head.
+Passing component tests do not establish combined or physical readiness. PR4 is now on main and this branch; PR1, PR2 and PR3 remain separate. The main-owned return API remains simulation-only on this branch. PR2 has a newer unreviewed push; its findings below apply to `84952d2`, not that newer head.
 
 ## Demo Review Bar
 
@@ -75,7 +75,7 @@ This is partial G06/G07/G09/G10/G12 evidence. QR/login/browser transport, simula
 
 1. PR2 fixes loss semantics and replaces the generic blocking sketch with one compile-tested shared C3 shell. Keep fill UART and recognition I2C in independent bounded tasks/queues.
 2. PR3 supplies the reviewed Grove artifact and SSCMA adapter. Run the main return preflight with recorded metadata, then on the exact combined C3 build.
-3. Stage the accepted PR4 head with the fixed demo bundle/environment. Add usable-reading guards and timestamp normalization in the PR1 adapter, then run a forecast-to-route smoke test before deleting PR1's duplicate predictor. Defer broad loader hardening and retraining automation.
+3. PR4 staging is complete through main merge `3297f43`. Next add usable-reading guards and timestamp normalization in the PR1 adapter, then run a forecast-to-route smoke test before deleting PR1's duplicate predictor. Defer broad loader hardening and retraining automation.
 4. PR1 keeps the post-optimizer disabled, adds a physical demo registry and consumes the installed PR4 provider with a named non-ML fallback.
 5. Main adds a feature-flagged citizen client/QR handoff and versioned return-data migration, then the report API and PR1 ticket controls.
 6. Run G01-G13 on the exact staged heads, then H01-H02 on the bench. Merge focused PRs to `main` only after owner approval.

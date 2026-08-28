@@ -4,7 +4,7 @@ BinSight is MON BLUE's smart waste-sensing system and citizen recycling hub. The
 
 ## Current status
 
-The repository contains the responsive citizen hub, hardware and server integration contracts, and supporting tests. The frontend is a self-contained prototype with simulated authentication, station-detected returns, payouts, reports, automatic public-bin routing, support services, and local persistence.
+The repository contains the responsive citizen hub, hardware and server integration contracts, and supporting tests. PR4's forecasting package merged into `main` at `3297f43` and is now included on this integration branch. Its connection to PR1 routing is still pending. The frontend remains a self-contained prototype with simulated authentication, station-detected returns, payouts, reports, automatic public-bin routing, support services, and local persistence.
 
 ## Target System Boundary
 
@@ -21,7 +21,7 @@ PR1 should retire its duplicate forecasting after PR4's replacement passes the s
 
 ## Repository contents
 
-Integration coordination starts at [the test plan](docs/INTEGRATION_TEST_PLAN.md). The `codex/integration-test` branch holds the foundation checks and candidate ledger while contributors update PR1-4; it is not a merged or deployed system.
+Integration coordination starts at [the test plan](docs/INTEGRATION_TEST_PLAN.md). The `codex/integration-test` branch holds the foundation checks, candidate ledger and merged PR4 package while PR1, PR2 and PR3 remain separate. This is not yet a connected or deployed system.
 
 - `docs/`: frontend reference, project state, admin integration, and data-preservation contracts
 - `docs/PR3_RECYCLING_VISION_REVIEW.md`: recycling-model review and Grove-to-website integration contract
@@ -32,9 +32,10 @@ Integration coordination starts at [the test plan](docs/INTEGRATION_TEST_PLAN.md
 - `integration/`: shared fixtures, candidate-readiness checks, review probes and an isolated real-HTTP return preflight
 - `BinSight_UI_Design_Language.txt`: citizen and admin interface rules
 - `server/`: simulation-only return HTTP API, durable decisions/credits, backup tooling and policy tests; see [the API contract](docs/RETURN_API_V1.md)
+- `ml/`: installed-package source, synthetic fill data and reviewed model for hours to the 90% service threshold; routing integration remains pending
 - `web/`: React and TypeScript citizen hub prototype
 
-The first return API slice is implemented on the test branch. PR1-4 remain isolated while contributors fix the remaining blockers. The citizen app stays in mock mode; no existing records or photos are imported. See [the latest review](docs/INTEGRATION_REVIEW_LATEST.md).
+The first return API slice is implemented on the test branch. PR4 is present; PR1, PR2 and PR3 remain outside this branch. The citizen app stays in mock mode; no existing records or photos are imported. See [the latest review](docs/INTEGRATION_REVIEW_LATEST.md).
 
 ## Planned citizen hub
 

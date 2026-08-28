@@ -5,6 +5,8 @@ Coordinator: Codex, working with the project owner. Created 28 August 2026.
 Test branch: [`codex/integration-test`](https://github.com/Rover-Panto/BinSight/tree/codex/integration-test).
 This branch starts at `68f12831a3a0551502e78f19df83a509e11af4ff`, the existing documentation and server-policy foundation, which includes `main` at `9fca9d47afb805f40034da970bb47d791ba8f0b4`. It does **not** initially contain PR1-4. Creating it does not approve those PRs or enable hardware operation.
 
+Current staged component: the owner's main merge of PR4, `3297f43`, is now incorporated into this branch. PR1, PR2 and PR3 remain separate; their integration gates are not satisfied by this component merge.
+
 ## 1. Decisions and Scope
 
 Keep two applications: the React citizen website in `web/` and the Streamlit operations website in PR1's `admin-portal/`. Do not rebuild either website to join this integration. The whole repository, including both applications and their services, eventually belongs on `main`.

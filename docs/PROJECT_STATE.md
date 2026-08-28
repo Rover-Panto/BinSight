@@ -4,7 +4,7 @@ Last verified: 29 August 2026 for PR4; other component reviews retain their 28 A
 
 ## Main branch
 
-`main` contains the citizen-facing React prototype and engineering integration documentation. Proposal and submission files are kept outside Git. The web app is a local demonstration. It has no production API, database, payment connection, camera scanner, or deployed bin network.
+`main` contains the citizen-facing React prototype, PR4's forecasting package and engineering integration documentation. The owner merged PR4 at `3297f431e44e4b751aa158757659867cbc980654` on 29 August Malaysia time. Proposal and submission files are kept outside Git. The web app is a local demonstration. It has no production API, database, payment connection, camera scanner, or deployed bin network.
 
 The citizen app currently supports:
 
@@ -46,21 +46,21 @@ BinSight has two and only two bin types. Keep this distinction in firmware, APIs
 
 Recycling fill readings and recycling inference events are logically independent. Firmware must contain a classifier/peripheral fault so fill reporting can continue; a shared C3 reset or power loss interrupts both streams. Fill level must not influence item acceptance. The route adapter may consume fill observations from either bin type, but must reject every classification event. See [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md).
 
-## Admin work
+## Admin and Decision-Support Work
 
-The route-optimisation and KPI dashboard has substantial implementation on PR #1, but has not merged into `main`. Its latest update adds predictive telemetry snapshots, trip-value routing, stored route lifecycle and expanded synthetic evaluation. PR #4 adds a separate overflow predictor that overlaps this work. Follow [the cross-PR review](PR_REVIEW_2026-08-28.md), [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [DATA_PRESERVATION.md](DATA_PRESERVATION.md).
+The route-optimisation and KPI dashboard has substantial implementation on PR #1, but has not merged into `main`. Its latest update adds predictive telemetry snapshots, trip-value routing, stored route lifecycle and expanded synthetic evaluation. PR #4's forecast provider is now on main; PR1's adapter and retirement of duplicate prediction code are still pending. Follow [the cross-PR review](PR_REVIEW_2026-08-28.md), [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [DATA_PRESERVATION.md](DATA_PRESERVATION.md).
 
 The initial integration keeps PR1's Streamlit website under `admin-portal/` and the citizen React site under `web/`. Do not rebuild the admin site inside React. `/admin` is a possible later shared-origin deployment prefix, not a current citizen route. PR1 must document its actual navigation, planning store, fixtures, KPI formulas and tests in this directory.
 
 ## Integration Test Branch
 
-`codex/integration-test` starts from the documentation/server-policy foundation at `68f1283`. It does not initially contain PR1-4. It adds [the integration test plan](INTEGRATION_TEST_PLAN.md), synthetic fixtures, a candidate ledger and foundation CI. Component, cross-service and hardware gates remain distinct from the existing citizen/policy checks.
+`codex/integration-test` started from the documentation/server-policy foundation at `68f1283` and now includes main's PR4 merge `3297f43`. PR1, PR2 and PR3 are not staged. The branch also contains [the integration test plan](INTEGRATION_TEST_PLAN.md), synthetic fixtures, a candidate ledger and foundation CI. Component, cross-service and hardware gates remain distinct from the existing citizen/policy checks.
 
 The owner confirmed D1: a physical demo using the existing Teensy, shared ESP and Grove with the laptop as server. Hardware gates H01/H02 are now required by default in the readiness ledger. D2 confirms minimal admin ticket closing; main owns its report/photo/status backend and PR1 owns the operator view. The shared report workflow remains pending. A simulation-only return HTTP API now exists on this test branch, with durable sessions, decisions and credits; see [RETURN_API_V1.md](RETURN_API_V1.md). The citizen UI is not connected to it.
 
 D3 is confirmed: one recycling bin as a technology demonstration, using one Grove/camera and one QR station with one active session at a time. No split compartments, sorting diverter or second physical recycling station are required. Accepted plastic, metal and glass go into the same collection bin; the ledger retains their material labels. [The station decision](RECYCLING_STATION_OPTIONS.md) supersedes the earlier split-bin recommendation. Contributors keep their PR branches and report exact tested SHAs; Codex stages reviewed changes for combined testing before any owner-approved merge into `main`.
 
-The latest review covers PR1 `8b34c96`, PR2 `84952d2`, PR3 `819ff37` and PR4 `28509cc`. PR2 has a newer push awaiting review. After the owner's demo-only clarification, PR4 is accepted for controlled integration testing with the reviewed bundle and tested environment. Its 32 tests and fresh wheel install pass. The adapter must still handle bad readings and normalize timestamps before a route smoke test; general loader hardening and retraining automation are deferred. None of these PRs has been staged or merged into main. See [the current review](INTEGRATION_REVIEW_LATEST.md) and [demo acceptance conditions](PR4_REVIEW_2026-08-29.md#demo-acceptance).
+The latest review covers PR1 `8b34c96`, PR2 `84952d2`, PR3 `819ff37` and PR4 `28509cc`. PR2 has a newer push awaiting review. After the owner's demo-only clarification, PR4 was accepted and merged as a component with the reviewed bundle and tested environment. Its 32 tests and fresh wheel install pass. The adapter must still handle bad readings and normalize timestamps before a route smoke test; general loader hardening and retraining automation are deferred. PR1, PR2 and PR3 remain unmerged. See [the current review](INTEGRATION_REVIEW_LATEST.md) and [demo acceptance conditions](PR4_REVIEW_2026-08-29.md#demo-acceptance).
 
 ## Integration ownership
 
@@ -85,6 +85,13 @@ See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for t
 PR #3 now adds isolated laptop/webcam training code, pinned dependencies, a raw inference metadata class and three passing unit tests. It does not supply trained weights or tested Grove/ESP deployment. The test branch now implements the inference/session HTTP endpoints in simulation mode; website and physical integration remain pending. Follow [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md) for current findings and the integration contract.
 
 The documentation/integration branch now includes `server/recycling_policy.py`: a tested central-server decision tree that accepts stable high-confidence `plastic`, `metal` and `glass` labels and rejects every other material. The new return API calls this policy and persists its outcomes. The citizen return page still uses its existing mock path. PR #3 contains no trained model artifact or dataset.
+
+## Machine Learning Subsystem (`ml/`)
+
+The merged forecasting package and synthetic sensor simulation pipeline are located in `ml/`:
+- **Model capability**: Predicts `time_to_service_threshold_hours` at 90% fill using fill/rate/calendar features. Weight is not required. Horizon probabilities remain unsupported; this is not a 100% physical-overflow model.
+- **Interface**: `from binsight_ml import ForecastProvider`, then `predict_snapshot(...)`. The PR1 routing adapter is not implemented at its reviewed head `8b34c96`.
+- **Verification**: The 32 component tests and fresh package install passed. The recorded synthetic holdout MAE is 4.696 hours; this is not field-measured accuracy. Use the fixed reviewed model for the demo and keep the documented input/time guards at the integration boundary.
 
 ## Source of truth
 

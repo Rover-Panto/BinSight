@@ -4,6 +4,8 @@ Owner instruction: 28 August 2026. **PR4 owns forecasting. PR1 owns collection d
 
 Use [the integration test branch plan](INTEGRATION_TEST_PLAN.md) for staging, owner decisions and evidence gates, and [PR4's demo acceptance conditions](PR4_REVIEW_2026-08-29.md#demo-acceptance) for the current scope. The owner clarified that this is a demonstration, not a production release. Head `28509cc` is accepted for controlled integration testing with a fixed bundle/environment. Prioritize bad-reading guards, timestamp normalization and a working route preview; defer general loader hardening and retraining automation. The original starting heads below remain historical context.
 
+PR4 has now merged into main at `3297f43` and is present on `codex/integration-test`. PR1 remains open at `8b34c96`; its adapter is the next connection to implement. PR1 can incorporate main through its normal update process; do not merge the aggregate integration branch into the contributor branch.
+
 Starting review heads: PR1 `c256bd44a60d12628b9f0354879e1ad90a15ec1e`; PR4 `313f76b2c8c0356f966018f591b1dec56b68a939`. Recheck the current heads and preserve newer contributor changes before editing. Resolve the [review findings](PR_REVIEW_2026-08-28.md) alongside this integration.
 
 ## 1. Connect Through a Local Python Interface

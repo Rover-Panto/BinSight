@@ -1,0 +1,12 @@
+[
+  "fill_pct",
+  "fill_rate_1h",
+  "fill_rate_6h",
+  "hour_sin",
+  "hour_cos",
+  "dow_sin",
+  "dow_cos",
+  "is_weekend",
+  "hist_avg_rate_same_slot",
+  "time_since_reset_hours"
+]

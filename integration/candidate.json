@@ -4,7 +4,7 @@
   "demo_mode": "physical",
   "captured_at": "2026-08-29",
   "foundation_sha": "68f12831a3a0551502e78f19df83a509e11af4ff",
-  "main_sha": "9fca9d47afb805f40034da970bb47d791ba8f0b4",
+  "main_sha": "3297f431e44e4b751aa158757659867cbc980654",
   "components": [
     {
       "pr": 1,
@@ -50,7 +50,10 @@
         "docs/PR4_REVIEW_2026-08-29.md",
         "integration/evidence/2026-08-29-pr4-probes.json",
         "Owner clarification 2026-08-29: controlled demo, not production readiness; docs/PR4_REVIEW_2026-08-29.md#demo-acceptance",
-        "https://github.com/Rover-Panto/BinSight/pull/4#issuecomment-5455045758"
+        "https://github.com/Rover-Panto/BinSight/pull/4#issuecomment-5455045758",
+        "Owner merged PR4 into main at 3297f431e44e4b751aa158757659867cbc980654 on 2026-08-29 Malaysia time; incorporated into codex/integration-test without changing ml/",
+        "https://github.com/Rover-Panto/BinSight/pull/4",
+        "docs/PR4_REVIEW_2026-08-29.md#post-merge-verification"
       ]
     }
   ],
@@ -90,7 +93,8 @@
         "https://github.com/Rover-Panto/BinSight/actions/runs/33167295593",
         "docs/INTEGRATION_BASELINE_2026-08-28.md: local and CI foundation passed at f682bef and 6fbf133; rerun on combined candidate",
         "integration/evidence/2026-08-28-return-api.md",
-        "https://github.com/Rover-Panto/BinSight/actions/runs/33187028852"
+        "https://github.com/Rover-Panto/BinSight/actions/runs/33187028852",
+        "docs/PR4_REVIEW_2026-08-29.md#post-merge-verification: 32 forecast tests, 42 server tests, 17 fixture/ledger tests and real-HTTP return simulation pass after main merge 3297f43; PR1/PR2/PR3 and combined route/hardware tests remain pending"
       ]
     },
     {
