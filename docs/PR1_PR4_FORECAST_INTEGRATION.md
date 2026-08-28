@@ -2,7 +2,7 @@
 
 Owner instruction: 28 August 2026. **PR4 owns forecasting. PR1 owns collection decisions, routing and operational KPIs.** This document specifies work to implement; it does not claim that the branches are integrated or that PR4 is ready for deployment.
 
-Use [the integration test branch plan](INTEGRATION_TEST_PLAN.md) for staging, owner decisions and evidence gates, and [the 29 August PR4 review](PR4_REVIEW_2026-08-29.md) for its current provider changes. Head `28509cc` supplies an installable provider but still needs manifest, quality, observation-timezone and bundle-promotion fixes. The original starting heads below remain historical context.
+Use [the integration test branch plan](INTEGRATION_TEST_PLAN.md) for staging, owner decisions and evidence gates, and [PR4's demo acceptance conditions](PR4_REVIEW_2026-08-29.md#demo-acceptance) for the current scope. The owner clarified that this is a demonstration, not a production release. Head `28509cc` is accepted for controlled integration testing with a fixed bundle/environment. Prioritize bad-reading guards, timestamp normalization and a working route preview; defer general loader hardening and retraining automation. The original starting heads below remain historical context.
 
 Starting review heads: PR1 `c256bd44a60d12628b9f0354879e1ad90a15ec1e`; PR4 `313f76b2c8c0356f966018f591b1dec56b68a939`. Recheck the current heads and preserve newer contributor changes before editing. Resolve the [review findings](PR_REVIEW_2026-08-28.md) alongside this integration.
 
@@ -36,7 +36,7 @@ provider.predict_snapshot(
 )
 ```
 
-This is a target API, not an existing method. Keep model-specific features inside PR4. PR1 supplies observations and known registry/event facts, not a second engineered feature table.
+PR4 now implements `predict_snapshot`; the exact PR1 adapter is still pending. Keep model-specific features inside PR4. PR1 supplies observations and known registry/event facts, not a second engineered feature table. For the demo, use this boundary to reject bad readings and normalize timestamps before calling the fixed provider.
 
 ## 2. Pin the Input Contract Together
 
@@ -58,7 +58,7 @@ Use the same normalized input shape for recorded telemetry and simulation observ
 
 PR1 currently distinguishes 100% overflow from a 90% emergency-service trigger. PR4 currently labels time to 90%, and its synthetic bins reset at that threshold. Its present output cannot be renamed time-to-100% or converted by a fixed multiplier.
 
-For initial compatibility, preserve PR1's 100% overflow meaning and 90% service trigger. PR4 must change the simulated trajectories, labels and training/evaluation to support that target, or reuse suitable PR1 forecast components under PR4 ownership. A different shared threshold requires an explicit versioned policy change and a fresh paired evaluation. Do not make that change silently as part of an adapter.
+For the demo, preserve PR1's 100% overflow meaning and 90% service trigger, and use PR4 only for its supported 90% service-threshold estimate. Retraining for 100% overflow or calibrated probabilities is not required. Where PR1 needs unsupported capabilities, select its named non-ML fallback. A later model expansion needs matching labels and evaluation; do not rename the existing output as part of the adapter.
 
 Each prediction must declare its target threshold, time origin and estimate meaning. A mean time-to-threshold is not a conservative upper-fill crossing. PR1 must not feed one into logic that assumes the other.
 
@@ -76,7 +76,7 @@ The contributors should share a schema/fixture with these meanings. Keep the for
 | Probabilities | Calibrated overflow probability for the horizons used by routing, especially 6 and 48 hours, with their target definition. Unsupported probabilities stay null and force an explicit supported fallback. |
 | Confidence/risk | Keep sensor quality and forecast confidence separate. Agree forecast risk meanings; PR1 owns operational urgency, required stops and inspection decisions. Do not just lowercase PR4's risk labels and assume their thresholds match. |
 
-PR1's simulation currently calls `ForecastBundle.predict()` for mean/upper growth and separate 6/48-hour probability methods. PR4's current `predict_from_history()` returns only scalar time, risk and basic observation fields. This is a capability gap, not just a naming mismatch. PR4 must supply the required forecast capability, or PR1 must implement and test an explicitly degraded non-ML mode. A scalar mean prediction must not masquerade as a calibrated probability or conservative bound.
+PR1's simulation currently calls `ForecastBundle.predict()` for mean/upper growth and separate 6/48-hour probability methods. PR4 returns a service-threshold estimate plus rate-based horizon projections, with probabilities explicitly unsupported. This is a capability gap, not just a naming mismatch. For the demo, use a tested, named non-ML mode where PR1 requires missing capabilities rather than expanding the model. A scalar mean prediction must not masquerade as a calibrated probability or conservative bound.
 
 Keep horizon capability/availability checks in PR1. Do not feed an unsupported result through the old q90/probability assumptions. A finite-horizon no-crossing result does not prove the bin can never overflow.
 

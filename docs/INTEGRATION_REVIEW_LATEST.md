@@ -7,11 +7,15 @@ PR4 re-reviewed 29 August 2026 on `codex/integration-test`; the other rows retai
 | #1 routing/admin | `8b34c9651b4b2ef4cef7abe6f45bb54c4017a3df` | 111 passed | Changes required; not staged |
 | #2 fill/gateway | `84952d2b59f3636d006cbe7518f895face0774a4` | No host/firmware test suite supplied | Changes required; not staged |
 | #3 vision | `819ff37b41a78208ba1624ad0060f8bec0358346` | 3 passed; PR3 serializer passed real-HTTP server preflight | Changes required; not staged |
-| #4 forecast | `28509cc4e90b2c1e2c3c3c2e026244e5a6e86dee` | 32 passed; independent checks: 12 passed / 17 failed | Changes required; not staged |
+| #4 forecast | `28509cc4e90b2c1e2c3c3c2e026244e5a6e86dee` | 32 passed; broader checks: 12 passed / 17 failed | Accepted for controlled demo integration testing; not staged |
 
 Passing component tests do not establish combined or physical readiness. PR1-4 remain outside this branch and `main`. The main-owned return API remains simulation-only. PR2 has a newer unreviewed push; its findings below apply to `84952d2`, not that newer head.
 
-## Blocking Findings
+## Demo Review Bar
+
+Owner clarification, 29 August: the target is a working physical demonstration, not production readiness. PR4 can enter integration testing with the reviewed bundle and tested dependencies. Broad model-loader hardening and retraining automation can wait. The integration adapter still needs bad-reading handling and consistent timestamps, followed by a forecast-to-route smoke test. The previous failures remain recorded; they are not all demo blockers. See [PR4's demo acceptance conditions](PR4_REVIEW_2026-08-29.md#demo-acceptance). Other components still need their own demo-scoped review; this does not approve every PR.
+
+## Outstanding Findings
 
 ### P1: PR2's new gateway does not target the selected ESP32-C3
 
@@ -29,17 +33,17 @@ The Teensy waits only 500 ms for an uncorrelated `ACK:<status>`, while the gatew
 
 References: PR2 `hardware_pipeline/tools/serial_bridge.py:68`, `:109`, `:110`; gateway sketch `:117`, `:139`, `:165`; retained probe `integration/probes/review_latest.py`.
 
-### P1: PR4 still accepts invalid runtime metadata and faulty readings
+### PR4: Defer loader hardening; handle bad readings at integration
 
-At `28509cc`, the dependency check permits adjacent major versions, skips missing versions and ignores minor/patch differences. Unknown schemas, missing or unsupported target definitions, non-runtime feature lists and invalid availability provenance still reach the loader. The independent tests isolate these checks without deserializing a test artifact. Replace permissive checks with a typed, fail-closed manifest and a tested version policy.
+At `28509cc`, the dependency check permits adjacent major versions, skips missing versions and ignores minor/patch differences. Unknown schemas, missing or unsupported target definitions, non-runtime feature lists and invalid availability provenance still reach the loader. These remain hardening findings, but do not block the fixed demo: use the reviewed artifact, its explicit path and the tested environment; do not accept arbitrary model uploads or swap dependencies during the run.
 
-The quality fix only catches all-zero histories. One valid 20% reading followed by a flagged 95% reading returns `available` with 0.66 hours to the service threshold. Duplicate copies of one reading also return `available`; unknown fill can leave NaN in a result. Select distinct, usable observations before feature construction, enforce freshness from the last-good timestamp and return JSON-safe degraded records.
+The quality fix only catches all-zero histories. One valid 20% reading followed by a flagged 95% reading returns `available` with 0.66 hours to the service threshold. Duplicate copies of one reading also return `available`; unknown fill can leave NaN in a result. The PR1 integration adapter must select distinct, usable observations, enforce freshness from the last-good timestamp and return JSON-safe degraded records before the route demo. We can implement that boundary without requiring a broad PR4 rewrite.
 
-### P2: PR4 observation timezones and model-copy selection remain inconsistent
+### PR4: Normalize timestamps and freeze the demo model
 
-Only temporary filtering Series are converted to UTC. Equivalent observations written in UTC and Malaysia time produce 5.05 versus 13.04 hours; mixed offsets return `model_error`. Carry normalized timestamps through sorting and feature construction using one documented model timezone.
+Only temporary filtering Series are converted to UTC. Equivalent observations written in UTC and Malaysia time produce 5.05 versus 13.04 hours; mixed offsets return `model_error`. Normalize the input timestamps in the PR1 adapter before PR4 sorts and builds features, using one documented model timezone.
 
-The new default bundle now installs and loads outside the checkout, but training writes `ml/models` while the default provider and wheel use `ml/binsight_ml/models`. Add an explicit promotion/hash verification step so the post-training smoke test cannot silently load the old copy.
+The new default bundle now installs and loads outside the checkout, but training writes `ml/models` while the default provider and wheel use `ml/binsight_ml/models`. For this demo, load the reviewed bundle through an explicit path and do not retrain during the run. Automated promotion is deferred.
 
 Resolved at this head: missing packaged bundle, missing bin ID on unsupported thresholds, pre-selection historical availability, decision-cutoff timezone equivalence, all-zero confidence status and stale single-reading precedence. See [the dated PR4 review](PR4_REVIEW_2026-08-29.md) for exact line references, fixes, environment and retained evidence.
 
@@ -71,7 +75,7 @@ This is partial G06/G07/G09/G10/G12 evidence. QR/login/browser transport, simula
 
 1. PR2 fixes loss semantics and replaces the generic blocking sketch with one compile-tested shared C3 shell. Keep fill UART and recognition I2C in independent bounded tasks/queues.
 2. PR3 supplies the reviewed Grove artifact and SSCMA adapter. Run the main return preflight with recorded metadata, then on the exact combined C3 build.
-3. PR4 closes the remaining manifest, usable-reading, observation-timezone and bundle-promotion gaps from the 29 August review. Add a PR1 adapter contract test before deleting PR1's duplicate predictor.
+3. Stage the accepted PR4 head with the fixed demo bundle/environment. Add usable-reading guards and timestamp normalization in the PR1 adapter, then run a forecast-to-route smoke test before deleting PR1's duplicate predictor. Defer broad loader hardening and retraining automation.
 4. PR1 keeps the post-optimizer disabled, adds a physical demo registry and consumes the installed PR4 provider with a named non-ML fallback.
 5. Main adds a feature-flagged citizen client/QR handoff and versioned return-data migration, then the report API and PR1 ticket controls.
 6. Run G01-G13 on the exact staged heads, then H01-H02 on the bench. Merge focused PRs to `main` only after owner approval.
@@ -86,6 +90,6 @@ python integration/probes/review_latest.py --pr1-root PATH_TO_PR1 --pr2-root PAT
 python integration/probes/review_pr4_update.py --pr4-root PATH_TO_PR4 --output pr4-review-results.json
 ```
 
-The older `review_latest.py` is historical evidence against its recorded heads. Use `review_pr4_update.py` for the new PR4 review; its expected nonzero exit records unresolved checks, not a foundation CI failure.
+The older `review_latest.py` is historical evidence against its recorded heads. `review_pr4_update.py` retains the broader PR4 diagnostics; its nonzero exit records unresolved checks, including deferred hardening. Do not treat all of those checks as demo staging requirements or relabel them as passed.
 
 From `web/`: `pnpm lint`, `pnpm test:run`, `pnpm build`, and `pnpm test:e2e`. From PR1: its full `pytest` suite. From PR3: `python -m unittest recycling_vision.test_relay -v`. From PR4: `pytest ml/tests -q`.

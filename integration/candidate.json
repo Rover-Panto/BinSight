@@ -44,11 +44,13 @@
       "owner": "Niccc8",
       "path": "ml",
       "sha": "28509cc4e90b2c1e2c3c3c2e026244e5a6e86dee",
-      "review": "changes_required",
+      "review": "accepted_for_testing",
       "evidence": [
         "docs/INTEGRATION_REVIEW_LATEST.md",
         "docs/PR4_REVIEW_2026-08-29.md",
-        "integration/evidence/2026-08-29-pr4-probes.json"
+        "integration/evidence/2026-08-29-pr4-probes.json",
+        "Owner clarification 2026-08-29: controlled demo, not production readiness; docs/PR4_REVIEW_2026-08-29.md#demo-acceptance",
+        "https://github.com/Rover-Panto/BinSight/pull/4#issuecomment-5455045758"
       ]
     }
   ],
@@ -109,12 +111,14 @@
     {
       "id": "G04",
       "level": "software",
-      "status": "failed",
+      "status": "partial",
       "evidence": [
         "integration/probes/review_latest.py",
         "docs/INTEGRATION_REVIEW_LATEST.md",
         "integration/probes/review_pr4_update.py",
-        "integration/evidence/2026-08-29-pr4-probes.json"
+        "integration/evidence/2026-08-29-pr4-probes.json",
+        "Demo scope revised 2026-08-29: reviewed fixed model and environment pass component tests; bad-reading/time normalization adapter and route smoke test remain pending. Earlier broad diagnostic failures are retained, not marked passed.",
+        "docs/PR4_REVIEW_2026-08-29.md#demo-acceptance"
       ]
     },
     {
