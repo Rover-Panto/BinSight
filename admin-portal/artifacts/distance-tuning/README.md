@@ -62,3 +62,46 @@ The next justified experiment is a demand-regime-aware policy that preserves
 critical-stop priority and changes cadence/batching only when the current
 evidence supports it. That requires new routing logic and a fresh seed block; it
 must not be presented as a simple coefficient update.
+
+## Structural follow-up: rejected
+
+A second bounded study used new development offsets +2,510,000/+2,520,000 and
+untouched confirmation offsets +2,710,000/+2,720,000. It tested:
+
+- optional-only route admission requiring two or three ready sites;
+- 5–15 km marginal-detour limits;
+- surge fallbacks based on the fleet-wide 48-hour overflow probability;
+- credible time-to-overflow service windows from 12 to 48 hours;
+- 500–2,000 ms route-search budgets; and
+- bounded asymmetric 2-opt route ordering that retained every selected stop and
+  prohibited later arrival at any mandatory stop.
+
+Admission and 12-hour deadline variants reduced some travel only by worsening
+overflow or creating later compensating trips. Deadlines of 18 hours or longer
+reproduced the existing policy. Longer solver budgets and protected 2-opt found
+only metre-scale same-plan improvements.
+
+The protected 2-opt finalist then failed the untouched four-pair confirmation:
+
+| Scenario and metric | Existing order | Protected 2-opt | Modelled change |
+|---|---:|---:|---:|
+| Normal distance | 1,388.8 km | 1,424.0 km | 35.2 km higher (2.5%) |
+| Normal trips | 38.50 | 39.75 | 1.25 more |
+| Normal overflow incidents | 2.50 | 2.75 | 0.25 more |
+| Normal overflow bin-hours | 66.75 | 112.50 | 45.75 more |
+| High-demand distance | 1,860.6 km | 1,869.7 km | 9.0 km higher (0.5%) |
+| High-demand trips | 50.75 | 51.00 | 0.25 more |
+| High-demand overflow incidents | 19.75 | 19.75 | unchanged |
+| High-demand overflow bin-hours | 230.00 | 254.75 | 24.75 more |
+
+Although each accepted reversal was locally shorter, changed completion times
+altered later simulated decisions. A locally monotone route edit therefore did
+not guarantee a lower 30-day system total. `route_post_optimization_enabled`
+remains `false`; no rejected admission, deadline, solver-budget or route-order
+candidate is active.
+
+The next plausible distance reduction is deadhead chaining: after unloading at
+the recycling facility, continue directly to the next trip instead of returning
+to the depot first. That requires trusted facility-origin road matrices and an
+explicit operational decision that depot return/turnaround can be skipped. It
+was not assumed or implemented in this study.

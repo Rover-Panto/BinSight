@@ -1,5 +1,6 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -410,6 +411,35 @@ def test_incompatible_physical_waste_streams_use_separate_trips():
         streams = {bins.iloc[index]["waste_stream"] for index in route if index != -1}
         assert len(streams) == 1
     assert plan.route_plan.solver_method.startswith("stream_separated:")
+
+
+def test_stream_trip_limit_reports_mandatory_bin_as_unserved():
+    config, all_bins, full_matrix = _project_inputs()
+    config = replace(
+        config,
+        operations=replace(config.operations, max_daily_trips=1),
+    )
+    bins = all_bins.iloc[:2].reset_index(drop=True).copy()
+    matrix = full_matrix[np.ix_([0, 1, 2], [0, 1, 2])]
+    snapshot = _safe_snapshot(bins, datetime.now(timezone.utc).replace(microsecond=0))
+    snapshot["fill_pct"] = 95.0
+    snapshot["weight_kg"] = bins["capacity_kg"].to_numpy(dtype=float) * 0.95
+    snapshot["risk_level"] = "critical"
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+    )
+
+    plan = build_dispatch_plan(normalized, bins, matrix, config)
+
+    assert len(plan.required_bin_indices) == 2
+    assert len(plan.route_plan.routes) == 1
+    assert len(plan.unserved_required_bin_indices) == 1
+    assert set(plan.required_bin_indices) == (
+        set(plan.selected_bin_indices) | set(plan.unserved_required_bin_indices)
+    )
+    assert any("Daily truck capacity could not cover" in item for item in plan.warnings)
 
 
 def test_history_read_merge_write_serializes_portal_and_runner_writers(tmp_path):

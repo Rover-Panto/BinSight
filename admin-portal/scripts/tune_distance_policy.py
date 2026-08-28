@@ -22,6 +22,20 @@ from binsight.simulation import run_policy
 ROOT = Path(__file__).resolve().parents[1]
 
 CANDIDATES: dict[str, dict[str, float | int]] = {
+    "legacy_v2": {"route_post_optimization_enabled": False},
+    "route_2opt_v3": {"route_post_optimization_enabled": True},
+    "solver_500ms": {
+        "route_post_optimization_enabled": False,
+        "route_solver_milliseconds": 500,
+    },
+    "solver_1000ms": {
+        "route_post_optimization_enabled": False,
+        "route_solver_milliseconds": 1000,
+    },
+    "solver_2000ms": {
+        "route_post_optimization_enabled": False,
+        "route_solver_milliseconds": 2000,
+    },
     "current_90": {},
     "emergency_fill_92": {
         "smart_emergency_current_trigger_pct": 92,
@@ -165,6 +179,8 @@ CANDIDATE_WASTE_OVERRIDES: dict[str, dict[str, float | int]] = {
 PHASE_SEEDS = {
     "screen": (2_110_000, 2_120_000),
     "confirm": (2_310_000, 2_320_000),
+    "adaptive_screen": (2_510_000, 2_520_000),
+    "adaptive_confirm": (2_710_000, 2_720_000),
 }
 
 METRICS = (
@@ -180,6 +196,12 @@ METRICS = (
     "uncollected_kg_at_horizon",
     "unfinished_trip_count",
     "routing_fallbacks",
+    "mean_candidate_bins_per_dispatch",
+    "max_candidate_bins_per_dispatch",
+    "mean_required_bins_per_dispatch",
+    "optional_only_dispatches",
+    "mean_forecast_growth_pct_per_hour",
+    "mean_overflow_probability_48h",
 )
 
 
@@ -277,7 +299,46 @@ def _run_task(task: dict) -> dict:
         "arrival_seed": arrival_seed,
         "sensor_seed": sensor_seed,
     }
-    row.update({metric: result.metrics[metric] for metric in METRICS})
+    row.update(
+        {metric: result.metrics[metric] for metric in METRICS if metric in result.metrics}
+    )
+    candidate_counts = [
+        float(event.get("candidate_bin_count", 0)) for event in result.route_events
+    ]
+    required_counts = [
+        float(len(event.get("required_bins", []))) for event in result.route_events
+    ]
+    forecast_growth = []
+    probability_48h = []
+    for event in result.route_events:
+        for audit in event.get("snapshot_rows", []):
+            fill = audit.get("conservative_upper_fill_pct")
+            horizon = audit.get("effective_time_to_overflow_hours")
+            if fill is not None and horizon is not None and float(horizon) > 0:
+                forecast_growth.append(max(0.0, 100.0 - float(fill)) / float(horizon))
+            probability = audit.get("overflow_probability_48h")
+            if probability is not None:
+                probability_48h.append(float(probability))
+    row.update(
+        {
+            "mean_candidate_bins_per_dispatch": (
+                float(np.mean(candidate_counts)) if candidate_counts else 0.0
+            ),
+            "max_candidate_bins_per_dispatch": max(candidate_counts, default=0.0),
+            "mean_required_bins_per_dispatch": (
+                float(np.mean(required_counts)) if required_counts else 0.0
+            ),
+            "optional_only_dispatches": float(
+                sum(count == 0 for count in required_counts)
+            ),
+            "mean_forecast_growth_pct_per_hour": (
+                float(np.mean(forecast_growth)) if forecast_growth else 0.0
+            ),
+            "mean_overflow_probability_48h": (
+                float(np.mean(probability_48h)) if probability_48h else 0.0
+            ),
+        }
+    )
     return row
 
 
@@ -383,7 +444,11 @@ def main() -> None:
                     "sensor": sensor_offset,
                 },
                 "model_path": str(model_path.relative_to(ROOT)),
-                "purpose": "development screen" if args.phase == "screen" else "untouched confirmation",
+                "purpose": (
+                    "development screen"
+                    if args.phase.endswith("screen")
+                    else "untouched confirmation"
+                ),
                 "inference_scope": "bounded model-based matched-seed comparison; not field causality",
             },
             indent=2,

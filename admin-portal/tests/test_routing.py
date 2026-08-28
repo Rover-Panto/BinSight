@@ -1,6 +1,12 @@
 import numpy as np
 
-from binsight.routing import _fallback_routes, select_capacity_feasible, solve_routes
+from binsight.routing import (
+    _fallback_routes,
+    improve_route_order,
+    route_distance_m,
+    select_capacity_feasible,
+    solve_routes,
+)
 
 
 def test_capacity_routes_start_and_end_at_depot():
@@ -51,3 +57,47 @@ def test_deterministic_fallback_respects_capacity_and_serves_every_bin():
     for route in plan.routes:
         load = sum(demands[index] for index in route if index != -1)
         assert load <= 100.0
+
+
+def test_bounded_two_opt_only_accepts_a_shorter_order_with_same_stops():
+    coordinates = np.array(
+        [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 2.0]]
+    )
+    matrix = np.rint(
+        np.linalg.norm(coordinates[:, None, :] - coordinates[None, :, :], axis=2)
+        * 1000
+    ).astype(int)
+    crossing = [-1, 0, 2, 1, 3, -1]
+
+    improved = improve_route_order(crossing, matrix)
+
+    assert improved[0] == improved[-1] == -1
+    assert sorted(improved[1:-1]) == sorted(crossing[1:-1])
+    assert route_distance_m(improved, matrix) < route_distance_m(crossing, matrix)
+
+    protected = improve_route_order(
+        crossing,
+        matrix,
+        protected_bin_indices=set(crossing[1:-1]),
+        full_duration_matrix_s=matrix.astype(float),
+    )
+
+    def arrivals(route):
+        elapsed = 0.0
+        result = {}
+        for origin, destination in zip(route[:-1], route[1:]):
+            origin_location = 0 if origin == -1 else origin + 1
+            destination_location = 0 if destination == -1 else destination + 1
+            elapsed += float(
+                matrix[origin_location, destination_location]
+            )
+            if destination != -1:
+                result[destination] = elapsed
+        return result
+
+    original_arrivals = arrivals(crossing)
+    protected_arrivals = arrivals(protected)
+    assert all(
+        protected_arrivals[index] <= original_arrivals[index]
+        for index in crossing[1:-1]
+    )

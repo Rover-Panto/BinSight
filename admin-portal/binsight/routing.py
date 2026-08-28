@@ -30,6 +30,89 @@ def _routing_demand_kg(value: float) -> int:
     return max(0, int(math.ceil(float(value))))
 
 
+def route_distance_m(route: list[int], full_matrix_m: np.ndarray) -> int:
+    """Return exact asymmetric road distance for a depot-bounded route."""
+    if len(route) < 2 or route[0] != -1 or route[-1] != -1:
+        raise ValueError("A route must start and end at the depot marker -1")
+    locations = [0 if index == -1 else int(index) + 1 for index in route]
+    return int(
+        sum(
+            int(full_matrix_m[origin, destination])
+            for origin, destination in zip(locations[:-1], locations[1:])
+        )
+    )
+
+
+def improve_route_order(
+    route: list[int],
+    full_matrix_m: np.ndarray,
+    *,
+    max_passes: int = 8,
+    protected_bin_indices: set[int] | None = None,
+    full_duration_matrix_s: np.ndarray | None = None,
+    service_seconds_per_bin: float = 0.0,
+) -> list[int]:
+    """Bounded best-improvement 2-opt for an asymmetric road matrix.
+
+    The node set and depot endpoints never change. A reversal is accepted only
+    after evaluating the complete directed route and proving it is shorter.
+    """
+    if max_passes < 1 or max_passes > 32:
+        raise ValueError("max_passes must be in 1..32")
+    protected = set(protected_bin_indices or ())
+    if protected and full_duration_matrix_s is None:
+        raise ValueError("A duration matrix is required when protecting arrival times")
+
+    def arrival_times(candidate: list[int]) -> dict[int, float]:
+        elapsed = 0.0
+        arrivals: dict[int, float] = {}
+        for origin, destination in zip(candidate[:-1], candidate[1:]):
+            if origin != -1:
+                elapsed += service_seconds_per_bin
+            origin_location = 0 if origin == -1 else origin + 1
+            destination_location = 0 if destination == -1 else destination + 1
+            elapsed += float(
+                full_duration_matrix_s[origin_location, destination_location]
+            )
+            if destination != -1:
+                arrivals[destination] = elapsed
+        return arrivals
+
+    best = list(route)
+    best_distance = route_distance_m(best, full_matrix_m)
+    protected_arrival_limits = (
+        {index: arrival_times(best)[index] for index in protected if index in best}
+        if protected
+        else {}
+    )
+    for _ in range(max_passes):
+        improved_route: list[int] | None = None
+        improved_distance = best_distance
+        for start in range(1, len(best) - 2):
+            for end in range(start + 1, len(best) - 1):
+                proposal = (
+                    best[:start]
+                    + list(reversed(best[start : end + 1]))
+                    + best[end + 1 :]
+                )
+                proposal_distance = route_distance_m(proposal, full_matrix_m)
+                arrival_safe = True
+                if protected_arrival_limits:
+                    proposal_arrivals = arrival_times(proposal)
+                    arrival_safe = all(
+                        proposal_arrivals[index] <= limit + 1e-9
+                        for index, limit in protected_arrival_limits.items()
+                    )
+                if proposal_distance < improved_distance and arrival_safe:
+                    improved_route = proposal
+                    improved_distance = proposal_distance
+        if improved_route is None:
+            break
+        best = improved_route
+        best_distance = improved_distance
+    return best
+
+
 def select_capacity_feasible(
     candidates: list[int],
     demands_kg: np.ndarray,
@@ -251,6 +334,8 @@ def solve_routes(
     truck_capacity_kg: float,
     max_trips: int,
     solver_milliseconds: int,
+    *,
+    post_optimize: bool = False,
 ) -> RoutePlan:
     """Solve capacity-constrained tours. Full matrix order is depot, BIN-01, BIN-02, ..."""
     selected = list(dict.fromkeys(int(index) for index in selected_bin_indices))
@@ -309,20 +394,20 @@ def solve_routes(
     for vehicle in range(vehicle_count):
         index = routing.Start(vehicle)
         route = [-1]  # -1 denotes the depot.
-        distance = 0
         while not routing.IsEnd(index):
             next_index = solution.Value(routing.NextVar(index))
             next_location = manager.IndexToNode(next_index)
-            distance += distance_callback(index, next_index)
             if next_location != 0:
                 bin_index = selected[next_location - 1]
                 route.append(bin_index)
-                served.append(bin_index)
             index = next_index
         route.append(-1)
         if len(route) > 2:
+            if post_optimize:
+                route = improve_route_order(route, full_matrix_m)
             routes.append(route)
-            total_distance += distance
+            served.extend(index for index in route if index != -1)
+            total_distance += route_distance_m(route, full_matrix_m)
     return RoutePlan(
         routes=routes,
         distance_m=total_distance,
@@ -351,6 +436,7 @@ def solve_value_routes(
     solver_milliseconds: int,
     *,
     minimum_net_value_m_equivalent: float = 0.0,
+    post_optimize: bool = False,
 ) -> RoutePlan:
     """Jointly choose optional pickups and route mandatory safety stops.
 
@@ -485,33 +571,52 @@ def solve_value_routes(
     for vehicle in range(max_trips):
         index = routing.Start(vehicle)
         route = [-1]
-        route_distance = 0
-        route_duration = 0.0
-        route_load = 0.0
-        route_volume = 0.0
-        route_cost = float(fixed_trip_cost_m_equivalent)
         while not routing.IsEnd(index):
-            from_node = manager.IndexToNode(index)
             next_index = solution.Value(routing.NextVar(index))
             to_node = manager.IndexToNode(next_index)
-            route_distance += int(distance[from_node, to_node])
-            route_duration += float(duration[from_node, to_node])
-            route_cost += float(operating_cost_callback(index, next_index))
-            if from_node != 0:
-                route_duration += service_seconds_per_bin
             if to_node != 0:
                 bin_index = candidates[to_node - 1]
                 route.append(bin_index)
-                served.append(bin_index)
-                route_load += float(demands_kg[bin_index])
-                route_volume += float(demands_m3[bin_index])
             index = next_index
         route.append(-1)
         if len(route) > 2:
+            if post_optimize:
+                route = improve_route_order(
+                    route,
+                    full_distance_matrix_m,
+                    protected_bin_indices=mandatory,
+                    full_duration_matrix_s=full_duration_matrix_s,
+                    service_seconds_per_bin=service_seconds_per_bin,
+                )
+            route_nodes = [bin_index for bin_index in route if bin_index != -1]
+            route_distance = route_distance_m(route, full_distance_matrix_m)
+            route_duration = len(route_nodes) * service_seconds_per_bin
+            route_cost = float(fixed_trip_cost_m_equivalent)
+            for origin, destination in zip(route[:-1], route[1:]):
+                origin_location = 0 if origin == -1 else origin + 1
+                destination_location = 0 if destination == -1 else destination + 1
+                travel_distance = float(
+                    full_distance_matrix_m[origin_location, destination_location]
+                )
+                travel_duration = float(
+                    full_duration_matrix_s[origin_location, destination_location]
+                )
+                route_duration += travel_duration
+                route_cost += travel_distance + (
+                    travel_duration / 60.0 * travel_time_cost_m_per_minute
+                )
+                if origin != -1:
+                    route_cost += (
+                        service_seconds_per_bin / 60.0 * service_cost_m_per_minute
+                        + float(additional_service_cost_m_equivalent[origin])
+                    )
+            route_load = float(sum(demands_kg[item] for item in route_nodes))
+            route_volume = float(sum(demands_m3[item] for item in route_nodes))
             routes.append(route)
             route_durations.append(route_duration)
             route_loads.append(route_load)
             route_volumes.append(route_volume)
+            served.extend(route_nodes)
             total_distance += route_distance
             operating_cost += route_cost
 

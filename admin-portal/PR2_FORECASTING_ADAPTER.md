@@ -134,7 +134,7 @@ The self-evaluation exposes the main weaknesses rather than hiding them: the lit
 | Read-only PR #2 API shape and cross-bin refusal | `test_client_reads_pr2_history_and_rejects_cross_bin_payloads` |
 | Append-only cache idempotency and conflict refusal | `test_routing_owned_history_cache_is_idempotent_and_never_overwrites_conflicts` |
 
-The complete admin/routing suite passes 109 tests. The only emitted warnings are three SWIG deprecation warnings from imported OR-Tools dependencies.
+The complete admin/routing suite passes 111 tests. The only emitted warnings are three SWIG deprecation warnings from imported OR-Tools dependencies.
 
 ## Commands
 

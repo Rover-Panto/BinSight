@@ -922,6 +922,7 @@ def build_dispatch_plan(
             low_fill_costs,
             operations.route_solver_milliseconds,
             minimum_net_value_m_equivalent=operations.minimum_route_value_m,
+            post_optimize=operations.route_post_optimization_enabled,
         )
         route_plan = replace(
             route_plan,
@@ -979,6 +980,7 @@ def build_dispatch_plan(
                 low_fill_costs,
                 operations.route_solver_milliseconds,
                 minimum_net_value_m_equivalent=operations.minimum_route_value_m,
+                post_optimize=operations.route_post_optimization_enabled,
             )
             stream_plan = replace(
                 stream_plan,
@@ -1036,6 +1038,7 @@ def build_dispatch_plan(
             ],
         )
     served_set = set(route_plan.served_bin_indices)
+    unserved_required = sorted(set(unserved_required) | (set(mandatory) - served_set))
     selected_siblings = sorted(served_set & sibling_candidates)
     selected_optional = sorted(served_set - feasible_mandatory_set - sibling_candidates)
     deferred = sorted(set(candidates) - served_set)

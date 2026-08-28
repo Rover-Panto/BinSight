@@ -190,6 +190,7 @@ class OperationsConfig:
     smart_sibling_include_time_to_overflow_hours: float
     smart_optional_max_increment_km: float
     smart_optional_min_central_fill_pct: float
+    route_post_optimization_enabled: bool
     forecast_horizon_hours: int
     vehicle_archetype: str
     truck_body_volume_m3: float

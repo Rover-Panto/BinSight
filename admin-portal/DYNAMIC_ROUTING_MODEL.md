@@ -108,6 +108,10 @@ The bounded `four-bin-smoke` run contains two paired normal-scenario replication
 
 A separate bounded tuning study screened emergency-fill thresholds, optional-route costs, batching gaps, sibling inclusion and two-/three-hour replanning. Development and confirmation seed blocks were disjoint. The untouched finalist (three-hour replanning with a 93% conservative emergency-fill threshold) lowered normal-demand distance by 5.3% and improved overflow/selectivity metrics, but increased high-demand distance by 5.0%, increased high-demand trips, and left unfinished horizon trips. Other candidates that lowered distance worsened overflow. No active configuration number was changed. Exact raw and summarized evidence is retained under `artifacts/distance-tuning/`.
 
+A follow-up structural screen also rejected optional-route batch gates, marginal-detour caps, deadline admission and longer search budgets. A bounded asymmetric 2-opt pass was allowed to reorder the same stops only when road distance fell and no mandatory stop arrived later. Even that locally safe edit failed the untouched system-level confirmation because changed route completion times altered later decisions: normal distance rose 2.5% and high-demand distance rose 0.5%, with worse overflow duration. The implementation is retained for reproducible testing but `route_post_optimization_enabled` is `false`. No rejected policy is active.
+
+Further distance reduction requires eliminating a physical deadhead leg rather than retuning selection thresholds. The next candidate is to continue from a recycling-facility unload directly into the next compatible trip. It requires a trusted facility-to-site matrix and explicit confirmation that the vehicle does not need to return to the depot for crew, inspection or turnaround between trips.
+
 For an active route, the current leg is frozen. `PlanningService.replan_remaining_after_event()` uses the frozen destination as the start of a new suffix, excludes completed/current-service bins, applies residual mass and volume, and writes a separate draft referencing the active accepted plan. Operator acceptance remains required.
 
 ## Forecast validation

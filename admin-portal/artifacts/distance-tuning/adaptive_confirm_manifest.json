@@ -1,0 +1,29 @@
+{
+  "phase": "adaptive_confirm",
+  "replications": 4,
+  "scenarios": [
+    "normal_patterned",
+    "high_demand_seasonal"
+  ],
+  "candidates": {
+    "legacy_v2": {
+      "operations": {
+        "route_post_optimization_enabled": false
+      },
+      "waste": {}
+    },
+    "route_2opt_v3": {
+      "operations": {
+        "route_post_optimization_enabled": true
+      },
+      "waste": {}
+    }
+  },
+  "seed_offsets": {
+    "arrival": 2710000,
+    "sensor": 2720000
+  },
+  "model_path": "artifacts\\four-bin-smoke\\fill_forecaster.joblib",
+  "purpose": "untouched confirmation",
+  "inference_scope": "bounded model-based matched-seed comparison; not field causality"
+}

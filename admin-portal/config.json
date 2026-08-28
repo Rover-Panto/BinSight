@@ -137,6 +137,7 @@
     "smart_sibling_include_time_to_overflow_hours": 72,
     "smart_optional_max_increment_km": 5.0,
     "smart_optional_min_central_fill_pct": 45,
+    "route_post_optimization_enabled": false,
     "forecast_horizon_hours": 48,
     "vehicle_archetype": "VDL Maxxum/UGS underground-container collection system",
     "truck_body_volume_m3": 22,

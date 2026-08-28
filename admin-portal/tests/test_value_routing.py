@@ -55,4 +55,3 @@ def test_compacted_volume_constraint_prevents_an_overfilled_trip():
     assert len(plan.served_bin_indices) == 1
     assert len(plan.dropped_bin_indices) == 1
     assert plan.route_volumes_m3[0] <= 1.0
-

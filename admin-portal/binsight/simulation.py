@@ -950,6 +950,10 @@ def run_policy(
             "route_bin_indices": plan.routes,
             "served_bins": [bins[index].bin_id for index in plan.served_bin_indices],
             "required_bins": [bins[index].bin_id for index in required_set],
+            "candidate_bin_count": len(
+                set(dispatch_plan.selected_bin_indices)
+                | set(dispatch_plan.deferred_bin_indices or [])
+            ) if policy == "smart" else len(capacity_selected),
             "unserved_required_bins": [bins[index].bin_id for index in unserved_required],
             "snapshot_rows": snapshot_rows,
             "predicted_growth_mean_pct": {
