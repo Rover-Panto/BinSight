@@ -31,8 +31,12 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, accuracy_score, recall_score
 from xgboost import XGBRegressor
 
-from features import FEATURE_COLUMNS
-from label import risk_level_from_hours, OVERFLOW_THRESHOLD_PCT
+try:
+    from .features import FEATURE_COLUMNS
+    from .label import risk_level_from_hours, OVERFLOW_THRESHOLD_PCT
+except (ImportError, ValueError):
+    from features import FEATURE_COLUMNS
+    from label import risk_level_from_hours, OVERFLOW_THRESHOLD_PCT
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"

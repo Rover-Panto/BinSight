@@ -137,7 +137,7 @@ def test_serve_wrapper_returns_valid_prediction():
     result = model.predict_from_history(one_bin)
     required_keys = {"bin_id", "timestamp", "status", "time_to_overflow_hours", "risk_level", "fill_pct", "confidence_flag", "target_threshold_pct"}
     assert required_keys.issubset(result.keys())
-    assert result["status"] == "ok"
+    assert result["status"] in ["available", "ok"]
     assert result["risk_level"] in ["Critical", "High", "Medium", "Low"]
     assert result["time_to_overflow_hours"] >= 0
 
@@ -171,8 +171,60 @@ def test_serve_wrapper_supports_pr1_snapshot_contract():
     assert result["input_snapshot_id"] == "SNAP-TEST-01"
     assert result["decision_at"] == "2026-08-19T11:00:00Z"
     assert result["fill_pct"] == 30.0
-    assert result["status"] == "ok"
+    assert result["status"] == "available"
     assert result["schema_version"] == "1.0"
+
+
+def test_forecast_provider_multi_bin_snapshot_and_missing_bins():
+    """Verify multi-bin snapshots never silently drop configured bins with insufficient evidence."""
+    provider = OverflowRiskModel()
+    readings = pd.DataFrame([
+        {"timestamp": "2026-08-19T10:00:00Z", "bin_id": "bin_01", "fill_pct": 20.0, "confidence_flag": 1},
+        {"timestamp": "2026-08-19T11:00:00Z", "bin_id": "bin_01", "fill_pct": 35.0, "confidence_flag": 1},
+        {"timestamp": "2026-08-19T11:00:00Z", "bin_id": "bin_02", "fill_pct": 50.0, "confidence_flag": 1},
+    ])
+    results = provider.predict_snapshot(
+        readings,
+        bins=["bin_01", "bin_02", "bin_03_no_data"],
+        decision_at="2026-08-19T12:00:00Z",
+        input_snapshot_id="SNAP-MULTI-01"
+    )
+    assert isinstance(results, list)
+    assert len(results) == 3
+    res_map = {r["bin_id"]: r for r in results}
+    assert res_map["bin_01"]["status"] == "available"
+    assert res_map["bin_02"]["status"] == "cold_start"
+    assert res_map["bin_03_no_data"]["status"] == "unavailable"
+    assert res_map["bin_03_no_data"]["time_to_overflow_hours"] is None
+
+
+def test_forecast_provider_horizons_and_probabilities():
+    """Verify 6h, 24h, 48h, 168h horizon growth and calibrated exceedance probabilities."""
+    provider = OverflowRiskModel()
+    readings = pd.DataFrame([
+        {"timestamp": "2026-08-19T10:00:00Z", "bin_id": "bin_01", "fill_pct": 50.0, "confidence_flag": 1},
+        {"timestamp": "2026-08-19T11:00:00Z", "bin_id": "bin_01", "fill_pct": 60.0, "confidence_flag": 1},
+    ])
+    res = provider.predict_from_history(readings)
+    assert "horizons" in res
+    assert set(res["horizons"].keys()) == {"6", "24", "48", "168"}
+    h6 = res["horizons"]["6"]
+    assert h6["expected_fill_pct"] >= 60.0
+    assert 0.0 <= h6["overflow_probability"] <= 1.0
+
+
+def test_forecast_provider_simulation_interface():
+    """Verify PR1 simulation caller compatibility (mean, upper, and probability arrays)."""
+    provider = OverflowRiskModel()
+    df = pd.read_csv(DATA_DIR / "feature_table.csv").head(10)
+    mean, upper = provider.predict(df)
+    assert len(mean) == 10
+    assert len(upper) == 10
+    assert (upper >= mean).all()
+    
+    prob48 = provider.predict_overflow_probability_48h(df)
+    assert len(prob48) == 10
+    assert (prob48 >= 0.0).all() and (prob48 <= 1.0).all()
 
 
 if __name__ == "__main__":
@@ -189,6 +241,9 @@ if __name__ == "__main__":
         test_serve_wrapper_returns_valid_prediction,
         test_serve_wrapper_handles_empty_and_invalid_inputs,
         test_serve_wrapper_supports_pr1_snapshot_contract,
+        test_forecast_provider_multi_bin_snapshot_and_missing_bins,
+        test_forecast_provider_horizons_and_probabilities,
+        test_forecast_provider_simulation_interface,
     ]
     failures = 0
     for t in tests:
@@ -200,4 +255,5 @@ if __name__ == "__main__":
             print(f"FAIL  {t.__name__}: {e}")
     print(f"\n{len(tests) - failures}/{len(tests)} tests passed")
     sys.exit(1 if failures else 0)
+
 
