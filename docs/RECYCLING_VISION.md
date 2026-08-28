@@ -57,7 +57,7 @@ For a real test, use a small epoch count and confirm that `best.pt` is created, 
 
 ## Hardware and deployment note
 
-The laptop path uses Ultralytics YOLO through Python and OpenCV for development only. Grove Vision AI V2 deployment requires exporting a fully integer quantized model, compiling it with Vela, and recording the resulting `*_int8_vela.tflite` checksum and class order. The export artifact is generated output and is ignored by Git until the team approves a licensed release artifact.
+The committed `recycling_vision/artifacts/yolo11n_recycling-8_best.pt` file is trained for the laptop Python/OpenCV prototype only. It is **not for Grove Vision AI V2** and must not be flashed to the camera module. Grove Vision AI V2 deployment requires a separately produced, fully integer quantized Vela artifact (`*_int8_vela.tflite`) with its checksum and class order recorded. The export artifact is generated output and is ignored by Git until the team approves a licensed release artifact.
 
 The reproducible export sequence is:
 
