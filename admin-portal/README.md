@@ -51,9 +51,11 @@ py -3.13 -m venv .venv
 
 Ordinary reruns use the committed road matrices. Use `--refresh-map` only when deliberately refreshing OSRM inputs.
 
-## Routing input contracts
+## Routing demonstration and integration contracts
 
-Open **Route input** and upload CSV/JSON, paste JSON, or use the built-in demo. The legacy competition snapshot has one row for each `UGB-001` through `UGB-033`. The preferred telemetry-routing 2.1 envelope contains the three registered physical-pilot fill channels and carries per-bin event kind, bin type/waste stream, timing, availability, quality and forecast provenance. The one general-waste and two beverage-return recycling channels may be planned together, but generated truck trips never mix streams. Vision recognition/session events remain outside routing. See [TELEMETRY_ROUTING_CONTRACT.md](../docs/TELEMETRY_ROUTING_CONTRACT.md).
+The portal's **Routing demo** is deliberately demonstration-only: it loads the complete configured 33-bin scenario automatically, shows a 12-row preview, and evaluates all bins when the operator runs it. Manual CSV/JSON upload and paste controls are not exposed in the presentation UI.
+
+The integration and command-line adapters remain documented for engineering use. The legacy competition snapshot has one row for each `UGB-001` through `UGB-033`. The preferred telemetry-routing 2.1 envelope contains the three registered physical-pilot fill channels and carries per-bin event kind, bin type/waste stream, timing, availability, quality and forecast provenance. The one general-waste and two beverage-return recycling channels may be planned together, but generated truck trips never mix streams. Vision recognition/session events remain outside routing. See [TELEMETRY_ROUTING_CONTRACT.md](../docs/TELEMETRY_ROUTING_CONTRACT.md).
 
 ```text
 timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence_flag
@@ -70,7 +72,7 @@ The dispatcher never silently converts an uncertain record into a safe record. S
 
 ### PR #2 historical forecasting adapter
 
-The read-only adapter can turn PR #2's per-bin history API or an exported JSON/CSV history into the complete predictive snapshot above. It explicitly maps hardware IDs, accumulates API history in a routing-owned cache, detects collection resets and sensor jumps, learns gated calendar/event patterns, emits probabilistic 6/24/48/168-hour fill forecasts, and validates the result before it is written. Pseudo-density remains context only and `weight_kg` stays null without calibration. See [PR2_FORECASTING_ADAPTER.md](PR2_FORECASTING_ADAPTER.md) for the equations, thresholds, fallback hierarchy, evaluation and limitations.
+The read-only adapter can turn PR #2's per-bin history API or an exported JSON/CSV history into the complete predictive snapshot above. It explicitly maps hardware IDs, accumulates API history in a routing-owned cache, detects collection resets and sensor jumps, learns gated calendar/event patterns, emits probabilistic 6/24/48/168-hour fill forecasts, and validates the result before it is written. Pseudo-density remains context only and `weight_kg` stays null without calibration. Each three-bin site is modelled as mixed general waste, plastic cups and glass bottles; the latter two share the beverage-recycling stream but use different bulk densities and simulated fill rates. See [PR2_FORECASTING_ADAPTER.md](PR2_FORECASTING_ADAPTER.md) for the equations, thresholds, fallback hierarchy, evaluation and limitations.
 
 ```powershell
 .\.venv\Scripts\python.exe -m binsight.cli forecast-pr2 `

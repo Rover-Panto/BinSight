@@ -391,22 +391,24 @@ def make_demo_snapshot(bins: pd.DataFrame, timestamp: datetime | None = None) ->
     )
 
     examples = {
-        "UGB-004": (94.0, 507.6, 6.0, "critical", True),
-        "UGB-005": (58.0, 313.2, 64.0, "medium", True),
-        "UGB-013": (82.0, 442.8, 30.0, "high", True),
-        "UGB-025": (76.0, 410.4, 40.0, "high", False),
-        "UGB-026": (52.0, 280.8, 70.0, "medium", True),
+        "UGB-004": (94.0, 6.0, "critical", True),
+        "UGB-005": (58.0, 64.0, "medium", True),
+        "UGB-013": (82.0, 30.0, "high", True),
+        "UGB-025": (76.0, 40.0, "high", False),
+        "UGB-026": (52.0, 70.0, "medium", True),
     }
     for bin_id, values in examples.items():
         mask = frame["bin_id"] == bin_id
         if mask.any():
+            fill, tto, risk, confidence = values
+            capacity = float(bins.loc[mask, "capacity_kg"].iloc[0])
             frame.loc[mask, [
                 "fill_pct",
                 "weight_kg",
                 "time_to_overflow_hours",
                 "risk_level",
                 "confidence_flag",
-            ]] = values
+            ]] = (fill, round(capacity * fill / 100.0, 1), tto, risk, confidence)
     return frame
 
 
@@ -928,8 +930,9 @@ def build_dispatch_plan(
             )
             stream_plans.append(stream_plan)
             remaining_trips -= len(stream_plan.routes)
+        combined_routes = [route for plan in stream_plans for route in plan.routes]
         route_plan = RoutePlan(
-            routes=[route for plan in stream_plans for route in plan.routes],
+            routes=combined_routes,
             distance_m=sum(plan.distance_m for plan in stream_plans),
             served_bin_indices=[
                 index for plan in stream_plans for index in plan.served_bin_indices
@@ -964,7 +967,11 @@ def build_dispatch_plan(
             dispatch_reason=(
                 "stream_separated_emergency_service"
                 if feasible_mandatory
-                else "stream_separated_positive_value"
+                else (
+                    "stream_separated_positive_value"
+                    if combined_routes
+                    else "no_positive_value_route"
+                )
             ),
         )
     served_set = set(route_plan.served_bin_indices)

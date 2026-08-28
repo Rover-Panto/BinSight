@@ -40,6 +40,11 @@ class WasteConfig:
     commercial_kg_per_day: float
     bin_capacity_litres: float
     mixed_waste_density_kg_per_m3: float
+    plastic_cups_bulk_density_kg_per_m3: float
+    glass_bottles_bulk_density_kg_per_m3: float
+    general_waste_mass_fraction: float
+    plastic_cups_mass_fraction: float
+    glass_bottles_mass_fraction: float
     sizing_target_fill_pct: float
     sizing_reserve_factor: float
     sensor_interval_hours: int
@@ -54,6 +59,36 @@ class WasteConfig:
     @property
     def household_kg_per_day(self) -> float:
         return self.municipal_kg_per_capita_day * self.household_size_persons
+
+    @property
+    def material_profiles(self) -> tuple[tuple[str, str, str, float, float], ...]:
+        """Material, bin type, collection stream, bulk density and mass share."""
+        return (
+            (
+                "mixed_general_waste",
+                "general_waste",
+                "mixed_general_waste",
+                self.mixed_waste_density_kg_per_m3,
+                self.general_waste_mass_fraction,
+            ),
+            (
+                "plastic_cups",
+                "recycling_return",
+                "beverage_recycling",
+                self.plastic_cups_bulk_density_kg_per_m3,
+                self.plastic_cups_mass_fraction,
+            ),
+            (
+                "glass_bottles",
+                "recycling_return",
+                "beverage_recycling",
+                self.glass_bottles_bulk_density_kg_per_m3,
+                self.glass_bottles_mass_fraction,
+            ),
+        )
+
+    def material_capacity_kg(self, bulk_density_kg_per_m3: float) -> float:
+        return self.bin_capacity_litres / 1000.0 * bulk_density_kg_per_m3
 
 
 @dataclass(frozen=True)
@@ -310,6 +345,8 @@ def validate_config(config: Config) -> None:
         "household_kg_per_day": w.household_kg_per_day,
         "commercial_kg_per_day": w.commercial_kg_per_day,
         "bin_capacity_kg": w.bin_capacity_kg,
+        "plastic_cups_bulk_density_kg_per_m3": w.plastic_cups_bulk_density_kg_per_m3,
+        "glass_bottles_bulk_density_kg_per_m3": w.glass_bottles_bulk_density_kg_per_m3,
         "horizon_days": o.horizon_days,
         "truck_capacity_kg": o.truck_capacity_kg,
         "truck_body_volume_m3": o.truck_body_volume_m3,
@@ -338,6 +375,15 @@ def validate_config(config: Config) -> None:
         raise ValueError("sizing_target_fill_pct must be in 50..95")
     if w.sizing_reserve_factor < 1 or w.sizing_reserve_factor > 2:
         raise ValueError("sizing_reserve_factor must be in 1..2")
+    material_fractions = (
+        w.general_waste_mass_fraction,
+        w.plastic_cups_mass_fraction,
+        w.glass_bottles_mass_fraction,
+    )
+    if any(value <= 0 or value >= 1 for value in material_fractions):
+        raise ValueError("Material mass fractions must each be in (0, 1)")
+    if not math.isclose(sum(material_fractions), 1.0, abs_tol=1e-9):
+        raise ValueError("Material mass fractions must sum to 1")
     demand_factor_lengths = {
         "demand.residential_hourly_factors": (d.residential_hourly_factors, 24),
         "demand.commercial_hourly_factors": (d.commercial_hourly_factors, 24),
@@ -399,7 +445,10 @@ def validate_config(config: Config) -> None:
         raise ValueError("smart_decision_hours must contain sensor-aligned hours in 0..23")
     if o.max_daily_trips < 1 or o.max_daily_trips > 20:
         raise ValueError("max_daily_trips must be in 1..20")
-    if w.bin_capacity_kg > o.crane_lift_limit_kg:
+    if any(
+        w.material_capacity_kg(density) > o.crane_lift_limit_kg
+        for _, _, _, density, _ in w.material_profiles
+    ):
         raise ValueError("A full underground bin must not exceed the truck's crane lift limit")
     if not (
         o.smart_include_current_trigger_pct <= o.smart_dispatch_current_trigger_pct
@@ -529,13 +578,17 @@ def required_service_sites(config: Config) -> int:
         * config.operations.fixed_interval_days
         * config.waste.sizing_reserve_factor
     )
-    usable_capacity_per_site_kg = (
-        config.pilot.bins_per_service_site
-        * config.waste.bin_capacity_kg
-        * config.waste.sizing_target_fill_pct
-        / 100.0
-    )
-    return math.ceil(design_demand_kg / usable_capacity_per_site_kg)
+    sites_by_material = []
+    for _, _, _, density, mass_fraction in config.waste.material_profiles:
+        usable_capacity_kg = (
+            config.waste.material_capacity_kg(density)
+            * config.waste.sizing_target_fill_pct
+            / 100.0
+        )
+        sites_by_material.append(
+            math.ceil(design_demand_kg * mass_fraction / usable_capacity_kg)
+        )
+    return max(sites_by_material)
 
 
 def required_controller_sites(config: Config) -> int:

@@ -66,7 +66,7 @@ def test_complete_low_risk_snapshot_requires_no_collection():
     config, bins, matrix = _project_inputs()
     snapshot = make_snapshot_template(bins["bin_id"])
     snapshot["fill_pct"] = 30
-    snapshot["weight_kg"] = 162
+    snapshot["weight_kg"] = bins["capacity_kg"].to_numpy() * 0.30
     normalized = validate_snapshot(
         snapshot,
         bins["bin_id"],

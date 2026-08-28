@@ -13,7 +13,7 @@ It does not model crew shifts, disposal-facility queues, weather, illegal dumpin
 | Simulation clock | minute | SimPy processes execute through the 30-day horizon |
 | Waste | kg | Non-negative hourly arrivals continue during travel/service |
 | Bin volume | m³ | 4.5 per underground bin |
-| Nominal bin mass capacity | kg | 4.5 × 120 kg/m³ = 540 kg |
+| Nominal bin mass capacity | kg | Material-specific: 540 general, 112.5 plastic cups, 1,125 glass bottles |
 | Road distance | m | OSRM fastest-route distance over OpenStreetMap data |
 | Road duration | s | OSRM fastest-route duration before traffic multiplier |
 | Truck payload | kg | 9,000 kg prototype assumption |
@@ -26,6 +26,8 @@ Every bin starts empty. Raw metrics include the full 30 days. Post-warm-up metri
 
 Residential mean generation is 7.03 kg/household/day, from 1.90 kg/person/day and 3.7 people/household. Commercial mean generation is the editable assumption of 4.43 kg/unit/day. Total configured mean generation is 3,603.6 kg/day.
 
+Each service site contains exactly three co-located 4.5 m³ bins: one mixed-general-waste bin and two beverage-recycling bins dedicated to plastic cups and glass bottles. The simulation allocates site waste mass by configurable prototype fractions of 34%, 7% and 59%, respectively. Bulk-density assumptions are 120, 25 and 250 kg/m³, producing full-bin mass capacities of 540, 112.5 and 1,125 kg. These values make fill a material-specific volume proxy instead of treating a light cup and a glass bottle as equal mass-per-volume. The two recycling materials share the `beverage_recycling` collection stream, while general waste remains separate.
+
 For bin `b` and hour `t`, non-negative arrivals are sampled as
 
 \[
@@ -35,16 +37,16 @@ D_{b,t}\sim\operatorname{Gamma}\left(k,\mu_{b,t}/k\right)
 with
 
 \[
-\mu_{b,t}=B_b H_{b,t}W_{b,t}M_{b,t}A_{b,t}E_{b,t}T_{b,t}R_tL_{b,t}S.
+\mu_{b,t}=B_b Q_b H_{b,t}W_{b,t}M_{b,t}A_{b,t}E_{b,t}T_{b,t}R_tL_{b,t}S.
 \]
 
-`B` is the residential/commercial base mass; `H` uses separate 24-hour residential and commercial profiles; `W` uses seven independently configured day-of-week values; `M` smoothly interpolates twelve cyclic monthly control points; `A` is a continuous annual cosine; `E` is the event multiplier; `T` is bounded long-term trend/change-point behavior; `R` and `L` are district and local persistent regimes; and `S` is an explicit scenario multiplier. Stable per-bin phase/amplitude perturbations make recurring profiles recognizable without changing the configured bin allocation. The complete hourly × weekly × monthly × annual product is normalized over a reference year so correlated factors do not silently inflate the long-run mean.
+`B` is the residential/commercial base mass; `Q` is the material allocation multiplier derived from the configured mass fraction; `H` uses separate 24-hour residential and commercial profiles; `W` uses seven independently configured day-of-week values; `M` smoothly interpolates twelve cyclic monthly control points; `A` is a continuous annual cosine; `E` is the event multiplier; `T` is bounded long-term trend/change-point behavior; `R` and `L` are district and local persistent regimes; and `S` is an explicit scenario multiplier. Stable per-bin phase/amplitude perturbations make recurring profiles recognizable without changing the configured bin allocation. The complete hourly × weekly × monthly × annual product is normalized over a reference year so correlated factors do not silently inflate the long-run mean.
 
 District and local regimes are mean-one lognormal AR(1) processes. Defaults are `phi=0.96, sigma=0.055` and `phi=0.90, sigma=0.075`, respectively, after a 240-hour burn-in. Scenario windows may multiply either process to represent busy/quiet multi-day periods or a localized surge. Gamma shape `k=4` controls remaining non-negative hour-level dispersion. All values are assumptions in `config.json`, not fitted municipal parameters.
 
 Events carry type, location/target area or site, start/end, buildup, peak, decay, intensity, recurrence and `known_at_hour`. Current physical event effects influence demand; 48/168-hour calendar features become visible to the forecaster only at or after `known_at_hour`. The event-heavy scenario includes an unannounced event whose effect starts before the calendar feature becomes available. Slow trend is multiplicative and bounded below; abrupt scenario change points apply only after their declared hour and may target selected bins.
 
-The same immutable arrival tensor and event context is supplied to both policies in a paired replication. A bin stores no more than 540 kg: excess mass becomes `overflow_spilled_kg`, a below-to-capacity crossing becomes an incident, and time at capacity contributes `overflow_bin_hours`.
+The same immutable arrival tensor and event context is supplied to both policies in a paired replication. A bin stores no more than its material-specific mass capacity: excess mass becomes `overflow_spilled_kg`, a below-to-capacity crossing becomes an incident, and time at capacity contributes `overflow_bin_hours`.
 
 `SITING_PLAN.md` proves the district count and checks each site's three-day reserved capacity. Loading fails if the plan no longer conserves all 500 households and 20 commercial units.
 
@@ -52,7 +54,7 @@ The same immutable arrival tensor and event context is supplied to both policies
 
 OSRM's Table service provides a 12 × 12 matrix for the depot and 11 sites. Each cell is the distance or duration of the fastest road route from one ordered location to another. The code expands both matrices to 34 × 34—depot plus 33 bins—by reusing a site's row and column for its three genuinely co-located bins. It does not move the bins or invent a short road between them.
 
-Routes are therefore vectors of matrix indices during optimization and road-coordinate polylines only during display. The map uses 11 consolidated markers, each with the state of all three bins. Public OSRM/tiles are prototype dependencies; committed matrices allow simulation reruns without refreshing the public router.
+Routes are therefore vectors of matrix indices during optimization and road-coordinate polylines only during display. The map uses 11 consolidated markers, each with the state and material of all three bins. The interface uses a keyless light CARTO/OpenStreetMap tile layer; committed matrices allow simulation reruns without refreshing the public router or loading a map to calculate route cost.
 
 ## Hidden state and sensor observations
 

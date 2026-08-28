@@ -67,6 +67,9 @@ def test_site_state_priority_and_all_bin_details_are_rendered():
     assert "Collection required" in rendered
     assert "Inspection required" in rendered
     assert "No collection required" in rendered
+    assert "Mixed General Waste" in rendered
+    assert "Plastic Cups" in rendered
+    assert "Glass Bottles" in rendered
 
 
 def test_map_is_hard_bounded_and_tiles_do_not_wrap():

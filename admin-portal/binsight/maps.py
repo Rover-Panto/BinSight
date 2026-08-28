@@ -89,6 +89,9 @@ def build_site_records(
             details.append(
                 {
                     "bin_id": str(item.bin_id),
+                    "material_type": str(
+                        getattr(item, "material_type", "mixed_general_waste")
+                    ),
                     "state": state,
                     "collection_state": selection,
                     "fill_pct": row.get("fill_pct"),
@@ -141,6 +144,7 @@ def _site_popup(record: dict[str, Any]) -> str:
         rows.append(
             "<tr>"
             f"<th>{html.escape(detail['bin_id'])}</th>"
+            f"<td>{html.escape(detail['material_type'].replace('_', ' ').title())}</td>"
             f"<td>{_format_value(detail['fill_pct'], '%')}</td>"
             f"<td>{_format_value(detail['weight_kg'], ' kg')}</td>"
             f"<td>{_format_value(detail['time_to_overflow_hours'], ' h')}</td>"
@@ -155,7 +159,7 @@ def _site_popup(record: dict[str, Any]) -> str:
         f"<h4>{html.escape(record['site_id'])} · {html.escape(record['site_label'])}</h4>"
         f"<p>{html.escape(record['controller_id'])} · three co-located underground bins</p>"
         "<div class='site-popup-scroll'><table><thead><tr>"
-        "<th>Bin</th><th>Fill</th><th>Weight</th><th>TTO</th><th>Risk</th>"
+        "<th>Bin</th><th>Material</th><th>Fill</th><th>Weight</th><th>TTO</th><th>Risk</th>"
         "<th>Confidence</th><th>State</th><th>Reason</th>"
         "</tr></thead><tbody>"
         + "".join(rows)
@@ -177,13 +181,15 @@ def create_restricted_map(config: Config, zoom_start: int | None = None) -> foli
     )
     route_map.options["maxBounds"] = bounds
     route_map.options["maxBoundsViscosity"] = 1.0
+    # Use CARTO's public, keyless light tiles so the operations map stays
+    # readable in presentations and does not depend on an API credential.
     folium.TileLayer(
-        tiles="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
+        tiles="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
         attr=(
             "&copy; OpenStreetMap contributors &copy; CARTO; "
             "routes calculated with OSRM"
         ),
-        name="Dark operations basemap",
+        name="Light operations basemap",
         overlay=False,
         control=True,
         no_wrap=True,

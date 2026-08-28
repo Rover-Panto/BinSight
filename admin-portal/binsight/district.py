@@ -21,6 +21,12 @@ class BinSpec:
     commercial_units: int
     capacity_kg: float
     area_type: str
+    bin_type: str = "general_waste"
+    waste_stream: str = "mixed_general_waste"
+    material_type: str = "mixed_general_waste"
+    capacity_litres: float = 4500.0
+    bulk_density_kg_per_m3: float = 120.0
+    demand_rate_multiplier: float = 1.0
     controller_id: str = "SIM-GROUP-001"
     controller_channel: int = 1
     site_id: str = "SITE-01"
@@ -56,28 +62,29 @@ def load_site_plan(path: str | Path, config: Config) -> list[dict]:
         raise ValueError("Site-plan household total does not match the competition scenario")
     if sum(int(site["commercial_units"]) for site in sites) != config.pilot.commercial_units:
         raise ValueError("Site-plan commercial total does not match the competition scenario")
-    usable_site_capacity_kg = (
-        config.pilot.bins_per_service_site
-        * config.waste.bin_capacity_kg
-        * config.waste.sizing_target_fill_pct
-        / 100.0
-    )
     for site in sites:
         daily_demand_kg = (
             int(site["households"]) * config.waste.household_kg_per_day
             + int(site["commercial_units"]) * config.waste.commercial_kg_per_day
         )
-        design_interval_demand_kg = (
-            daily_demand_kg
-            * config.operations.fixed_interval_days
-            * config.waste.sizing_reserve_factor
-        )
-        if design_interval_demand_kg > usable_site_capacity_kg + 1e-9:
-            raise ValueError(
-                f"{site['site_id']} exceeds its three-bin design capacity: "
-                f"{design_interval_demand_kg:.1f} kg demand vs "
-                f"{usable_site_capacity_kg:.1f} kg usable"
+        for material, _, _, density, mass_fraction in config.waste.material_profiles:
+            design_interval_demand_kg = (
+                daily_demand_kg
+                * mass_fraction
+                * config.operations.fixed_interval_days
+                * config.waste.sizing_reserve_factor
             )
+            usable_capacity_kg = (
+                config.waste.material_capacity_kg(density)
+                * config.waste.sizing_target_fill_pct
+                / 100.0
+            )
+            if design_interval_demand_kg > usable_capacity_kg + 1e-9:
+                raise ValueError(
+                    f"{site['site_id']} exceeds its {material} design capacity: "
+                    f"{design_interval_demand_kg:.1f} kg demand vs "
+                    f"{usable_capacity_kg:.1f} kg usable"
+                )
     return sites
 
 
@@ -110,7 +117,16 @@ def build_district(
         commercial_counts = _split_integer(
             int(site["commercial_units"]), config.pilot.bins_per_service_site
         )
-        for channel in range(config.pilot.bins_per_service_site):
+        material_profiles = config.waste.material_profiles
+        if len(material_profiles) != config.pilot.bins_per_service_site:
+            raise ValueError("Every service site must have one configured bin per material profile")
+        for channel, (
+            material_type,
+            bin_type,
+            waste_stream,
+            bulk_density,
+            mass_fraction,
+        ) in enumerate(material_profiles):
             index = site_index * config.pilot.bins_per_service_site + channel
             commercial = commercial_counts[channel]
             bins.append(
@@ -121,11 +137,19 @@ def build_district(
                     longitude=snapped_lon,
                     households=household_counts[channel],
                     commercial_units=commercial,
-                    capacity_kg=config.waste.bin_capacity_kg,
+                    capacity_kg=config.waste.material_capacity_kg(bulk_density),
                     area_type=(
                         "mixed/commercial"
                         if int(site["commercial_units"]) >= 2
                         else "residential"
+                    ),
+                    bin_type=bin_type,
+                    waste_stream=waste_stream,
+                    material_type=material_type,
+                    capacity_litres=config.waste.bin_capacity_litres,
+                    bulk_density_kg_per_m3=bulk_density,
+                    demand_rate_multiplier=(
+                        mass_fraction * config.pilot.bins_per_service_site
                     ),
                     controller_id=f"SIM-GROUP-{site_index + 1:03d}",
                     controller_channel=channel + 1,

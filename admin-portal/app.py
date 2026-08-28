@@ -11,17 +11,12 @@ import streamlit.components.v1 as components
 
 from binsight.config import load_config, required_service_sites
 from binsight.dispatch import (
-    build_dispatch_plan,
     load_last_valid_readings,
     load_mock_dispatches,
     make_demo_snapshot,
-    make_snapshot_template,
     mock_dispatch_payload,
-    parse_snapshot_bytes,
-    parse_snapshot_json,
     route_loads_kg,
     save_mock_dispatch,
-    validate_snapshot,
     update_last_valid_readings_file,
 )
 from binsight.maps import build_dispatch_map, build_overview_map, build_tracking_map
@@ -29,7 +24,6 @@ from binsight.network import load_cached_service_network, route_coordinates
 from binsight.pipeline import experiment_scenarios, run_experiment
 from binsight.planner import PlanningService
 from binsight.planning_store import PlanningStore
-from binsight.registry import BinRegistry
 from binsight.tracking import build_tracking_manifest
 
 
@@ -45,7 +39,6 @@ DISPATCH_LOG = DATA / "mock_truck_dispatches.jsonl"
 LAST_VALID_READINGS = DATA / "last_valid_sensor_readings.json"
 PLANNING_DB = DATA / "routing_plans.sqlite3"
 CONFIG = load_config(ROOT / "config.json")
-REGISTRY = BinRegistry.load(ROOT / "config" / "bin_registry.json")
 
 
 st.set_page_config(
@@ -501,7 +494,7 @@ st.markdown(
       </div>
       <div class="hero-context" aria-label="Available operator tasks">
         <div class="hero-context-label">Available now</div>
-        <div class="hero-context-row"><b>01</b><span>Validate one bin snapshot</span></div>
+        <div class="hero-context-row"><b>01</b><span>Run the built-in routing demonstration</span></div>
         <div class="hero-context-row"><b>02</b><span>Build an OSM road route</span></div>
         <div class="hero-context-row"><b>03</b><span>Review simulation evidence</span></div>
       </div>
@@ -546,7 +539,7 @@ tracking_manifest = build_tracking_manifest(
 
 input_tab, overview_tab, tracking_tab, log_tab = st.tabs(
     [
-        ":material/route: Route input",
+        ":material/route: Routing demo",
         ":material/monitoring: Operations",
         ":material/local_shipping: Mock live tracking",
         ":material/receipt_long: Dispatch log",
@@ -685,162 +678,59 @@ with overview_tab:
     st.caption("Positive values mean the smart policy improved the metric in its beneficial direction.")
 
 with input_tab:
-    st.markdown('<p class="micro-label">Versioned telemetry handoff</p>', unsafe_allow_html=True)
-    st.subheader("Build a collection route")
-    selected_profile_id = st.selectbox(
-        "Operating profile",
-        ["competition-simulation", "physical-pilot"],
-        format_func=lambda value: (
-            "Competition simulation · 33 synthetic bins"
-            if value == "competition-simulation"
-            else "Physical pilot · 1 general + 2 recycling fill channels (replay only)"
-        ),
-        help="Live hardware routing remains disabled until producer/consumer acceptance gates pass.",
-    )
-    expected_bin_count = 33 if selected_profile_id == "competition-simulation" else 3
-    profile_scope = (
-        "all 33 synthetic mixed-waste bins"
-        if selected_profile_id == "competition-simulation"
-        else "the registered general-waste bin and both recycling-return fill channels"
-    )
+    st.markdown('<p class="micro-label">Built-in routing demonstration</p>', unsafe_allow_html=True)
+    st.subheader("Run the demonstration route")
     st.caption(
-        f"Provide {profile_scope}. BinSight preserves source time, type, stream and quality, "
-        "then compares overflow-avoidance value with fixed-trip, road, time, service, and low-fill costs. "
-        "Vision recognition/classification/session events are rejected."
+        "The demonstration supplies all 33 configured bins automatically. Each of the 11 sites has "
+        "one mixed-general-waste bin, one plastic-cup recycling bin, and one glass-bottle recycling bin. "
+        "BinSight validates the snapshot, evaluates trip value, separates incompatible collection streams, "
+        "and proposes capacity-feasible road routes."
     )
 
     if "dispatch_plan" not in st.session_state:
         st.markdown(
-            '<div class="status-card status-neutral"><strong>Waiting for a bin snapshot</strong>'
-            '<span>No collection decision has been calculated in this session.</span></div>',
+            '<div class="status-card status-neutral"><strong>Demonstration ready</strong>'
+            '<span>Run the built-in scenario to calculate a collection decision.</span></div>',
             unsafe_allow_html=True,
         )
 
-    schema_rows = [
-        ("timestamp", "ISO 8601 + timezone", "2026-08-17T10:00:00+08:00", "Same value for all rows"),
-        ("bin_id", "text", "UGB-001", "Every ID from UGB-001 to UGB-033 once"),
-        ("fill_pct", "number", "82.4", "0–100; ultrasonic-derived"),
-        ("weight_kg", "number", "442.8", f"0–{CONFIG.operations.crane_lift_limit_kg:g}; pressure/load-cell estimate"),
-        ("time_to_overflow_hours", "number", "30", "0 or greater"),
-        ("risk_level", "category", "high", "low, medium, high, or critical"),
-        ("confidence_flag", "boolean", "true", "true or false"),
-    ]
-    with st.expander("Required input format", expanded=False):
-        st.dataframe(
-            pd.DataFrame(schema_rows, columns=["Field", "Type", "Example", "Rule"]),
-            hide_index=True,
-            width="stretch",
-        )
-        st.code(
-            "timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence_flag\n"
-            "2026-08-17T10:00:00+08:00,UGB-001,82.4,442.8,30,high,true",
-            language="csv",
-        )
-        download_left, download_right = st.columns(2)
-        profile_bins = bins if selected_profile_id == "competition-simulation" else bins.iloc[:3]
-        template = make_snapshot_template(profile_bins["bin_id"])
-        demo = make_demo_snapshot(bins)
-        if selected_profile_id == "physical-pilot":
-            example_json = (ROOT / "tests" / "fixtures" / "telemetry_v2_valid.json").read_bytes()
-            example_name = "binsight_telemetry_routing_v2_example.json"
-        else:
-            example_json = json.dumps(
-                {"bins": demo.to_dict(orient="records")}, indent=2
-            ).encode("utf-8")
-            example_name = "binsight_predictive_snapshot_example.json"
-        download_left.download_button(
-            f"Download blank {expected_bin_count}-bin legacy CSV",
-            template.to_csv(index=False).encode("utf-8"),
-            file_name="binsight_predictive_snapshot_template.csv",
-            mime="text/csv",
-            width="stretch",
-        )
-        download_right.download_button(
-            "Download working JSON example",
-            example_json,
-            file_name=example_name,
-            mime="application/json",
-            width="stretch",
-        )
-
-    input_options = ["Upload CSV or JSON", "Paste JSON"]
-    if selected_profile_id == "competition-simulation":
-        input_options.append("Use built-in demo")
-    input_method = st.radio(
-        "Input method",
-        input_options,
-        horizontal=True,
+    demo_snapshot = make_demo_snapshot(bins)
+    demo_preview = demo_snapshot.merge(
+        bins[["bin_id", "site_id", "material_type", "waste_stream", "capacity_kg"]],
+        on="bin_id",
+        how="left",
     )
-    uploaded = None
-    pasted_json = ""
-    demo_snapshot = None
-    if input_method == "Upload CSV or JSON":
-        uploaded = st.file_uploader(
-            "Routing snapshot or telemetry replay",
-            type=["csv", "json"],
-            help="One row per bin. Extra columns are allowed but ignored.",
-        )
-    elif input_method == "Paste JSON":
-        pasted_json = st.text_area(
-            "JSON array or {\"bins\": [...]} object",
-            height=210,
-            placeholder='{"bins": [{"timestamp": "2026-08-17T10:00:00+08:00", "bin_id": "UGB-001", ...}]}',
-        )
-    else:
-        demo_snapshot = make_demo_snapshot(bins)
-        st.info("The demo contains critical, high-risk, co-located, and one low-confidence bin so every decision state is visible.")
-        st.dataframe(demo_snapshot.head(8), hide_index=True, width="stretch")
+    st.info(
+        "The scenario includes critical, high-risk, optional, deferred, and low-confidence bins "
+        "so every routing decision state is visible."
+    )
+    st.dataframe(
+        demo_preview[
+            [
+                "site_id",
+                "bin_id",
+                "material_type",
+                "fill_pct",
+                "weight_kg",
+                "capacity_kg",
+                "time_to_overflow_hours",
+                "risk_level",
+                "confidence_flag",
+            ]
+        ].head(12),
+        hide_index=True,
+        width="stretch",
+    )
+    st.caption("Preview shows 12 of 33 bins; the route evaluation always uses the complete demonstration snapshot.")
 
-    if st.button("Check bins and build collection route", type="primary", width="stretch"):
+    if st.button("Run demonstration and build collection route", type="primary", width="stretch"):
         _clear_dispatch_state()
         try:
-            if input_method == "Upload CSV or JSON":
-                if uploaded is None:
-                    raise ValueError("Choose a CSV or JSON file first")
-                raw_snapshot = parse_snapshot_bytes(
-                    uploaded.getvalue(),
-                    uploaded.name,
-                    registry=REGISTRY,
-                    profile_id=selected_profile_id,
-                )
-            elif input_method == "Paste JSON":
-                if not pasted_json.strip():
-                    raise ValueError("Paste the JSON snapshot first")
-                raw_snapshot = parse_snapshot_json(
-                    pasted_json,
-                    registry=REGISTRY,
-                    profile_id=selected_profile_id,
-                )
-            else:
-                raw_snapshot = demo_snapshot
-            if selected_profile_id == "competition-simulation":
-                if len(raw_snapshot) != len(bins):
-                    raise ValueError("Competition simulation input must contain all 33 bins")
-                active_bins = bins.reset_index(drop=True)
-                active_distance = distance_matrix
-                active_duration = duration_matrix
-                profile_id = "competition-simulation"
-            else:
-                if len(raw_snapshot) != 3:
-                    raise ValueError("Physical pilot input must contain all 3 registered bins")
-                active_bins = bins.iloc[:3].reset_index(drop=True)
-                registry_entries = {
-                    entry.canonical_bin_id: entry
-                    for entry in REGISTRY.entries_for("physical-pilot")
-                }
-                active_bins["bin_type"] = [
-                    registry_entries[str(value)].bin_type
-                    for value in active_bins["bin_id"]
-                ]
-                active_bins["waste_stream"] = [
-                    registry_entries[str(value)].waste_stream
-                    for value in active_bins["bin_id"]
-                ]
-                indices = np.array([0, 1, 2, 3])
-                active_distance = distance_matrix[np.ix_(indices, indices)]
-                active_duration = duration_matrix[np.ix_(indices, indices)]
-                REGISTRY.validate_matrix("physical-pilot", active_distance)
-                profile_id = "physical-pilot"
+            raw_snapshot = demo_snapshot
+            active_bins = bins.reset_index(drop=True)
+            active_distance = distance_matrix
+            active_duration = duration_matrix
+            profile_id = "competition-simulation"
             with st.spinner("Applying collection rules and optimizing OSM-road trips…"):
                 last_valid = load_last_valid_readings(LAST_VALID_READINGS)
                 store = PlanningStore(PLANNING_DB)

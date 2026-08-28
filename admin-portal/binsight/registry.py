@@ -27,6 +27,7 @@ class RegistryEntry:
     calibration_version: str
     bin_type: str
     waste_stream: str
+    material_type: str = "mixed_general_waste"
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,12 @@ class BinRegistry:
                 raise ValueError(f"Unsupported bin_type for {entry.canonical_bin_id}")
             if not entry.waste_stream.strip():
                 raise ValueError(f"waste_stream cannot be blank for {entry.canonical_bin_id}")
+            if entry.material_type not in {
+                "mixed_general_waste",
+                "plastic_cups",
+                "glass_bottles",
+            }:
+                raise ValueError(f"Unsupported material_type for {entry.canonical_bin_id}")
             by_profile[entry.profile].append(entry)
 
         for profile_id, profile in self.profiles.items():

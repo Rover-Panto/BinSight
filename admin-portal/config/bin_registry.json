@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "registry_version": "pilot-registry-2026-08-27",
+  "registry_version": "pilot-registry-2026-08-28",
   "profiles": [
     {
       "profile_id": "physical-pilot",
@@ -52,7 +52,8 @@
       "capacity_litres": 4500.0,
       "calibration_version": "pending-hardware-v1",
       "bin_type": "general_waste",
-      "waste_stream": "mixed_general_waste"
+      "waste_stream": "mixed_general_waste",
+      "material_type": "mixed_general_waste"
     },
     {
       "hardware_bin_id": "PILOT-BIN-02",
@@ -64,11 +65,12 @@
       "service_index": 1,
       "latitude": 3.07528,
       "longitude": 101.575341,
-      "capacity_kg": 540.0,
+      "capacity_kg": 112.5,
       "capacity_litres": 4500.0,
       "calibration_version": "pending-hardware-v1",
       "bin_type": "recycling_return",
-      "waste_stream": "beverage_recycling"
+      "waste_stream": "beverage_recycling",
+      "material_type": "plastic_cups"
     },
     {
       "hardware_bin_id": "PILOT-BIN-03",
@@ -80,11 +82,12 @@
       "service_index": 1,
       "latitude": 3.07528,
       "longitude": 101.575341,
-      "capacity_kg": 540.0,
+      "capacity_kg": 1125.0,
       "capacity_litres": 4500.0,
       "calibration_version": "pending-hardware-v1",
       "bin_type": "recycling_return",
-      "waste_stream": "beverage_recycling"
+      "waste_stream": "beverage_recycling",
+      "material_type": "glass_bottles"
     }
   ]
 }

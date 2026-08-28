@@ -23,12 +23,12 @@
   "representative_replication_checks": {
     "normal_patterned": {
       "dispatches": 9,
-      "trips": 16,
-      "planned_stops": 297,
-      "unserved_required_stops": 0,
-      "collection_blocked_capacity_events": 1,
+      "trips": 18,
+      "planned_stops": 286,
+      "unserved_required_stops": 11,
+      "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -38,11 +38,11 @@
     "high_demand_seasonal": {
       "dispatches": 9,
       "trips": 18,
-      "planned_stops": 296,
-      "unserved_required_stops": 1,
-      "collection_blocked_capacity_events": 1,
+      "planned_stops": 231,
+      "unserved_required_stops": 66,
+      "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -51,12 +51,12 @@
     },
     "event_heavy": {
       "dispatches": 9,
-      "trips": 15,
+      "trips": 18,
       "planned_stops": 297,
       "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -65,12 +65,12 @@
     },
     "persistent_multi_day_surge": {
       "dispatches": 9,
-      "trips": 17,
-      "planned_stops": 296,
-      "unserved_required_stops": 1,
-      "collection_blocked_capacity_events": 1,
+      "trips": 18,
+      "planned_stops": 275,
+      "unserved_required_stops": 22,
+      "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -79,12 +79,12 @@
     },
     "localized_surge": {
       "dispatches": 9,
-      "trips": 17,
-      "planned_stops": 297,
-      "unserved_required_stops": 0,
+      "trips": 18,
+      "planned_stops": 286,
+      "unserved_required_stops": 11,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -93,12 +93,12 @@
     },
     "gradual_upward_trend": {
       "dispatches": 9,
-      "trips": 17,
-      "planned_stops": 297,
-      "unserved_required_stops": 0,
-      "collection_blocked_capacity_events": 0,
+      "trips": 18,
+      "planned_stops": 286,
+      "unserved_required_stops": 11,
+      "collection_blocked_capacity_events": 1,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -107,12 +107,12 @@
     },
     "abrupt_behavior_change": {
       "dispatches": 9,
-      "trips": 17,
-      "planned_stops": 296,
-      "unserved_required_stops": 1,
+      "trips": 18,
+      "planned_stops": 253,
+      "unserved_required_stops": 44,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -121,12 +121,12 @@
     },
     "traffic_disruption": {
       "dispatches": 9,
-      "trips": 16,
-      "planned_stops": 297,
-      "unserved_required_stops": 0,
-      "collection_blocked_capacity_events": 1,
+      "trips": 18,
+      "planned_stops": 286,
+      "unserved_required_stops": 11,
+      "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -135,12 +135,12 @@
     },
     "sensor_failure": {
       "dispatches": 9,
-      "trips": 16,
-      "planned_stops": 297,
-      "unserved_required_stops": 0,
+      "trips": 18,
+      "planned_stops": 286,
+      "unserved_required_stops": 11,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -150,11 +150,11 @@
     "reduced_truck_capacity": {
       "dispatches": 9,
       "trips": 18,
-      "planned_stops": 282,
-      "unserved_required_stops": 15,
+      "planned_stops": 218,
+      "unserved_required_stops": 79,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
-        "ortools": 9
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],
@@ -164,12 +164,11 @@
     "combined_demand_operational_stress": {
       "dispatches": 9,
       "trips": 18,
-      "planned_stops": 218,
-      "unserved_required_stops": 79,
-      "collection_blocked_capacity_events": 2,
+      "planned_stops": 193,
+      "unserved_required_stops": 104,
+      "collection_blocked_capacity_events": 1,
       "route_solver_methods": {
-        "deterministic_fallback": 1,
-        "ortools": 8
+        "stream_separated_fixed:ortools": 9
       },
       "all_dispatches_on_fixed_schedule": true,
       "off_schedule_hours": [],

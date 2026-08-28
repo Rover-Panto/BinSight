@@ -444,6 +444,7 @@ def generate_demand_realization(
             / 24.0
             * commercial_factor
         )
+        base *= float(getattr(item, "demand_rate_multiplier", 1.0))
         means[:, index] = (
             base
             * event_multiplier[:, index]

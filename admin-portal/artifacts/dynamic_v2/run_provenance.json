@@ -290,7 +290,7 @@
   "base_seed": 7112026,
   "artifact_set": "dynamic_v2",
   "policy_version": "dynamic-trip-value-v2",
-  "config_sha256": "6c16c8c258feae2086416ba714b763d88a5c70bb4882d48be7d676964dfe9404",
+  "config_sha256": "b5e9da22b529e1f1d164b477dce6a620f40ad786fb3a3cda1b41b11aefefc8e4",
   "forecast_model_version": "hist-gradient-boosting-multihorizon-q90-overflow-v3",
   "telemetry_contract_version": "2.1",
   "registry_version": "pilot-registry-2026-08-28",

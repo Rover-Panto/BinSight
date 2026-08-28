@@ -97,6 +97,47 @@ def test_demand_is_nonnegative_reproducible_and_seed_sensitive_but_comparable():
     assert relative_total_difference < 0.25
 
 
+def test_material_profiles_change_mass_and_fill_rates():
+    config = load_config(ROOT / "config.json")
+    quiet_demand = replace(
+        config.demand,
+        shared_regime_sigma=0.0,
+        local_regime_sigma=0.0,
+        event_templates=(),
+        base_trend_per_year=0.0,
+    )
+    deterministic = replace(config, demand=quiet_demand)
+    bins = []
+    for material, bin_type, stream, density, fraction in config.waste.material_profiles:
+        bins.append(
+            BinSpec(
+                "SAME-PATTERN",
+                1,
+                3.06,
+                101.57,
+                10,
+                0,
+                config.waste.material_capacity_kg(density),
+                "residential",
+                bin_type=bin_type,
+                waste_stream=stream,
+                material_type=material,
+                bulk_density_kg_per_m3=density,
+                demand_rate_multiplier=fraction * config.pilot.bins_per_service_site,
+            )
+        )
+    result = generate_demand_realization(bins, deterministic, 101, 24)
+    material_mass = result.expected_mean_kg.sum(axis=0)
+    np.testing.assert_allclose(
+        material_mass / material_mass.sum(),
+        [0.34, 0.07, 0.59],
+        atol=1e-9,
+    )
+    fill_growth = material_mass / np.array([item.capacity_kg for item in bins])
+    assert fill_growth[0] > fill_growth[2]
+    assert fill_growth[1] > fill_growth[2]
+
+
 def test_ar1_regimes_persist_and_local_surge_is_localized():
     config = load_config(ROOT / "config.json")
     scenario = DemandScenario(

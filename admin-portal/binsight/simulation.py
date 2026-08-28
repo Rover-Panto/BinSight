@@ -559,30 +559,59 @@ def run_policy(
             record("inspection_events", len(review_indices))
             record("sensor_uncertainty_decisions", float(bool(review_indices)))
             selected = list(range(len(bins)))
-            capacity_selected, rejected = select_capacity_feasible(
-                selected,
-                route_weights,
-                effective_truck_capacity,
-                remaining_trips,
+            stream_groups: dict[str, list[int]] = {}
+            for index, item in enumerate(bins):
+                stream_groups.setdefault(item.waste_stream, []).append(index)
+            stream_plans: list[RoutePlan] = []
+            fixed_unserved: set[int] = set()
+            remaining_stream_trips = remaining_trips
+            for stream in sorted(stream_groups):
+                stream_selected = stream_groups[stream]
+                if remaining_stream_trips <= 0:
+                    fixed_unserved.update(stream_selected)
+                    continue
+                capacity_selected, rejected = select_capacity_feasible(
+                    stream_selected,
+                    route_weights,
+                    effective_truck_capacity,
+                    remaining_stream_trips,
+                )
+                fixed_unserved.update(rejected)
+                if not capacity_selected:
+                    continue
+                stream_plan = solve_routes(
+                    capacity_selected,
+                    route_weights,
+                    distance_matrix_m,
+                    effective_truck_capacity,
+                    remaining_stream_trips,
+                    config.operations.route_solver_milliseconds,
+                )
+                stream_plans.append(stream_plan)
+                served_in_stream = set(stream_plan.served_bin_indices)
+                fixed_unserved.update(set(capacity_selected) - served_in_stream)
+                remaining_stream_trips -= len(stream_plan.routes)
+            plan = RoutePlan(
+                routes=[route for item in stream_plans for route in item.routes],
+                distance_m=sum(item.distance_m for item in stream_plans),
+                served_bin_indices=[
+                    index for item in stream_plans for index in item.served_bin_indices
+                ],
+                solver_method="stream_separated_fixed:" + "+".join(
+                    sorted({item.solver_method for item in stream_plans})
+                ),
+                dropped_bin_indices=sorted(fixed_unserved),
+                dispatch_reason="fixed_due_service",
             )
+            capacity_selected = list(plan.served_bin_indices)
             required_set = set(capacity_selected)
-            unserved_required = sorted(
-                index for index in selected if index not in capacity_selected or index in rejected
-            )
+            unserved_required = sorted(set(selected) - required_set | fixed_unserved)
             record("unserved_required_bins", len(unserved_required))
             record(
                 "capacity_constrained_decisions", float(bool(unserved_required))
             )
             if not capacity_selected:
                 return
-            plan = solve_routes(
-                capacity_selected,
-                route_weights,
-                distance_matrix_m,
-                effective_truck_capacity,
-                remaining_trips,
-                config.operations.route_solver_milliseconds,
-            )
             served = set(plan.served_bin_indices)
             snapshot_rows = []
             for index, item in enumerate(bins):
@@ -738,7 +767,10 @@ def run_policy(
 
         record(
             "routing_fallbacks",
-            float(plan.solver_method in {"deterministic_fallback", "value_infeasible"}),
+            float(
+                "deterministic_fallback" in plan.solver_method
+                or "value_infeasible" in plan.solver_method
+            ),
         )
         route_event = {
             "hour": hour,

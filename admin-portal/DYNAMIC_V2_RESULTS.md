@@ -8,9 +8,9 @@
 
 Dynamic v2 should remain in fixture/replay and shadow mode. It is a useful overflow-safety policy, but it is not yet a cost-saving replacement for the fixed schedule.
 
-Under normal patterned demand, dynamic v2 reduced mean overflow incidents from 3.97 to 0.90 and spilled mass from 281.52 kg to 24.16 kg. It did so by increasing trips from 17.70 to 24.13, distance from 505.27 km to 718.89 km, fuel from 409.38 L to 505.84 L, and low-fill pickups from 21.73 to 32.97. The paired 95% confidence intervals exclude zero for each of those differences.
+Under normal patterned demand, dynamic v2 reduced mean overflow incidents from 10.33 to 3.37, spilled mass from 3,953.22 kg to 117.91 kg, and low-fill pickups from 45.20 to 24.00. It did so by increasing trips from 18.00 to 38.57, distance from 689.84 km to 1,233.11 km, and fuel from 489.09 L to 758.70 L. The paired 95% confidence intervals exclude zero for each of those differences.
 
-Sensor failure is the clearest stop condition: dynamic v2 increased overflow incidents from 3.57 to 9.20, spilled mass from 172.60 kg to 495.25 kg, trips from 17.77 to 37.80, distance from 506.68 km to 1,152.40 km, fuel from 410.16 L to 727.73 L, and low-fill pickups from 21.10 to 37.33. Live dispatch must therefore fail back to an approved schedule/inspection procedure when telemetry health is below the field-calibrated gate.
+Sensor failure is the clearest stop condition: dynamic v2 increased overflow incidents from 12.43 to 31.70, trips from 18.00 to 52.60, distance from 683.69 km to 1,499.85 km, and fuel from 485.04 L to 862.20 L. Spilled mass was lower on average, but its paired confidence interval includes zero, so that apparent benefit is not reliable. Live dispatch must therefore fail back to an approved schedule/inspection procedure when telemetry health is below the field-calibrated gate.
 
 No result in this document is measured municipal performance. Demand, sensing, service, fuel and overflow outcomes are synthetic engineering evidence.
 
@@ -18,22 +18,22 @@ No result in this document is measured municipal performance. Demand, sensing, s
 
 | 30-day scenario / objective | Fixed | Dynamic v2 | Paired result for dynamic v2 |
 | --- | ---: | ---: | --- |
-| Normal: overflow incidents | 3.97 | 0.90 | 3.07 fewer; 95% CI 0.91 to 5.22 |
-| Normal: spilled mass | 281.52 kg | 24.16 kg | 257.37 kg less; 95% CI 146.55 to 368.19 |
-| Normal: wasted pickups | 21.73 | 32.97 | 11.23 more; 95% CI 5.09 to 17.37 more |
-| Normal: trips | 17.70 | 24.13 | 6.43 more; 95% CI 5.31 to 7.55 more |
-| Normal: distance | 505.27 km | 718.89 km | 213.62 km more; 95% CI 185.97 to 241.27 more |
-| Normal: fuel | 409.38 L | 505.84 L | 96.46 L more; 95% CI 79.12 to 113.80 more |
-| Event-heavy: wasted pickups | 34.93 | 24.83 | 10.10 fewer; 95% CI 1.17 to 19.03 |
-| Event-heavy: spilled mass | 159.92 kg | 34.22 kg | 125.70 kg less; 95% CI 53.39 to 198.00 |
-| Event-heavy: distance | 501.62 km | 720.25 km | 218.62 km more; 95% CI 200.72 to 236.53 more |
-| Combined stress: spilled mass | 79,580.47 kg | 8,644.97 kg | 89.14% less |
-| Combined stress: unserved required bins | 100.30 | 0.23 | 99.77% fewer |
-| Combined stress: distance | 470.08 km | 1,626.83 km | 1,156.75 km more |
-| Combined stress: fuel | 449.86 L | 1,330.16 L | 880.30 L more |
-| Sensor failure: overflow incidents | 3.57 | 9.20 | 5.63 more; 95% CI 4.06 to 7.21 more |
-| Sensor failure: spilled mass | 172.60 kg | 495.25 kg | 322.65 kg more; 95% CI 191.39 to 453.91 more |
-| Sensor failure: distance | 506.68 km | 1,152.40 km | 645.72 km more; 95% CI 619.18 to 672.26 more |
+| Normal: overflow incidents | 10.33 | 3.37 | 6.97 fewer; 95% CI 2.73 to 11.20 |
+| Normal: spilled mass | 3,953.22 kg | 117.91 kg | 3,835.31 kg less; 95% CI 1,854.01 to 5,816.60 |
+| Normal: wasted pickups | 45.20 | 24.00 | 21.20 fewer; 95% CI 13.57 to 28.83 |
+| Normal: trips | 18.00 | 38.57 | 20.57 more; 95% CI 19.56 to 21.57 more |
+| Normal: distance | 689.84 km | 1,233.11 km | 543.27 km more; 95% CI 508.35 to 578.20 more |
+| Normal: fuel | 489.09 L | 758.70 L | 269.62 L more; 95% CI 249.55 to 289.68 more |
+| Event-heavy: wasted pickups | 61.97 | 23.10 | 38.87 fewer; 95% CI 30.45 to 47.28 |
+| Event-heavy: spilled mass | 2,499.57 kg | 141.23 kg | 2,358.33 kg less; 95% CI 831.79 to 3,884.88 |
+| Event-heavy: distance | 696.75 km | 1,202.06 km | 505.31 km more; 95% CI 459.74 to 550.88 more |
+| Combined stress: spilled mass | 82,887.08 kg | 26,186.73 kg | 68.41% less |
+| Combined stress: unserved required bins | 109.93 | 0.00 | 100% fewer |
+| Combined stress: distance | 529.02 km | 1,677.90 km | 1,148.88 km more |
+| Combined stress: fuel | 488.19 L | 1,260.54 L | 772.34 L more |
+| Sensor failure: overflow incidents | 12.43 | 31.70 | 19.27 more; 95% CI 14.80 to 23.73 more |
+| Sensor failure: spilled mass | 4,846.23 kg | 3,082.04 kg | 1,764.19 kg less on average; 95% CI −352.21 to 3,880.60 |
+| Sensor failure: distance | 683.69 km | 1,499.85 km | 816.16 km more; 95% CI 783.19 to 849.13 more |
 
 `paired_effects.csv` contains all metrics, units, paired confidence intervals, sign-flip tests and normality diagnostics for all scenarios. The table above is a decision-focused subset rather than a post-hoc score.
 
@@ -43,17 +43,17 @@ The model trains on a 730-day synthetic pre-period. Training, probability-calibr
 
 | Horizon | Model growth MAE | Naive growth MAE |
 | ---: | ---: | ---: |
-| 6 hours | 1.59 percentage points | 4.57 percentage points |
-| 24 hours | 4.47 percentage points | 16.70 percentage points |
-| 48 hours | 7.63 percentage points | 33.29 percentage points |
-| 168 hours | 16.98 percentage points | 116.18 percentage points |
+| 6 hours | 1.57 percentage points | 4.44 percentage points |
+| 24 hours | 4.44 percentage points | 16.36 percentage points |
+| 48 hours | 7.61 percentage points | 32.62 percentage points |
+| 168 hours | 17.47 percentage points | 113.92 percentage points |
 
 Additional holdout diagnostics:
 
-- 48-hour overflow alert: 0.927 precision, 0.990 recall, Brier score 0.0212.
-- 6-hour overflow alert at the 10% action threshold: 0.979 precision, 0.998 recall, Brier score 0.00514.
-- Time-to-overflow MAE: 52.84 hours. This is too coarse to treat as an exact service clock.
-- 90th-percentile 48-hour growth interval coverage: 82.9%, below the nominal 90%; live use requires recalibration.
+- 48-hour overflow alert: 0.930 precision, 0.993 recall, Brier score 0.0185.
+- 6-hour overflow alert at the 10% action threshold: 0.974 precision, 0.999 recall, Brier score 0.00486.
+- Time-to-overflow MAE: 57.17 hours. This is too coarse to treat as an exact service clock.
+- 90th-percentile 48-hour growth interval coverage: 84.6%, below the nominal 90%; live use requires recalibration.
 
 These values validate the synthetic forecasting pipeline, not real-world generalization. The high alert metrics and underestimated upper-tail coverage can coexist because they measure different questions.
 
@@ -75,7 +75,7 @@ The definitive scenarios are:
 10. traffic disruption; and
 11. combined demand and operational stress.
 
-Regime-level and decision-driver outputs are retained separately so a whole-run average cannot hide quiet, normal or surge behavior. For example, the normal scenario averaged 18.13 forecast-driven dynamic dispatches, 11.53 daily dispatch-limit blocks and 79.97 sensor-uncertainty decisions per replication.
+Regime-level and decision-driver outputs are retained separately so a whole-run average cannot hide quiet, normal or surge behavior. For example, the normal scenario averaged 24.63 forecast-driven dynamic dispatches, 27.03 daily dispatch-limit blocks and 84.10 sensor-uncertainty decisions per replication.
 
 ## Does the fixed path make sense?
 

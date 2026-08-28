@@ -56,6 +56,9 @@ def _planning_inputs(profile_id: str):
         bins["waste_stream"] = [
             entries[str(value)].waste_stream for value in bins["bin_id"]
         ]
+        bins["material_type"] = [
+            entries[str(value)].material_type for value in bins["bin_id"]
+        ]
         indices = np.array([0, 1, 2, 3])
         distance = distance[np.ix_(indices, indices)]
         duration = duration[np.ix_(indices, indices)]

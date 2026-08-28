@@ -24,7 +24,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "72405b23a659a5c19109ecf17269787788c028ee85c67d8a58a3fd1202019e84"
+    "arrival_matrix_sha256": "50453e59a15d88a2eba5a6e4df9ea1872bd77ca694aac9b1f206f95035877411"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -51,7 +51,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "9864b4693e1182ed8d6fedc580fcad33dfff1276a6a956f26599b5805a1df6d6"
+    "arrival_matrix_sha256": "6652c93c9978fb0c1e36c87f61fe062f42d50343ae3994e9aa9b532e2b255d13"
   },
   {
     "scenario": "event_heavy",
@@ -78,7 +78,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "770ac58b5a1e5c519108fe7b232f0cf1cce110e538eb85972e034f1de22cb8bf"
+    "arrival_matrix_sha256": "f8fe1635c617b03dc002434dd94f350d67473b812b46fee03b81b0e009022e5e"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -111,7 +111,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "2dba15e9d7534cf60f0f431789ccaa7430ee21db31c3d888313dd220465ef1d1"
+    "arrival_matrix_sha256": "153be40af85f8167e0976b4758ddc3e311ff43635a763264c70b3fe5b0712687"
   },
   {
     "scenario": "localized_surge",
@@ -151,7 +151,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "924cc2d829da29db84e3abd5a1ae0281928ca9bb265547db13418186091db645"
+    "arrival_matrix_sha256": "019e710693e9f39d636ac078cb6a0df3f8c06229a5921074368999021f88ab38"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -178,7 +178,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "427cc6a1bb8b001a26293c97b8830e9229b3c56ab69a88250bf267252e7be0c1"
+    "arrival_matrix_sha256": "e515d1ca9dfc000e5762bab3df314e3fefc9754a236dc79e492ef86d4a1199d4"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -205,7 +205,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "07ed47d6576d8ce39ad244b1566de64b06793c0733115e9ae63d55106dbf31c5"
+    "arrival_matrix_sha256": "070f0f16ceee46f69916d342ebeb9ae7ab5f2bbb898b745534e79b8d0f7f9995"
   },
   {
     "scenario": "traffic_disruption",
@@ -232,7 +232,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "72405b23a659a5c19109ecf17269787788c028ee85c67d8a58a3fd1202019e84"
+    "arrival_matrix_sha256": "50453e59a15d88a2eba5a6e4df9ea1872bd77ca694aac9b1f206f95035877411"
   },
   {
     "scenario": "sensor_failure",
@@ -259,7 +259,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "72405b23a659a5c19109ecf17269787788c028ee85c67d8a58a3fd1202019e84"
+    "arrival_matrix_sha256": "50453e59a15d88a2eba5a6e4df9ea1872bd77ca694aac9b1f206f95035877411"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -286,7 +286,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "72405b23a659a5c19109ecf17269787788c028ee85c67d8a58a3fd1202019e84"
+    "arrival_matrix_sha256": "50453e59a15d88a2eba5a6e4df9ea1872bd77ca694aac9b1f206f95035877411"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -332,7 +332,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "8fb8a9c5a4250eaeb6eb9b4b10281e61c8207044f018bc766af1c2b195e37b9e"
+    "arrival_matrix_sha256": "848bf353439cac9cafe963fcae635760fbba89abaa3205845c3187cbc6815b62"
   },
   {
     "scenario": "normal_patterned",
@@ -359,7 +359,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "93c1f154076a4dba4cf5948cfa48bacc2d1b15fb9243c630eebe52f7f352b13d"
+    "arrival_matrix_sha256": "e23371d05d13db907b1f681ce0421df4e7fcefbb0c552fd4d31bc690406985d6"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -386,7 +386,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "aae37609308043f76320e1484ac9d2f7dcffa8106081e6afcbd550aa578fd599"
+    "arrival_matrix_sha256": "d787ce6f970212e79335f88d9567433120114bad194376c6acf4d4097e7e8555"
   },
   {
     "scenario": "event_heavy",
@@ -413,7 +413,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3dc7fb576f1711ae6a7556d6758ceddb02d3ef49c1d32e261e8bd5db91ca8466"
+    "arrival_matrix_sha256": "b344688bbef57671e3deaefe54eafff6fd1607ea9c0975af5fbafcca321b1437"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -446,7 +446,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5a449af4197b340677af402ffbdf961612b7a5e61aea112d9b77dc18eb873925"
+    "arrival_matrix_sha256": "356b6804515b3f59a7a904328d2ef0af29eb1452c453cd0f3eb5d98dcd118460"
   },
   {
     "scenario": "localized_surge",
@@ -486,7 +486,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "8eb7ec8299e4133c2c98dafe8193cb1abddc7d72f0c5a51838a76ede4cf8877d"
+    "arrival_matrix_sha256": "08311d37d92af65f418e5d41e88daccb8a78ce754f960405797ff327648f6d10"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -513,7 +513,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "630e85929f550f4d08ffc8ae4c77b7ef56d1d7b5f3c63a5e18593cf19dc0e916"
+    "arrival_matrix_sha256": "2dfc933ba1894a11747a2f530dbe166aa9da74630be82e7b2baceab38529e02e"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -540,7 +540,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "56f43064314fb4327547a6c5f54da3a7aacf8395e97e07152cfb8bfcd9a2e25e"
+    "arrival_matrix_sha256": "66e042682353a9bc613da7d5960a488a18b027cc034d0a7baf3afae6c8b90378"
   },
   {
     "scenario": "traffic_disruption",
@@ -567,7 +567,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "93c1f154076a4dba4cf5948cfa48bacc2d1b15fb9243c630eebe52f7f352b13d"
+    "arrival_matrix_sha256": "e23371d05d13db907b1f681ce0421df4e7fcefbb0c552fd4d31bc690406985d6"
   },
   {
     "scenario": "sensor_failure",
@@ -594,7 +594,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "93c1f154076a4dba4cf5948cfa48bacc2d1b15fb9243c630eebe52f7f352b13d"
+    "arrival_matrix_sha256": "e23371d05d13db907b1f681ce0421df4e7fcefbb0c552fd4d31bc690406985d6"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -621,7 +621,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "93c1f154076a4dba4cf5948cfa48bacc2d1b15fb9243c630eebe52f7f352b13d"
+    "arrival_matrix_sha256": "e23371d05d13db907b1f681ce0421df4e7fcefbb0c552fd4d31bc690406985d6"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -667,7 +667,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "79a874fdbfb94c390706d6d589f62697a1c04257ab75316d516a0af7ed0a4323"
+    "arrival_matrix_sha256": "011b4ed861535a3c735f077ea3a9dc87c2e291be17ff1c7735c907846b15b20e"
   },
   {
     "scenario": "normal_patterned",
@@ -694,7 +694,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "58a004ad3c64707d18f8536ad8cef84681dcc2aabe1a3b950b7390399c994de9"
+    "arrival_matrix_sha256": "25f9457b72b2134e97c89c37db26d6f18590105b1b8a7da553a23f1aeee4c753"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -721,7 +721,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1534820f6ccece37d18be1beaef22ba25f3609262831a7654a432500892e8c9b"
+    "arrival_matrix_sha256": "694ba3e46e4e06dda889f43423bfbe8c4cef017f2b70f6eb7e1b6c34b415e872"
   },
   {
     "scenario": "event_heavy",
@@ -748,7 +748,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "21e5882e4b48810495bc3a5730a385b3b51865456d1525cfa098ef5234b7ff0b"
+    "arrival_matrix_sha256": "45483ac4671589d541fffbfa347bb96c61d3cc74cd16b4248c3560b2a8ae196e"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -781,7 +781,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "2d9aebb8e66161100951d5657a1f505b12d1f050818721c0b76c865c3f633af9"
+    "arrival_matrix_sha256": "f6b92ffde6c6e24103d2c9ce46dda001efb2ed0db84d0fea4e90812c8a2ac5f8"
   },
   {
     "scenario": "localized_surge",
@@ -821,7 +821,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5afcacc2eff375fa56ce61cf08458f5b313f39f9bd7e2e4473fea7b36cd4b89e"
+    "arrival_matrix_sha256": "339bdba1c9cc64ee7d0638af45b386ece7fa25aec5063bf1b6ca9a8774203b98"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -848,7 +848,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "213e223cd8af7ac9f672954194a7ec58a332f758298506272fa41e34d55b3ad6"
+    "arrival_matrix_sha256": "3bb7c4b1ba3d6d41c3ad775a154058e1d76d59d9465b9dd01236f483fc1ec6a7"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -875,7 +875,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0648397fca7286c0a38d5b66fb218a890c2dcfe9a23fbd651f598503245ff0c6"
+    "arrival_matrix_sha256": "4eebb161b445b87d8c7da876545d5434aa078f51036ab0a77a5c51700baa884a"
   },
   {
     "scenario": "traffic_disruption",
@@ -902,7 +902,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "58a004ad3c64707d18f8536ad8cef84681dcc2aabe1a3b950b7390399c994de9"
+    "arrival_matrix_sha256": "25f9457b72b2134e97c89c37db26d6f18590105b1b8a7da553a23f1aeee4c753"
   },
   {
     "scenario": "sensor_failure",
@@ -929,7 +929,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "58a004ad3c64707d18f8536ad8cef84681dcc2aabe1a3b950b7390399c994de9"
+    "arrival_matrix_sha256": "25f9457b72b2134e97c89c37db26d6f18590105b1b8a7da553a23f1aeee4c753"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -956,7 +956,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "58a004ad3c64707d18f8536ad8cef84681dcc2aabe1a3b950b7390399c994de9"
+    "arrival_matrix_sha256": "25f9457b72b2134e97c89c37db26d6f18590105b1b8a7da553a23f1aeee4c753"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -1002,7 +1002,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "8ce74255ef8f86d86619f5eaae9eb79300bf3a8e46ace464f96349ff1501f4cd"
+    "arrival_matrix_sha256": "c877bb45951bed01e19ac5292fd631c5ef95cdb0ce5271a86afd2d5ccebf1824"
   },
   {
     "scenario": "normal_patterned",
@@ -1029,7 +1029,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "406d5c778cbf37e36c09d42e0ba8a7a76e99afad5a83b933a7445bda0064f696"
+    "arrival_matrix_sha256": "a7f3f7c30eaf092f9253810bc18e6a3d054e7a64f4b3606c394c070a154ff4dd"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -1056,7 +1056,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c9d58c36442f537958965fdd1ea7eb3cddaf13c0d95c8c1c9b142627f60b546f"
+    "arrival_matrix_sha256": "dc5582269e927838d5544a59b03ed4513845b3ffe64e5b5b36fac7c12a22f704"
   },
   {
     "scenario": "event_heavy",
@@ -1083,7 +1083,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "b5a14133fe36e76e540b3b9ffc1afa6b7517f0fbb4f7ee16637a79c641427ed2"
+    "arrival_matrix_sha256": "2b01df8ceb2fa2ad727e1c23392a66a4b2a0fdae846c787be0340524dd90558d"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -1116,7 +1116,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "6c0b52a90b3f9c56596b95ab086285eee18e1f2594aa6e721cdd235d40a30eab"
+    "arrival_matrix_sha256": "10a649ea6c7fff70b61c1dc4e5475cd3896a241e51b4df9633006275d6a7702f"
   },
   {
     "scenario": "localized_surge",
@@ -1156,7 +1156,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1aa1dde5588c1cf1e22e8eedf7fed05ff7e9d46e6bdfec0f2ccfebb209135ac2"
+    "arrival_matrix_sha256": "699c38c1817abeb50644d3a2599f1c7f6528a611745f58a62e347372a6a5fc45"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -1183,7 +1183,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d7e871bde318532a3bae4ccebb54eaa57c4bffe358a6a14c014594cdbf45b845"
+    "arrival_matrix_sha256": "1c2579f5065164b536b5c0b7029267fb372073483a46d5fc9a35222cd78b137e"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -1210,7 +1210,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "39aff5cef58b9a02fe0cb71e802c4b08893237e78854a6eb0f42ef67c79f7293"
+    "arrival_matrix_sha256": "6cc456451579766b33021d02efd38305b9ccb119ccf8d97391cfdc2fffd3e80c"
   },
   {
     "scenario": "traffic_disruption",
@@ -1237,7 +1237,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "406d5c778cbf37e36c09d42e0ba8a7a76e99afad5a83b933a7445bda0064f696"
+    "arrival_matrix_sha256": "a7f3f7c30eaf092f9253810bc18e6a3d054e7a64f4b3606c394c070a154ff4dd"
   },
   {
     "scenario": "sensor_failure",
@@ -1264,7 +1264,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "406d5c778cbf37e36c09d42e0ba8a7a76e99afad5a83b933a7445bda0064f696"
+    "arrival_matrix_sha256": "a7f3f7c30eaf092f9253810bc18e6a3d054e7a64f4b3606c394c070a154ff4dd"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -1291,7 +1291,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "406d5c778cbf37e36c09d42e0ba8a7a76e99afad5a83b933a7445bda0064f696"
+    "arrival_matrix_sha256": "a7f3f7c30eaf092f9253810bc18e6a3d054e7a64f4b3606c394c070a154ff4dd"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -1337,7 +1337,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "7e11687ff770b3a2700ae5bcdfd5392a560ee144f9e768afe20add791d4ed640"
+    "arrival_matrix_sha256": "7a3c338eabbb5655d890df126d3fff65c9ad413e7eda6d0ed78bee14b7f5e3a6"
   },
   {
     "scenario": "normal_patterned",
@@ -1364,7 +1364,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "aced63b4182cf08ead2fd9f7f67be4078b334464b30e4c8f5f9058a4a74d4923"
+    "arrival_matrix_sha256": "3e43d1a2e7a8586a009d601f115ddcf16c54e145575cde9b27c1f0a051a93119"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -1391,7 +1391,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f181cbdd2ff0b34425ef9ec39735adb43f911163a28ff027f26b79c2107f641a"
+    "arrival_matrix_sha256": "55573e3572bb0c6aa0c9f64e66f87c045ce9100e761bac1c802d68f25c462e34"
   },
   {
     "scenario": "event_heavy",
@@ -1418,7 +1418,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1b0166bdeb981ecc58e7269cf41d6441245d44dd103b5192bd33b9f8bf42e88c"
+    "arrival_matrix_sha256": "ba6c437c0359328a0cbff44d02298062287dfe33b3fdca4ddde9febc798bfb0f"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -1451,7 +1451,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e17c06a500c0b0b5efcdd74d4c46bbb8b98fefec3433fb6b444765aec028c8ca"
+    "arrival_matrix_sha256": "33528c089ca1c044f80ad990c361a26ba275c9bd0957b308ea4befda3e2e4b21"
   },
   {
     "scenario": "localized_surge",
@@ -1491,7 +1491,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "dabf67fd1dfda52b555d8b13343f09b1a346230e1e309d2e137997434582cd57"
+    "arrival_matrix_sha256": "ed9e42399692a17c99738e77e411ae1a9a1dc692d5c77d7b788c465e0b67832e"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -1518,7 +1518,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3ae9f59f4667fb9392ca73cf7ee24047f46b21a9d8fc3bf9f73eb4d0585c33ef"
+    "arrival_matrix_sha256": "3c8253623052dd317f91c501aa17d2f1f821126446dcd17c769483f0a67ad344"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -1545,7 +1545,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c0681c61cdd717d028131c4be9789ba69c7c5e31503527e5426d72008dc75e68"
+    "arrival_matrix_sha256": "5eb0431288c9ec349c5b5b4055c9e6e46cdd5a4f35e44ebbe377b79043d9a659"
   },
   {
     "scenario": "traffic_disruption",
@@ -1572,7 +1572,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "aced63b4182cf08ead2fd9f7f67be4078b334464b30e4c8f5f9058a4a74d4923"
+    "arrival_matrix_sha256": "3e43d1a2e7a8586a009d601f115ddcf16c54e145575cde9b27c1f0a051a93119"
   },
   {
     "scenario": "sensor_failure",
@@ -1599,7 +1599,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "aced63b4182cf08ead2fd9f7f67be4078b334464b30e4c8f5f9058a4a74d4923"
+    "arrival_matrix_sha256": "3e43d1a2e7a8586a009d601f115ddcf16c54e145575cde9b27c1f0a051a93119"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -1626,7 +1626,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "aced63b4182cf08ead2fd9f7f67be4078b334464b30e4c8f5f9058a4a74d4923"
+    "arrival_matrix_sha256": "3e43d1a2e7a8586a009d601f115ddcf16c54e145575cde9b27c1f0a051a93119"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -1672,7 +1672,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "73b86934aa4566be2d491c7a4411e2c38cf146cd263f35d685cdcb1945c27e9b"
+    "arrival_matrix_sha256": "8814545aae91ff96d1f1b8d37521d2ade428353afb7e3888e117dd385c92e434"
   },
   {
     "scenario": "normal_patterned",
@@ -1699,7 +1699,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "6b23aa95f681fa89cb8ee928f8d0a04d8767042fb40b8b2e94b9ae2a5ed31f57"
+    "arrival_matrix_sha256": "784539160d60e37723193d0c99ec251d42fadca44ac3de55cda0e9096c54bdc3"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -1726,7 +1726,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c15fa955640c26d789bdbd2c613caa8c36eea54f7963ca4aee12565a4e432f1a"
+    "arrival_matrix_sha256": "ee82fd97f243060a3ff10c3b0cd69723dfd45a899ef0b0acd8c849467ad7db60"
   },
   {
     "scenario": "event_heavy",
@@ -1753,7 +1753,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "91edeb1b5c9512c88a99f697742e3fbcba7532cbc26380050be0e35b51b15edf"
+    "arrival_matrix_sha256": "3c5909a27f5775a11302ecb0f0f3cdc876c474f7b7175c554780325531f1e479"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -1786,7 +1786,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e9aad2d033cb27d7cd7849fa50d9c685ebae7bcb16d2953de7ed83372ad3c320"
+    "arrival_matrix_sha256": "ad7de47ec27d561199629a31da28c65d4cae316cf6e96f5fec791faece56e821"
   },
   {
     "scenario": "localized_surge",
@@ -1826,7 +1826,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "026fa9228a9aa3458dcc8cc7b77ca1596fced60712b04746426cbd7b194d2b45"
+    "arrival_matrix_sha256": "d58f3ddf97e83b32f89aa931ec34253efafda7bc716ffe1c6d0711172fb04e40"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -1853,7 +1853,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "195c174b028cffec38a9aab4fc78f6f922b3ef885fe8758b29ca42ae4cb102d7"
+    "arrival_matrix_sha256": "14a4e6072c72b7696de1235b2d2d308e4dac249e6c24d4e191a4a14bafe2c110"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -1880,7 +1880,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "a15a39a48f68404ecd7073054f91904dbd4f47eb19b7538579bde78d2d62335c"
+    "arrival_matrix_sha256": "726248861939b32269c1405409b1247744096b1f7c370e1495345240129e2761"
   },
   {
     "scenario": "traffic_disruption",
@@ -1907,7 +1907,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "6b23aa95f681fa89cb8ee928f8d0a04d8767042fb40b8b2e94b9ae2a5ed31f57"
+    "arrival_matrix_sha256": "784539160d60e37723193d0c99ec251d42fadca44ac3de55cda0e9096c54bdc3"
   },
   {
     "scenario": "sensor_failure",
@@ -1934,7 +1934,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "6b23aa95f681fa89cb8ee928f8d0a04d8767042fb40b8b2e94b9ae2a5ed31f57"
+    "arrival_matrix_sha256": "784539160d60e37723193d0c99ec251d42fadca44ac3de55cda0e9096c54bdc3"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -1961,7 +1961,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "6b23aa95f681fa89cb8ee928f8d0a04d8767042fb40b8b2e94b9ae2a5ed31f57"
+    "arrival_matrix_sha256": "784539160d60e37723193d0c99ec251d42fadca44ac3de55cda0e9096c54bdc3"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -2007,7 +2007,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3bcd3093c8c52aa6eff0a6f640b6bbc677d3698944a0e9bc0fccfac90206c4ef"
+    "arrival_matrix_sha256": "a4c1d938240ed2bd8af0701e5e64cf4249c61845b9207c5e5690326334bb9bf2"
   },
   {
     "scenario": "normal_patterned",
@@ -2034,7 +2034,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "daa57284cd3db1dce918677364f6d9a718ba6bcc19bbe6643577ab6d0b248a4c"
+    "arrival_matrix_sha256": "65eaa5ae47232688a91e1e481ca330de36596bf244ebcf07f659e417b045be52"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -2061,7 +2061,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c98bc252d623ef2a9fa5c69926f2127db56d0f1eb1531e344eaa5e98762d45d6"
+    "arrival_matrix_sha256": "1ff576e91b1cac4fae6dd2301786471b885c61bce76e5c1723a36b99aef4e1fa"
   },
   {
     "scenario": "event_heavy",
@@ -2088,7 +2088,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0bf6b211f325bc350c4ff423f78b35f66d85b00f054ccee17681219eb6514cde"
+    "arrival_matrix_sha256": "1e14dec5708f33ca53bd293cab58d00405ea0b5eb2e81e836750e44f01b5f051"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -2121,7 +2121,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "306a8a3bca58ca7333d8e2d300a9117412a7e64600f6bdeafd1db7ce079e195e"
+    "arrival_matrix_sha256": "70bdca4ffa1b0e96a811ebd5709b2ac241d12612950faf5f78ca0b6d0f445be1"
   },
   {
     "scenario": "localized_surge",
@@ -2161,7 +2161,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "8b8a7aeef90e9d3778c9a514e4560c2aa3b70337d867718eef9b2db370a319b7"
+    "arrival_matrix_sha256": "dd3cb4f576da6b28ec7689a099da2cf8eaaf116c4d9851305ccc173d7539fa97"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -2188,7 +2188,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3e12542621b5d4237fbc7ede27a127cfb51e9935af5130210f9957c24dec144e"
+    "arrival_matrix_sha256": "cb726b8b2dcfa8b1d1a94edea9fb5393575d1dba3e5bfe30dcbba8720b795bc0"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -2215,7 +2215,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "9fc60e537c03f96e69a5503cc9eb2bef8f2f388d3f5b19a4512ed7819496c750"
+    "arrival_matrix_sha256": "0f9510b66935b540e3490219dcd4ef3126e89538d52372b39b24ca79f4c01aef"
   },
   {
     "scenario": "traffic_disruption",
@@ -2242,7 +2242,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "daa57284cd3db1dce918677364f6d9a718ba6bcc19bbe6643577ab6d0b248a4c"
+    "arrival_matrix_sha256": "65eaa5ae47232688a91e1e481ca330de36596bf244ebcf07f659e417b045be52"
   },
   {
     "scenario": "sensor_failure",
@@ -2269,7 +2269,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "daa57284cd3db1dce918677364f6d9a718ba6bcc19bbe6643577ab6d0b248a4c"
+    "arrival_matrix_sha256": "65eaa5ae47232688a91e1e481ca330de36596bf244ebcf07f659e417b045be52"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -2296,7 +2296,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "daa57284cd3db1dce918677364f6d9a718ba6bcc19bbe6643577ab6d0b248a4c"
+    "arrival_matrix_sha256": "65eaa5ae47232688a91e1e481ca330de36596bf244ebcf07f659e417b045be52"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -2342,7 +2342,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "34358a55f6bfe16ee87c1d6d7046e0d6e36a5b3fa3e1fa78e3ec6aa94966919d"
+    "arrival_matrix_sha256": "4d76cc05d0859159cab693a717ce7f05212c0958b0158ed63ae0d66c7a25ea35"
   },
   {
     "scenario": "normal_patterned",
@@ -2369,7 +2369,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c41417faaa0070cb5c29361898a38d29305e2bf56c0b22b87e8f09e70cb5e96d"
+    "arrival_matrix_sha256": "6da089c7fd078d0400f98c6e20000b9baaf4a2a69f66caad64940ad50cdacb86"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -2396,7 +2396,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "99972a29b5b4e312303ba2f178e524824b9b2adf8d25e45849b7ba9ccc877f7e"
+    "arrival_matrix_sha256": "bb5aaae421d0d216c99bd5cf361e66c0fee9d38a8ab6045d8e52e2993b5540c5"
   },
   {
     "scenario": "event_heavy",
@@ -2423,7 +2423,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "418e3b78c4db00751903fd71af4bd7a46760da424e4ceb9bf8ec7d7d3d9326ac"
+    "arrival_matrix_sha256": "35027490b28961fc8d416530589a8492410508030d36bc857334704b5bf97ab4"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -2456,7 +2456,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "83814059dd63bf3eec6e95c5601dd648fbc1b446ab6b8b4ace9e3a4c4d2a69cc"
+    "arrival_matrix_sha256": "c6072dc5298cd17d8bd96690847141c5f9646c5ae292ac13b6e25f3074d3a2e4"
   },
   {
     "scenario": "localized_surge",
@@ -2496,7 +2496,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "4017020193a5f29470923034ad96b69dd66e4d0b0011cecd49579abc3712bc06"
+    "arrival_matrix_sha256": "b7041062df6fd3c2ee21c6c152cd4336d6649a891baadc1a824ec1f2ec520dee"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -2523,7 +2523,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0be140eb21986ff4ddb9efdd532881837cb9486c345392c7931482bfa5ac55de"
+    "arrival_matrix_sha256": "e4d8e8b07e8a71a9a1a18cde0a5d93032a77a0846095db537f7357ebcc2cbc99"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -2550,7 +2550,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "ee9fe46c9bb116e2f74c5249a7f7264d5ce0884bc595faf7f916473bb251a1f2"
+    "arrival_matrix_sha256": "6dd2f1282ee28a6f64a97ab04f44c0d93986ec6b6e7e44786c931730dbf5efde"
   },
   {
     "scenario": "traffic_disruption",
@@ -2577,7 +2577,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c41417faaa0070cb5c29361898a38d29305e2bf56c0b22b87e8f09e70cb5e96d"
+    "arrival_matrix_sha256": "6da089c7fd078d0400f98c6e20000b9baaf4a2a69f66caad64940ad50cdacb86"
   },
   {
     "scenario": "sensor_failure",
@@ -2604,7 +2604,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c41417faaa0070cb5c29361898a38d29305e2bf56c0b22b87e8f09e70cb5e96d"
+    "arrival_matrix_sha256": "6da089c7fd078d0400f98c6e20000b9baaf4a2a69f66caad64940ad50cdacb86"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -2631,7 +2631,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c41417faaa0070cb5c29361898a38d29305e2bf56c0b22b87e8f09e70cb5e96d"
+    "arrival_matrix_sha256": "6da089c7fd078d0400f98c6e20000b9baaf4a2a69f66caad64940ad50cdacb86"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -2677,7 +2677,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "69a12ed1850e58b09798cefbc2dba084d02e3690df049b771ce00b87f6d6abc9"
+    "arrival_matrix_sha256": "c27935192fdc2eb3f566a095b67a5a951740b475d7c594bbfc8cee69e3db1d3a"
   },
   {
     "scenario": "normal_patterned",
@@ -2704,7 +2704,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0bf0d8b920d6853ba64e1e7fa89639cfb398f7fc62057309e7b5250b7f59b12f"
+    "arrival_matrix_sha256": "245bf620d199ce9616b08cbbc493c8540780db070ce7a172d79dbfab0c1384c0"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -2731,7 +2731,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "fe6c0b22b656c1e24d0e6a6f763d7eef09613b82839cb9c9d2d75c4e20fa1417"
+    "arrival_matrix_sha256": "d58f546216d2898749dcfa4726e5dac058cffc8a29d0409b96b6abd9b17db49e"
   },
   {
     "scenario": "event_heavy",
@@ -2758,7 +2758,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "38850132a80ab55f0054497add8c7f48e38c22a6f16675a2c85a769a9a03585a"
+    "arrival_matrix_sha256": "f7f53f5e2499f08b7fc548704c1e61c70df843ccb5f333e45d6a3ed14341d0e7"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -2791,7 +2791,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "879043ff7fcc3670207f69caa38b8375e27d9ea6a415ef900a0eb49437e28795"
+    "arrival_matrix_sha256": "5a14d791cfe1e8e3288354a60eaad389ae4aa08caf23b86d350b1ef832264ca6"
   },
   {
     "scenario": "localized_surge",
@@ -2831,7 +2831,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "72b73608dbbe430d8e03025191518998f1a2667af9993b8a78c4c84e8ada291c"
+    "arrival_matrix_sha256": "884d8b3579f4b24d88ac1753b95371cc13d77c5bcc7eb3696f638a9e118851b7"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -2858,7 +2858,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3fc5306cb943d75f95d54ba0c9060fd456ff31912d80fe26c5a2600bfdfbdf76"
+    "arrival_matrix_sha256": "ee319a64e98af3e621ad437d1094dcd55f94ab8dc9a4e1cff738c4d2c81bc579"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -2885,7 +2885,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f7e7565083351948d878f19d8ce8a15a67c4e2af7ccd5093a5c22bbe5022c80d"
+    "arrival_matrix_sha256": "49f8034416568d7b6433e9e1704fa2acb1795de4c2fbc34d5e54cd53459e31ca"
   },
   {
     "scenario": "traffic_disruption",
@@ -2912,7 +2912,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0bf0d8b920d6853ba64e1e7fa89639cfb398f7fc62057309e7b5250b7f59b12f"
+    "arrival_matrix_sha256": "245bf620d199ce9616b08cbbc493c8540780db070ce7a172d79dbfab0c1384c0"
   },
   {
     "scenario": "sensor_failure",
@@ -2939,7 +2939,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0bf0d8b920d6853ba64e1e7fa89639cfb398f7fc62057309e7b5250b7f59b12f"
+    "arrival_matrix_sha256": "245bf620d199ce9616b08cbbc493c8540780db070ce7a172d79dbfab0c1384c0"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -2966,7 +2966,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0bf0d8b920d6853ba64e1e7fa89639cfb398f7fc62057309e7b5250b7f59b12f"
+    "arrival_matrix_sha256": "245bf620d199ce9616b08cbbc493c8540780db070ce7a172d79dbfab0c1384c0"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -3012,7 +3012,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "6267a7e4523bc2a05f2344c41376f94b50305aec16279295a0c5f200d423ebc3"
+    "arrival_matrix_sha256": "156d8765e5f8e207ef61816a5231c7006dc0934ff3c93d8e20610e791f50befb"
   },
   {
     "scenario": "normal_patterned",
@@ -3039,7 +3039,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e84feea5407aa64e3fe70315bceded74f0b6e279fcf11782226eb1e703b23cc8"
+    "arrival_matrix_sha256": "99ccfc3e34dfcb64bc85a1e1c890e78095596dcfdb4be80917226c45766aceed"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -3066,7 +3066,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d1b50f9146b78dcb86fc5acf6fb3aea5ee8dcf74e6fcddeb9e676ab6cc660418"
+    "arrival_matrix_sha256": "850e71e5011ccb0d0a5d5d083d9483dfeda72415247157c38b975b177c7b8a49"
   },
   {
     "scenario": "event_heavy",
@@ -3093,7 +3093,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "debf645dc4addeb3e09f1eed561b416e5d80842ca1778a018e1d6b66fd9a55c2"
+    "arrival_matrix_sha256": "13011dffe119d8fceebbe8590d1b6a1b1672bc5a740612b532c83157dbdbac13"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -3126,7 +3126,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "a55258fc12a79a58f4a51fd266f9de9f0eaed70be5944904ce2989cfc08e8de2"
+    "arrival_matrix_sha256": "9282f6b2bf36ff9fd4493038ccf435369939b5ecbaf797f9ab0ff5cbbf724a8b"
   },
   {
     "scenario": "localized_surge",
@@ -3166,7 +3166,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "bfea270e41ce9359019739a46315f76313668c8730df6881a65f4cee95b7d7c8"
+    "arrival_matrix_sha256": "3fe0d1ba0c0757b149a32e53949952ff4dae186211b56fa86b4b2c93f8f61556"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -3193,7 +3193,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "b8cd7e932576836ce6992869e783ddeaa33420f576a234c0e022700e31c49d11"
+    "arrival_matrix_sha256": "a29146e38fc1605d16f2da41e69b069b9ee3cd28c5ff624e6e6e4f1c95a3bb25"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -3220,7 +3220,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "faec467a8a82a82f578c772a020b925a501ea56477bb61264210f87a0b20591d"
+    "arrival_matrix_sha256": "75891d6dabb02e7cdf4bb011cbe23a17fcf346904c07b4e2cad38f70ed47e84f"
   },
   {
     "scenario": "traffic_disruption",
@@ -3247,7 +3247,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e84feea5407aa64e3fe70315bceded74f0b6e279fcf11782226eb1e703b23cc8"
+    "arrival_matrix_sha256": "99ccfc3e34dfcb64bc85a1e1c890e78095596dcfdb4be80917226c45766aceed"
   },
   {
     "scenario": "sensor_failure",
@@ -3274,7 +3274,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e84feea5407aa64e3fe70315bceded74f0b6e279fcf11782226eb1e703b23cc8"
+    "arrival_matrix_sha256": "99ccfc3e34dfcb64bc85a1e1c890e78095596dcfdb4be80917226c45766aceed"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -3301,7 +3301,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e84feea5407aa64e3fe70315bceded74f0b6e279fcf11782226eb1e703b23cc8"
+    "arrival_matrix_sha256": "99ccfc3e34dfcb64bc85a1e1c890e78095596dcfdb4be80917226c45766aceed"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -3347,7 +3347,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d80e7558f0b93e8d3258d4897f175b12d7c00e2978eed0de1892bef250b8a3c4"
+    "arrival_matrix_sha256": "e9ad37833d0a356721eeae9e53958607c71f51ec9c07230095b52366cb7689ec"
   },
   {
     "scenario": "normal_patterned",
@@ -3374,7 +3374,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1d50501fdc3af30a210635e5ff61c8cb78bb814ca2b2db574658a21adec8e460"
+    "arrival_matrix_sha256": "ebbfadc6031160b89d9e82aec376bd53801a411f2bc4fd0c1733fa5ed67804d6"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -3401,7 +3401,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e0c4f0fc2b43e493e35a9d819cd8c4adbd9bf7c34dbbc904e81dd5f350283d4c"
+    "arrival_matrix_sha256": "9077c48ee63148f667f2d0e922fff5d7c5ac449761abe111bb601c47e267ec03"
   },
   {
     "scenario": "event_heavy",
@@ -3428,7 +3428,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1809e449997d8daf5a75eea9f02adea67127f6c3fd9043d862c03ec38fa6b37d"
+    "arrival_matrix_sha256": "49767cb3a16c10c618cbc1b16ef8ecde618be3930b99ae34b2c2781afd5d9694"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -3461,7 +3461,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "7176789a8187a5071d0d44edcc021545fc5385ea99bccb12c5a02c1f21c85998"
+    "arrival_matrix_sha256": "5eaabda3d124842f77a098d149ac4938f9677793a7328645081d92cdd11f5ff1"
   },
   {
     "scenario": "localized_surge",
@@ -3501,7 +3501,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5b580812059bcf10d95e0553314f9c13c03a8b48311dd8e71de7e54a7163a9f5"
+    "arrival_matrix_sha256": "d7b4bd7cc81dee02bb7bb9aff0c28599ee771529db94f763929d48ed094ae45b"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -3528,7 +3528,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d2f8af72bba0a854bfaefc07161f3e963c120065ffe0c886cd298f2de911d09b"
+    "arrival_matrix_sha256": "685f29d53139c1d820a5ea90e9fd9f17c1f02fcf31d42eec4a609048cb13eaba"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -3555,7 +3555,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "99959f55a6c08a0498dc521672b733ce3a6bb2cbf42db605fde213d88e4ef2d1"
+    "arrival_matrix_sha256": "5c7cfdcafce9552c1f9b0480e19a55c3b8143eb429580995239b7eef9e92b061"
   },
   {
     "scenario": "traffic_disruption",
@@ -3582,7 +3582,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1d50501fdc3af30a210635e5ff61c8cb78bb814ca2b2db574658a21adec8e460"
+    "arrival_matrix_sha256": "ebbfadc6031160b89d9e82aec376bd53801a411f2bc4fd0c1733fa5ed67804d6"
   },
   {
     "scenario": "sensor_failure",
@@ -3609,7 +3609,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1d50501fdc3af30a210635e5ff61c8cb78bb814ca2b2db574658a21adec8e460"
+    "arrival_matrix_sha256": "ebbfadc6031160b89d9e82aec376bd53801a411f2bc4fd0c1733fa5ed67804d6"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -3636,7 +3636,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1d50501fdc3af30a210635e5ff61c8cb78bb814ca2b2db574658a21adec8e460"
+    "arrival_matrix_sha256": "ebbfadc6031160b89d9e82aec376bd53801a411f2bc4fd0c1733fa5ed67804d6"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -3682,7 +3682,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0d3d85d54136fca343f8e5f3554a0626ff11cea8a2e8956cf585d74ea5a59a5f"
+    "arrival_matrix_sha256": "2449a869182cbff1b2601f8e4b911eef2fde94a565878efdff100efc732a5c13"
   },
   {
     "scenario": "normal_patterned",
@@ -3709,7 +3709,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "51bfa8c0512c79da99c8cb9a972c6dfbda675ee2721e06080e1e9f0b10a763b6"
+    "arrival_matrix_sha256": "12f9834783fefa203c8180fbe4dda24ac822e65ab21fec32a2ca74567897295a"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -3736,7 +3736,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3cc71a4cffbb0981d43a65022d7338d5979dde968c977a691eda1316e9da4e7f"
+    "arrival_matrix_sha256": "77f5be7433252dc39b70aa9f18d195208792db588a7295dbbf9e113bd8d3ebf9"
   },
   {
     "scenario": "event_heavy",
@@ -3763,7 +3763,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "90d62e6606e49751da811b4f2d340cd0746aec978282173a857ae5853b92f50b"
+    "arrival_matrix_sha256": "c0e413700d0a37676f238a2157f13f0cdffa636e483096fb91bee3f69e12a13c"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -3796,7 +3796,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3ed5554a604d6f09a630b45fa807023c8294874546238b804b5847015c2ea7dd"
+    "arrival_matrix_sha256": "294eb64ca8b5f361b91ce85487ec735ea5d52926db9e2f4b8003a8740bfe078d"
   },
   {
     "scenario": "localized_surge",
@@ -3836,7 +3836,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c56f4e3d47fd1314ca49f28a9bf761a38dd4db8a04b6f0915b0c8f9c17b1bf3d"
+    "arrival_matrix_sha256": "8493453dfdd631eecb8a74c6a4a89d35ec3f6ce96b7404ee979bc3d7446a5dec"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -3863,7 +3863,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "8622a3802d791b76a047b4f32503940efd0bf19999427849615225d4099db95e"
+    "arrival_matrix_sha256": "fcd4de8ae56f0deb294793d17410811798f9ee2b2c3a81f7e40d28a059160b16"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -3890,7 +3890,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3325785ea7212546a2fcf9097c5994c5d0a0fce30704edac05010ae75ebf09cb"
+    "arrival_matrix_sha256": "496f1a41c877636913c38870b567f530f4f2c4fef3fefd25d8bece7203522c1e"
   },
   {
     "scenario": "traffic_disruption",
@@ -3917,7 +3917,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "51bfa8c0512c79da99c8cb9a972c6dfbda675ee2721e06080e1e9f0b10a763b6"
+    "arrival_matrix_sha256": "12f9834783fefa203c8180fbe4dda24ac822e65ab21fec32a2ca74567897295a"
   },
   {
     "scenario": "sensor_failure",
@@ -3944,7 +3944,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "51bfa8c0512c79da99c8cb9a972c6dfbda675ee2721e06080e1e9f0b10a763b6"
+    "arrival_matrix_sha256": "12f9834783fefa203c8180fbe4dda24ac822e65ab21fec32a2ca74567897295a"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -3971,7 +3971,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "51bfa8c0512c79da99c8cb9a972c6dfbda675ee2721e06080e1e9f0b10a763b6"
+    "arrival_matrix_sha256": "12f9834783fefa203c8180fbe4dda24ac822e65ab21fec32a2ca74567897295a"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -4017,7 +4017,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "b33442697921bf8655302af113977467ed1f9f897dcb0182fef651bfea851cf1"
+    "arrival_matrix_sha256": "c19c958fc3633b5da248774d8fb637ab5dbd0c8ebad565d90670c56a6b662f71"
   },
   {
     "scenario": "normal_patterned",
@@ -4044,7 +4044,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "12e890c180da7525fd329624efd61d9f287d6f86eccf1730a9088bfadee4deec"
+    "arrival_matrix_sha256": "41fa7c5465c56c8effbc8915ac4cded1289843445ad06c6feda225e048bd7b8d"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -4071,7 +4071,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e856df18fdac17b59847218c86988e0426aa457a7857b63ff0631551fedf07f4"
+    "arrival_matrix_sha256": "21eee18aa3f0b98d5e107e35bc26ce1425324f12be761c864016e70718d2b343"
   },
   {
     "scenario": "event_heavy",
@@ -4098,7 +4098,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "cab5ca86d4aef5260dc694bb9b402da7b3e8522086523095319e80f4ebb07828"
+    "arrival_matrix_sha256": "b92d9ea17f5ecc2fe943c017b22cb0d29f60096108063ea96d73dfe50e2f278c"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -4131,7 +4131,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "ee7c864a91d6c9c6868766d2f9bc5cf4681f6c46ddd0cf0299b217ef5e3e7efe"
+    "arrival_matrix_sha256": "9f03dd637b789700360817b4480ea7cc9ae45a71860d7eddfc0e4cfb491db915"
   },
   {
     "scenario": "localized_surge",
@@ -4171,7 +4171,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "450e36d547fb145c44c005edebc3e7228ffe134791d8e4e155bcea6bbe8ba2fb"
+    "arrival_matrix_sha256": "67d6fa137a802e110b088949df146e70d20498fafc7f217a67bc4f4b0d9afe00"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -4198,7 +4198,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d74bbbb931330743b58824ae1af7b08dc734e6a481896e9371221e843111c871"
+    "arrival_matrix_sha256": "271fc8456f5ce173fa394be0a80b2c98425fd6aa18f8392def0be8c271f9f152"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -4225,7 +4225,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "9d344a9a471c82588d60254c987c69f20623c840374a90752f682e704e3dbe6c"
+    "arrival_matrix_sha256": "ac5003e4cdcded5b0e5bbd813da58957da80cd48d484e424b7aca82b18866d46"
   },
   {
     "scenario": "traffic_disruption",
@@ -4252,7 +4252,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "12e890c180da7525fd329624efd61d9f287d6f86eccf1730a9088bfadee4deec"
+    "arrival_matrix_sha256": "41fa7c5465c56c8effbc8915ac4cded1289843445ad06c6feda225e048bd7b8d"
   },
   {
     "scenario": "sensor_failure",
@@ -4279,7 +4279,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "12e890c180da7525fd329624efd61d9f287d6f86eccf1730a9088bfadee4deec"
+    "arrival_matrix_sha256": "41fa7c5465c56c8effbc8915ac4cded1289843445ad06c6feda225e048bd7b8d"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -4306,7 +4306,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "12e890c180da7525fd329624efd61d9f287d6f86eccf1730a9088bfadee4deec"
+    "arrival_matrix_sha256": "41fa7c5465c56c8effbc8915ac4cded1289843445ad06c6feda225e048bd7b8d"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -4352,7 +4352,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5350c53c1bd2f734855c7145214d1dc31ba25b6f9062d14b6acd1ef5b9499a1d"
+    "arrival_matrix_sha256": "e6db39f1dc885b88b073faa21f8d8c0006526f2dd5abf0762aefe66ab7a9d2d8"
   },
   {
     "scenario": "normal_patterned",
@@ -4379,7 +4379,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e3d7717ad052d1abffda672b8a128866e844befea8a8d279cee83c9195016391"
+    "arrival_matrix_sha256": "5ef7d4be6477e750e0205c5c4caa618454824698dc6e693088b2a757b8be08f3"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -4406,7 +4406,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "bc8af081798f75f97ed7ca185c9ef698a27903cff0708dc4b1e24ea43219926c"
+    "arrival_matrix_sha256": "391636a2379236a2e5901fb145869cf78d743c44cd99f02afb76c6cf7c1b9a36"
   },
   {
     "scenario": "event_heavy",
@@ -4433,7 +4433,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "678607a1d7b908c7b9fe68746ecfc682ce0494d9872fb0553769704b6b16c9cc"
+    "arrival_matrix_sha256": "85f4e3f23789614541252f6fbfca062687579f0c35e545f4eab5165ed7cd6f52"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -4466,7 +4466,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0020b94ce578f7b4c8cc996d3f3ee7db761d5c063bd5bc4274f26bdb1fc3391e"
+    "arrival_matrix_sha256": "37b31d7be240e50fe36cce9f9758fc4901b01fece2e6f5161d7d426d98dd9d91"
   },
   {
     "scenario": "localized_surge",
@@ -4506,7 +4506,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "edac4ab9b95364e869a2ea5a69097d75690063459d05b5a4ea3a299b296e81e5"
+    "arrival_matrix_sha256": "5442922a275543bb5c1c1b85031c6c57522439b2c9e0fad3bfed65e07ae9c283"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -4533,7 +4533,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1ab772da2277d0c25edfdd0c591628f41db49ca56d667e98910cad384f5ad82f"
+    "arrival_matrix_sha256": "ad8e59ad55156b28d915c6c735faaa5270960730075ee7a1c28ec591394b1604"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -4560,7 +4560,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "305acb5c9564d8ad4fff1954699d35409145e42ed48df5e1498b088f74edfb88"
+    "arrival_matrix_sha256": "192ca3b59f3bb48ec5c3af19e378349b9c8b833e40533f5374a414c3e4eaaa9b"
   },
   {
     "scenario": "traffic_disruption",
@@ -4587,7 +4587,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e3d7717ad052d1abffda672b8a128866e844befea8a8d279cee83c9195016391"
+    "arrival_matrix_sha256": "5ef7d4be6477e750e0205c5c4caa618454824698dc6e693088b2a757b8be08f3"
   },
   {
     "scenario": "sensor_failure",
@@ -4614,7 +4614,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e3d7717ad052d1abffda672b8a128866e844befea8a8d279cee83c9195016391"
+    "arrival_matrix_sha256": "5ef7d4be6477e750e0205c5c4caa618454824698dc6e693088b2a757b8be08f3"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -4641,7 +4641,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e3d7717ad052d1abffda672b8a128866e844befea8a8d279cee83c9195016391"
+    "arrival_matrix_sha256": "5ef7d4be6477e750e0205c5c4caa618454824698dc6e693088b2a757b8be08f3"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -4687,7 +4687,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1e131ac49d0ff51c7bc8b8b597806330965a42e08719376bed4212bca9bb508a"
+    "arrival_matrix_sha256": "0fb0608d8cf474acdedb83690ffd48e72cce7b398af1226be43781fc521c8815"
   },
   {
     "scenario": "normal_patterned",
@@ -4714,7 +4714,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "77a3fb20c813ee4a122dd6330406954391d28bcda72167af7a99a998cf92a010"
+    "arrival_matrix_sha256": "38853fb8373c3c57ee6e9db748d886b300171211026ce24a80597f7d9df6b7fe"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -4741,7 +4741,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "9a57a39b55f096ad4f4db2c2a7564be1712c53136d5337e2fcafbb33e51c3785"
+    "arrival_matrix_sha256": "275dcadcbbf2f20741e268639d5cc9facb5fc23b348f5a41c79789a05bd0a1e8"
   },
   {
     "scenario": "event_heavy",
@@ -4768,7 +4768,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "94ecc23c5f2506f9091f8b89977ef26b6b5a9d62db2754da8119989c23139af4"
+    "arrival_matrix_sha256": "13dccf586cf03fc52b6670df6e064ca5d346d3aa4dca66352a4261a71bc52f40"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -4801,7 +4801,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "95c220ed84e6fff1d505fae3171b453abb3a6eabf97e59ac27a569639a659f9f"
+    "arrival_matrix_sha256": "aa90ccb3e3c1b4634fe368f1ef4e852148902ec645ec9255e03fc066ed8492af"
   },
   {
     "scenario": "localized_surge",
@@ -4841,7 +4841,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "566b639b8e98314eccf0b3b504a28f0962020dc09b264353f17489174b31879f"
+    "arrival_matrix_sha256": "37a02d335500d5e970c1abf0a522ef5537d26ed323355a00af0780272608d167"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -4868,7 +4868,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "03191ca3be6eaa5b6a1cef02ec742fec6863c1774ce6baab75bc7771e5fcc418"
+    "arrival_matrix_sha256": "4999796a418abddca698d30d657d0a511f9e1940a4fee4a6a8d27bb605b0b7bb"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -4895,7 +4895,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c2a95e307fc81288d7107f6f921f088a6f0ace5913e77c65b00c05c3470b4b5f"
+    "arrival_matrix_sha256": "55628da288e5f8ec27b9b647844f362c9de3cf8c49611fc80522fa5a83fb569a"
   },
   {
     "scenario": "traffic_disruption",
@@ -4922,7 +4922,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "77a3fb20c813ee4a122dd6330406954391d28bcda72167af7a99a998cf92a010"
+    "arrival_matrix_sha256": "38853fb8373c3c57ee6e9db748d886b300171211026ce24a80597f7d9df6b7fe"
   },
   {
     "scenario": "sensor_failure",
@@ -4949,7 +4949,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "77a3fb20c813ee4a122dd6330406954391d28bcda72167af7a99a998cf92a010"
+    "arrival_matrix_sha256": "38853fb8373c3c57ee6e9db748d886b300171211026ce24a80597f7d9df6b7fe"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -4976,7 +4976,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "77a3fb20c813ee4a122dd6330406954391d28bcda72167af7a99a998cf92a010"
+    "arrival_matrix_sha256": "38853fb8373c3c57ee6e9db748d886b300171211026ce24a80597f7d9df6b7fe"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -5022,7 +5022,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "7640fdba340d5d44a1100133b425f3a97fec52711b0476abb003515705d8a898"
+    "arrival_matrix_sha256": "be0f0060e52560354a58353a8030b02bfcebbe5936cfbca26c5ae740a499a3dc"
   },
   {
     "scenario": "normal_patterned",
@@ -5049,7 +5049,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "31bbfd3e6bfbc1012ae367b932f8c902e9293e137923d6645547427bb81c3e4c"
+    "arrival_matrix_sha256": "50ceef073657d626926d90c615000dcc7270d7c5b9a06214bbe4e8e7a4ed988e"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -5076,7 +5076,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "6f596ded0b31d09a2bc14177a54e36f1d541fa0087ee7655aab4b1f6383ed4a0"
+    "arrival_matrix_sha256": "216683c4ae240c31b2bf8ab13b21e4e45cb2f16391f993e722e09108a2dd012e"
   },
   {
     "scenario": "event_heavy",
@@ -5103,7 +5103,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "345252289cb9ee68b7bdd2bfa682fffddaa945e8d44fc4e6236c75b45a1a4d34"
+    "arrival_matrix_sha256": "e3c0d738a8aa17831f6820ffb755f58d72ed1e8a5dc5cf29a6bdc26c89596958"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -5136,7 +5136,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5779c41b5a8009d16960326dce2ba66cefc9f0ea47a2980204246786e8c68f0e"
+    "arrival_matrix_sha256": "0cb984c641c501f98147a6ad2c9037b5002d897ff305816c1c26eaa27e117a63"
   },
   {
     "scenario": "localized_surge",
@@ -5176,7 +5176,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "a021209b943231d5909fa9ab6f48fe2be88a48438dd6506258e9140b6afb74c8"
+    "arrival_matrix_sha256": "14423e95050887f4ad01ae5ac85b69de8390d5a923a897b86732cadf82dbb2bc"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -5203,7 +5203,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d17c18676612ee584e121f97d5f1ab1ea07135c7950a1fd0d6864a17062a037f"
+    "arrival_matrix_sha256": "ea300f5211b0005e36d49268a80810ab28a584afb6a79e0552f20b437bcb4377"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -5230,7 +5230,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "fc3b0324f0bc33a7e1cc7da2c34d2cfa23a565a0e17b3188e2f91af7bc48b413"
+    "arrival_matrix_sha256": "0d117cfb32ee60bc6ac140d5d2f65ea12dab26238a99d8d7091435a3b3693740"
   },
   {
     "scenario": "traffic_disruption",
@@ -5257,7 +5257,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "31bbfd3e6bfbc1012ae367b932f8c902e9293e137923d6645547427bb81c3e4c"
+    "arrival_matrix_sha256": "50ceef073657d626926d90c615000dcc7270d7c5b9a06214bbe4e8e7a4ed988e"
   },
   {
     "scenario": "sensor_failure",
@@ -5284,7 +5284,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "31bbfd3e6bfbc1012ae367b932f8c902e9293e137923d6645547427bb81c3e4c"
+    "arrival_matrix_sha256": "50ceef073657d626926d90c615000dcc7270d7c5b9a06214bbe4e8e7a4ed988e"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -5311,7 +5311,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "31bbfd3e6bfbc1012ae367b932f8c902e9293e137923d6645547427bb81c3e4c"
+    "arrival_matrix_sha256": "50ceef073657d626926d90c615000dcc7270d7c5b9a06214bbe4e8e7a4ed988e"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -5357,7 +5357,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "a01e4e3e81828c55b4662414eb217958a8228ec78c8835caff51def2a9a5128c"
+    "arrival_matrix_sha256": "8ab3595487d897060a90cc57423a881231d2a53ca5b558d9f71796033cf9f0ce"
   },
   {
     "scenario": "normal_patterned",
@@ -5384,7 +5384,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3be2c45fcadc5e2de1af2d826907b12c76c998faac1d5b7782351692320a45cd"
+    "arrival_matrix_sha256": "145aded30ed7e491ce61e190744bcb3d17dd69c310b6cb1a54882e1587383376"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -5411,7 +5411,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "42c51398623923d0627196d5367d36a0e6657becf5d5991c692546fbd624554b"
+    "arrival_matrix_sha256": "cfa8b7e84d88edc0f18cf2bec4fd220177e67b55b8b5cf18c955e0a3868b657d"
   },
   {
     "scenario": "event_heavy",
@@ -5438,7 +5438,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "a40933d6de0a5e744a394c85480d07bee5bd31ead7446d20d93039007f945079"
+    "arrival_matrix_sha256": "ded995f2f353931921e1c885a3b8837fc65d119323635c26dfe46f714ff2af96"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -5471,7 +5471,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "39ae23a46c0c03c9df3050155ee35df1b1e3ba7bcac8b9ff3256e12a9c0c25bb"
+    "arrival_matrix_sha256": "3ab2917eb59f07e0cca07e881750964595711dc81290b41b310719e62b0ee7f9"
   },
   {
     "scenario": "localized_surge",
@@ -5511,7 +5511,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "66bd4b9148f0a6a662c0c772fbe7a761568102e265b8ecd4668e12366b77053e"
+    "arrival_matrix_sha256": "4cfe9beac3dd429d971b1f08edb2b4735bfd6ab4a8a418bee2ffb8bb8ec15307"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -5538,7 +5538,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c1f7b1bc1245a2888167e102c3ed60cc1adbace986f28b7820607eeaef9387e6"
+    "arrival_matrix_sha256": "f900de729f3cd222e99f76ba92d64eba12dd69f7f3dfb8862f11c87e67523a7a"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -5565,7 +5565,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3a6c9fbdb47d60a30d553ce5f70a32fb4b52d8b5cca43d08cb091b1a449d18fc"
+    "arrival_matrix_sha256": "deb809ef3505f4817a8bfb1018e381e18a477dc2f177483035dc19b637778474"
   },
   {
     "scenario": "traffic_disruption",
@@ -5592,7 +5592,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3be2c45fcadc5e2de1af2d826907b12c76c998faac1d5b7782351692320a45cd"
+    "arrival_matrix_sha256": "145aded30ed7e491ce61e190744bcb3d17dd69c310b6cb1a54882e1587383376"
   },
   {
     "scenario": "sensor_failure",
@@ -5619,7 +5619,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3be2c45fcadc5e2de1af2d826907b12c76c998faac1d5b7782351692320a45cd"
+    "arrival_matrix_sha256": "145aded30ed7e491ce61e190744bcb3d17dd69c310b6cb1a54882e1587383376"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -5646,7 +5646,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3be2c45fcadc5e2de1af2d826907b12c76c998faac1d5b7782351692320a45cd"
+    "arrival_matrix_sha256": "145aded30ed7e491ce61e190744bcb3d17dd69c310b6cb1a54882e1587383376"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -5692,7 +5692,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "4b5174426f1a501e33f0779a22e2933cfeb5da309ca803ebec6649fcebcea516"
+    "arrival_matrix_sha256": "c586a54913f2795c075d1e52dce2c7377a9a125b36c3371fdb3edf4797b05ecd"
   },
   {
     "scenario": "normal_patterned",
@@ -5719,7 +5719,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f896d6dc008b96925151793f04b96882d622ee9d8ebc07c7776ae145ba63d1fd"
+    "arrival_matrix_sha256": "cd3448406b2d10a3a472716a04a4fdd1cdcb87d8f1eef9c37152720a9ec40eae"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -5746,7 +5746,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "a0601d82fef40b66948a438c1e529049de9262db0b40bf955d615c87a4c3d50c"
+    "arrival_matrix_sha256": "20cf7ca6843e14f6cf3881ba11ab9c1a2ebac241cb0519cf2d7a3f21f00803b0"
   },
   {
     "scenario": "event_heavy",
@@ -5773,7 +5773,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "64f440d9dffec71801d2dbe00f2a1e97c05e2d0361a12eae723b76879d1862b2"
+    "arrival_matrix_sha256": "4a59f31e6b7cc20d1d21deb29ec0f489cbba7dc5a3508b08c154ff35d838101e"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -5806,7 +5806,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "dfe6d73aa85c9e8222a543d47890c8b264aac6672b4588dabecdba000ff2c6ba"
+    "arrival_matrix_sha256": "6b1d5edbc5408d8027eb03c62051d5ec38c8f0eafe43077b098f257bc0e31b6f"
   },
   {
     "scenario": "localized_surge",
@@ -5846,7 +5846,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3a77a1fc0f3d88304ca4a1db8dac225c5f5449aa8c9fff8fd87f35bdc065911f"
+    "arrival_matrix_sha256": "bb90db98edad1d621315d9fd04d3d4ac5047425f6bf8010ccf8c9dffe9a8bfdc"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -5873,7 +5873,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "31d0415e93f5c31517cd5dd7dd6626d1fa59a3513fe5801323d7f8204d799ad9"
+    "arrival_matrix_sha256": "7fb400f5cbc153d1e16deca261e06887ebb7df1a6edba6e92d59113958b36ce1"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -5900,7 +5900,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0be3065c6041f4d625638c0162354add4126fa68f1f19e72f5e997295be35195"
+    "arrival_matrix_sha256": "640017cfa97af5e6e0e7839a0c84435ec1238251c4fe935a22a40525239e0087"
   },
   {
     "scenario": "traffic_disruption",
@@ -5927,7 +5927,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f896d6dc008b96925151793f04b96882d622ee9d8ebc07c7776ae145ba63d1fd"
+    "arrival_matrix_sha256": "cd3448406b2d10a3a472716a04a4fdd1cdcb87d8f1eef9c37152720a9ec40eae"
   },
   {
     "scenario": "sensor_failure",
@@ -5954,7 +5954,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f896d6dc008b96925151793f04b96882d622ee9d8ebc07c7776ae145ba63d1fd"
+    "arrival_matrix_sha256": "cd3448406b2d10a3a472716a04a4fdd1cdcb87d8f1eef9c37152720a9ec40eae"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -5981,7 +5981,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f896d6dc008b96925151793f04b96882d622ee9d8ebc07c7776ae145ba63d1fd"
+    "arrival_matrix_sha256": "cd3448406b2d10a3a472716a04a4fdd1cdcb87d8f1eef9c37152720a9ec40eae"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -6027,7 +6027,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "fc0f13d5580f3368e76aeff12e67363212ae32cdab0686890c4af821da900ea8"
+    "arrival_matrix_sha256": "030f92b23089ef38c31d1e23bc27483a0e2f17d96f704449d1efe89450d4c15a"
   },
   {
     "scenario": "normal_patterned",
@@ -6054,7 +6054,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d85951200c75f645d3b7fca1f02caf73e7b438bc094c084838000382bb79ca85"
+    "arrival_matrix_sha256": "4cd9aba0977a1e2106bb52a2409c09b748e6e441dc168d83909bdbf3d84b845c"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -6081,7 +6081,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e055edb3dadaa5aa589a3ff0b6a3e5fd598620c91edeb9652d2df7944b0ca55f"
+    "arrival_matrix_sha256": "98fcc99a82aece36781d8bbe5ab15cc04a6e2a0752865656c6bbb4bb5ea2bc5c"
   },
   {
     "scenario": "event_heavy",
@@ -6108,7 +6108,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "a97bcc3730dd3e6c748087a2f594664fc6fdf215ad69fa3aaddd5319c563adeb"
+    "arrival_matrix_sha256": "8cf621978cc98bef09bf3c3cc330a65829b1142b0042aa34ebcee251d92e4566"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -6141,7 +6141,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "711aa9934f8cf259b75e1f8ea6dbce1e60f83dc3834244048f37932241e4ad03"
+    "arrival_matrix_sha256": "2c9220bf31d83808b66476076d6f9381cde5a60190964c4e2960818284eda406"
   },
   {
     "scenario": "localized_surge",
@@ -6181,7 +6181,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "90603161a4028ffb073fbfb034d165250848e0055c1f6e25bf24fdea8d388d1a"
+    "arrival_matrix_sha256": "c7756e5340cb162af320da29476a4a5c29b55fc2949dd8aa2b2180e11699146b"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -6208,7 +6208,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e27ae49f9637ac79f71b6b97342ada14b998ab6e6f1f575912c931d46a6dc84c"
+    "arrival_matrix_sha256": "eb9e4bcf361831d0cbcb281a9be58ecfc6ce11fbce209f825e1b147ba69dc4b0"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -6235,7 +6235,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e2d438cec56a4b5891102c71e71153edc52500683f9846fa6f69676df14a0b63"
+    "arrival_matrix_sha256": "dbf0dfe5ee4fa1082b6ec44cbd5a02e7a2c176234764b12119f04ce237d08561"
   },
   {
     "scenario": "traffic_disruption",
@@ -6262,7 +6262,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d85951200c75f645d3b7fca1f02caf73e7b438bc094c084838000382bb79ca85"
+    "arrival_matrix_sha256": "4cd9aba0977a1e2106bb52a2409c09b748e6e441dc168d83909bdbf3d84b845c"
   },
   {
     "scenario": "sensor_failure",
@@ -6289,7 +6289,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d85951200c75f645d3b7fca1f02caf73e7b438bc094c084838000382bb79ca85"
+    "arrival_matrix_sha256": "4cd9aba0977a1e2106bb52a2409c09b748e6e441dc168d83909bdbf3d84b845c"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -6316,7 +6316,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d85951200c75f645d3b7fca1f02caf73e7b438bc094c084838000382bb79ca85"
+    "arrival_matrix_sha256": "4cd9aba0977a1e2106bb52a2409c09b748e6e441dc168d83909bdbf3d84b845c"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -6362,7 +6362,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "108003dcdaef18c85b74816075e3b1a1442421153fd76faf07cdcb2dde63ff55"
+    "arrival_matrix_sha256": "3162dfb12a1a1f01e4a2bd59dc6699849c717573b92a74c0c5043fef702d6d73"
   },
   {
     "scenario": "normal_patterned",
@@ -6389,7 +6389,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "79aee9d3c0d4db6608c9e8b6a13ed631a5865dba5501d0525657785e6d76e7f6"
+    "arrival_matrix_sha256": "ede750a193c2b3de57e52819e4e43b1e77d72cbe10dd1aad51adc0ece937b1a9"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -6416,7 +6416,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f030a4b9354f9ed75997434b1ad8c31d56223615f34f4fe3e0965bda31cb1834"
+    "arrival_matrix_sha256": "2bffa6f4df9a72cc6aa559c2f725f665b6c60cef37771113889eeec29c799671"
   },
   {
     "scenario": "event_heavy",
@@ -6443,7 +6443,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "b994f76bcf62477871354d0717f1e9ba9e1a18d629cd41313e43221a046fefcd"
+    "arrival_matrix_sha256": "99c25620b44c288a500b454604cc4b74f2511c23505f0abd251f0f3786c2ec7e"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -6476,7 +6476,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "71df627fae0341d1dcac330cf2f560f1a8daadfe7c5a85cd197019f7d0e7e38b"
+    "arrival_matrix_sha256": "4270879d49fa42b4b83c995897e9881b95ea26f4aaf29340e17997ee009a2d25"
   },
   {
     "scenario": "localized_surge",
@@ -6516,7 +6516,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "273d66057f691ff3598f30734a4ee0fd9a0a7d4a6aad40f1f2664b635eb7671a"
+    "arrival_matrix_sha256": "441b7b1a7c5d956ef12f3403f3a380da9aae153ee6ad32e1ce0c4c30fb6ae13a"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -6543,7 +6543,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "6f39d5da6857aaa82571cecc17e32fd17d084dafb02e86fdd1276a5579ce5bce"
+    "arrival_matrix_sha256": "72cad04a4132635ea3f37c12bd88f12633d22dfa4c5dbd121bcbf84f48768c44"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -6570,7 +6570,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0cb3108b5ff405bfa757967ead49d55578ced3b7d50e63285d84499f8e8d7fed"
+    "arrival_matrix_sha256": "25c8ad5bb926a78616ca661ccb459600ff6af3649aa04dd226d83a2b9f91993b"
   },
   {
     "scenario": "traffic_disruption",
@@ -6597,7 +6597,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "79aee9d3c0d4db6608c9e8b6a13ed631a5865dba5501d0525657785e6d76e7f6"
+    "arrival_matrix_sha256": "ede750a193c2b3de57e52819e4e43b1e77d72cbe10dd1aad51adc0ece937b1a9"
   },
   {
     "scenario": "sensor_failure",
@@ -6624,7 +6624,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "79aee9d3c0d4db6608c9e8b6a13ed631a5865dba5501d0525657785e6d76e7f6"
+    "arrival_matrix_sha256": "ede750a193c2b3de57e52819e4e43b1e77d72cbe10dd1aad51adc0ece937b1a9"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -6651,7 +6651,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "79aee9d3c0d4db6608c9e8b6a13ed631a5865dba5501d0525657785e6d76e7f6"
+    "arrival_matrix_sha256": "ede750a193c2b3de57e52819e4e43b1e77d72cbe10dd1aad51adc0ece937b1a9"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -6697,7 +6697,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "785ad093fbd9c9d59ce1246be2801e23265328ff4f31f8cdb3860c1fc7cec645"
+    "arrival_matrix_sha256": "24f514c892534c07eb9090c631d365ff843107b3ded59620e5dfe84691a2cfd3"
   },
   {
     "scenario": "normal_patterned",
@@ -6724,7 +6724,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "045f6c56b065e4776f20c30353b578adb11f7c62589a01b27b5a31d418108a65"
+    "arrival_matrix_sha256": "30cd120958abc9872eba0012b2bc8c6230882a0a64adb21c2924c3f67f328fb3"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -6751,7 +6751,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "7f59c07efbc52fc93f34871b3eea7d2d8303e736641ce233f1548d1d026475d4"
+    "arrival_matrix_sha256": "4a5c3ca7982d9b6d764efe9d79a4c7b185ee646a52e7715d8014f451881da27a"
   },
   {
     "scenario": "event_heavy",
@@ -6778,7 +6778,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "eaf91b89320a017de2a1f723a0d7fa7a8c56f95f65482a00ebe26293ae1fbd38"
+    "arrival_matrix_sha256": "a10b56dbedb2b2ae8dca32f0916fd2d987633e62b7ce892c2603b8329a930493"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -6811,7 +6811,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "8cbc4fcb352b589db3a5c77760be1fcb3fd5cfc85b7e0c33b28508e1b65cc03e"
+    "arrival_matrix_sha256": "b3552710f4e15b7d1862821ee9ffb9883291a3eadb5ac16b0d01320ee69aedf3"
   },
   {
     "scenario": "localized_surge",
@@ -6851,7 +6851,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "fa5803dd4e97cc6ce00d11ce52d25b6982c206748517758761e9d152f460e9b0"
+    "arrival_matrix_sha256": "d0193e8eb1101c57160f3487748405fc73db8c8b16b410b7d9ec37e660a6f1b5"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -6878,7 +6878,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "131a89fc5eb15debb34c21eeeacc5b2057bb44287bcfd9624dfcdbc35c3e8869"
+    "arrival_matrix_sha256": "38bbc6aa5320c4a6c2b02e4fd2bd179330ce75efef41c37ae7b1bd6b5f1f8c39"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -6905,7 +6905,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "a02c1c467e7ae02e09aff7582916d5f2ed9d28cdc0465c62f1955c644c45e6ce"
+    "arrival_matrix_sha256": "d89e163004e8f2ebc122d2a7b58cc7b8b98a8241d80f74745da60ae71aba24af"
   },
   {
     "scenario": "traffic_disruption",
@@ -6932,7 +6932,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "045f6c56b065e4776f20c30353b578adb11f7c62589a01b27b5a31d418108a65"
+    "arrival_matrix_sha256": "30cd120958abc9872eba0012b2bc8c6230882a0a64adb21c2924c3f67f328fb3"
   },
   {
     "scenario": "sensor_failure",
@@ -6959,7 +6959,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "045f6c56b065e4776f20c30353b578adb11f7c62589a01b27b5a31d418108a65"
+    "arrival_matrix_sha256": "30cd120958abc9872eba0012b2bc8c6230882a0a64adb21c2924c3f67f328fb3"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -6986,7 +6986,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "045f6c56b065e4776f20c30353b578adb11f7c62589a01b27b5a31d418108a65"
+    "arrival_matrix_sha256": "30cd120958abc9872eba0012b2bc8c6230882a0a64adb21c2924c3f67f328fb3"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -7032,7 +7032,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "013f782a8bb1fac02f3b317e0f24afb6b1b58d33afebebd3b7af70f8db8dbe52"
+    "arrival_matrix_sha256": "f8778ef496d17d4f43bcbbc76ce91c01107523a1bf098fbc39cb6e510385ce8c"
   },
   {
     "scenario": "normal_patterned",
@@ -7059,7 +7059,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "068ddfc054a6076801b469d8eb63825d37f1d1736e7e3b2418ba10701a0863af"
+    "arrival_matrix_sha256": "977cea7c1fcd02b36fc90c68339ea3225037d7197cdb96765ced1fdf94e4ecef"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -7086,7 +7086,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f2703b9a6a86631d62443ab409643d5c2328a89fd647359aa1365645a9576498"
+    "arrival_matrix_sha256": "0ae876af5d1182051bdff2ac07900417a19c45a293742bb74a43eb1733de40db"
   },
   {
     "scenario": "event_heavy",
@@ -7113,7 +7113,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "36e04fb9685c9e571c6fb45aecceeb560c0ea3f46f032ea4a3ed6139367795c2"
+    "arrival_matrix_sha256": "b5b93609918fe2df848609b3b0ebbab2acb72a03e79d5ea48df51060ac3ef8c9"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -7146,7 +7146,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "01799960c6f02ec802ab9fbc3579a3c6aef3ba6b9b7a1809f98823cc7bc4b262"
+    "arrival_matrix_sha256": "1e62f532d2e8d4c23739a386d13198a8cd0f1274abf00cb5fc70feb92c1e5f8a"
   },
   {
     "scenario": "localized_surge",
@@ -7186,7 +7186,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "df19db3d57bf5f8cbf34186552e32ff8bd7604c93e125d4e7b8e3f108536efc7"
+    "arrival_matrix_sha256": "a77bff206d4e039e833df8b9d671935166cb90fd52b5d9cdf2fce18861771e31"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -7213,7 +7213,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "3a9266c1c98cd7f6be2ca779edc1e1ff8e0053dc7dceab36bcfeac5889c2a9f5"
+    "arrival_matrix_sha256": "0a4b8e4185b54809cbc4f665c7462ae2ad40a78e782c093f7f882ea95a71ff87"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -7240,7 +7240,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "4e2dcbd8b3d48d2d2254b39620a37da7c64afff2824ec2539ebc81993086d9c0"
+    "arrival_matrix_sha256": "aac3c33fb981d084c69b22d613a7d947a3857228fe9548b4e18a2fe7853ccd4f"
   },
   {
     "scenario": "traffic_disruption",
@@ -7267,7 +7267,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "068ddfc054a6076801b469d8eb63825d37f1d1736e7e3b2418ba10701a0863af"
+    "arrival_matrix_sha256": "977cea7c1fcd02b36fc90c68339ea3225037d7197cdb96765ced1fdf94e4ecef"
   },
   {
     "scenario": "sensor_failure",
@@ -7294,7 +7294,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "068ddfc054a6076801b469d8eb63825d37f1d1736e7e3b2418ba10701a0863af"
+    "arrival_matrix_sha256": "977cea7c1fcd02b36fc90c68339ea3225037d7197cdb96765ced1fdf94e4ecef"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -7321,7 +7321,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "068ddfc054a6076801b469d8eb63825d37f1d1736e7e3b2418ba10701a0863af"
+    "arrival_matrix_sha256": "977cea7c1fcd02b36fc90c68339ea3225037d7197cdb96765ced1fdf94e4ecef"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -7367,7 +7367,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "dbdc6ac1b1339f15d8dea72611ff7f657fd91cfd7fa1246ac9a5f05649c50cbc"
+    "arrival_matrix_sha256": "6d758d0365032b9f243978e175e48d3edca23b725b1a17857d1f4d6087a08814"
   },
   {
     "scenario": "normal_patterned",
@@ -7394,7 +7394,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d3ec157502a7eade87195d6ddc866e58c9a7476087a9b9ec7cb1a96b93053762"
+    "arrival_matrix_sha256": "d550084cd66dd080af614d37f208a5ee0935e136a58da8eeec18059c6f797412"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -7421,7 +7421,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d283802d89bb0de70c4a5a2ac7e7436e7e680c04858422a68f00706cd0b321a5"
+    "arrival_matrix_sha256": "0f4e29ab5ef9a49393a59a98d8a2af60c405022a088605d6c39c70d18214f613"
   },
   {
     "scenario": "event_heavy",
@@ -7448,7 +7448,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5f562d55bfd3420b314d6769cb6a7f3bc75a80b6ab393ecb39519354da1755e9"
+    "arrival_matrix_sha256": "6c2e7f1400851bfc1d140a7ef07f9b32ad457a052d96e0f4b5cb544e1424f0f5"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -7481,7 +7481,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f93e7865752d5602b78f3b3772d27dbaf023148385538822821921d2488a789e"
+    "arrival_matrix_sha256": "15a34faa488d47cc4dbd90194e24c2d6a28061fbd75f31d8435e902de422dac2"
   },
   {
     "scenario": "localized_surge",
@@ -7521,7 +7521,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "7e55fcd914258aa01049b1b891085dec7756999971af173a178f9302a97039da"
+    "arrival_matrix_sha256": "1f5c89bbee7c10400619cd15fb7d691945493b8ed64171385341c65d799d7a27"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -7548,7 +7548,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "048ca219c05f31b9e55e0b4675feea1ca220fb3c3f35e127eb71b62ea1997e49"
+    "arrival_matrix_sha256": "9831b9a647adc62747772f04c136d8b63e33e2125a1bbddc255a5b8e05749e9c"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -7575,7 +7575,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "7ea1b9687113e87006b0a164168082e34da1fb8493cf7ef2b6116be0751aad78"
+    "arrival_matrix_sha256": "6d8e61992febcdaa6f55e1e504db7c8cce0616b1993c9818d9f25a7b445771df"
   },
   {
     "scenario": "traffic_disruption",
@@ -7602,7 +7602,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d3ec157502a7eade87195d6ddc866e58c9a7476087a9b9ec7cb1a96b93053762"
+    "arrival_matrix_sha256": "d550084cd66dd080af614d37f208a5ee0935e136a58da8eeec18059c6f797412"
   },
   {
     "scenario": "sensor_failure",
@@ -7629,7 +7629,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d3ec157502a7eade87195d6ddc866e58c9a7476087a9b9ec7cb1a96b93053762"
+    "arrival_matrix_sha256": "d550084cd66dd080af614d37f208a5ee0935e136a58da8eeec18059c6f797412"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -7656,7 +7656,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "d3ec157502a7eade87195d6ddc866e58c9a7476087a9b9ec7cb1a96b93053762"
+    "arrival_matrix_sha256": "d550084cd66dd080af614d37f208a5ee0935e136a58da8eeec18059c6f797412"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -7702,7 +7702,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "08ad0cf5ebcd37a08fd257076733c64dc252078aadf1f5c7d3f46fe78d5b4af9"
+    "arrival_matrix_sha256": "d883d63b87a0a282f009493dc8f98a939efb78c69e3282d7955186f6c817c55b"
   },
   {
     "scenario": "normal_patterned",
@@ -7729,7 +7729,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "9a4343c48fd38f42304438200d339f2da9fb8563ca81115e90db92023f4cd76e"
+    "arrival_matrix_sha256": "4202512f0d1499a71ab60bd96fba26072cff2e8f5b6682450cb75ac389d9e44c"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -7756,7 +7756,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5ac86ab6d6cce209c24558f5d560a72094f3eb165bdd0086f67a3157730172b0"
+    "arrival_matrix_sha256": "7ec3fbf5978788a0aea9e70a220e0a77b89c6ab2ea783d344008c8186233eb05"
   },
   {
     "scenario": "event_heavy",
@@ -7783,7 +7783,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "66019f00c8dbee1e5bf3fa099c390c3ab4f4bd0dba26ee603a0331c2b43a97d3"
+    "arrival_matrix_sha256": "b2b55f6f2f9a0862fa64911948b299c45535746ad279cecc849a6d79cfd013b7"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -7816,7 +7816,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e7081c39825deeedfa5b06a92c15f2c1eaa3ca342aae9c0f9a28f6d8961ba8b3"
+    "arrival_matrix_sha256": "57397ace97eab9639c1e3c204ece41784e29da86da09fc227f1e288c3f74a046"
   },
   {
     "scenario": "localized_surge",
@@ -7856,7 +7856,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "c95d6ea98b4ac2519f9aa5b1e149d51673317d05f0f510230e759ca5f8142511"
+    "arrival_matrix_sha256": "05ada444348624e64aa1f78c827a3c311198b3de141cdff4710a749691e67bf2"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -7883,7 +7883,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "58633a7122326f1f57022b4d65f0e6a93c7657478f8677c2d4580826d4bf9130"
+    "arrival_matrix_sha256": "29fd5219ab7de196d3fc53b738f57c0f7cecd8973519249ccdf3e4233e7b14b0"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -7910,7 +7910,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "eaa0d3c5b7cac6b40fef932e4b6aa2e7a82d4e299ba8095368f5bc7431b9a34a"
+    "arrival_matrix_sha256": "de7fb4094f8a794feabc7a923ad95026d8bdab26189655ee1d155d7dccd2e567"
   },
   {
     "scenario": "traffic_disruption",
@@ -7937,7 +7937,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "9a4343c48fd38f42304438200d339f2da9fb8563ca81115e90db92023f4cd76e"
+    "arrival_matrix_sha256": "4202512f0d1499a71ab60bd96fba26072cff2e8f5b6682450cb75ac389d9e44c"
   },
   {
     "scenario": "sensor_failure",
@@ -7964,7 +7964,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "9a4343c48fd38f42304438200d339f2da9fb8563ca81115e90db92023f4cd76e"
+    "arrival_matrix_sha256": "4202512f0d1499a71ab60bd96fba26072cff2e8f5b6682450cb75ac389d9e44c"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -7991,7 +7991,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "9a4343c48fd38f42304438200d339f2da9fb8563ca81115e90db92023f4cd76e"
+    "arrival_matrix_sha256": "4202512f0d1499a71ab60bd96fba26072cff2e8f5b6682450cb75ac389d9e44c"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -8037,7 +8037,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f99f1f01dd87e800a67dab912f09f632eed660ae703d211fd3dd5911d58ee9b1"
+    "arrival_matrix_sha256": "5ed75d7c2052bf4e7d81ebae94bc1cad8a6c4d910c9c6b9ddbd6a70150124451"
   },
   {
     "scenario": "normal_patterned",
@@ -8064,7 +8064,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "736d05d180301fa432c08b386a99f30f4539593f56dad9f29e57119d59710e27"
+    "arrival_matrix_sha256": "65846a413f97f682ef7d4affa6c5ab9e597f406827414535d2f9a777d6809425"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -8091,7 +8091,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "24d1ec84310754a51e7870378952281112ac2beb1c6f014eaf617c444b72f7a5"
+    "arrival_matrix_sha256": "f3f38e701a579f5e4fc022cd2d033bf4ea8ca2e99211191f4d168e5f01d6339d"
   },
   {
     "scenario": "event_heavy",
@@ -8118,7 +8118,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e9e2c321fd0c3e95f739e64b23df686a819444da26d066cc6b015e102b3e7811"
+    "arrival_matrix_sha256": "97201cfbdb3815c6ca5bc8a5102de00015c1897e838aa570f90b28ac4cc99a3f"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -8151,7 +8151,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "377051128043f3f446a30c34ee8b6eb890d4479eb98a0b010bc7953a9a2579bf"
+    "arrival_matrix_sha256": "eef6ffd035629cbeb86fde3b18c94c6b1d0074a221186077be63a541f03f4ad0"
   },
   {
     "scenario": "localized_surge",
@@ -8191,7 +8191,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "2e13161a08077b724f207280a9db61f4c06bf7937f34f554f5448200f92bd3bb"
+    "arrival_matrix_sha256": "50ff6ee77931dabc4a72289e2fab4addb0801f6c15a6f2f01f46afdec6334438"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -8218,7 +8218,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "dc31c91cd918a045728356ae7d768bab37db42954959bbb94444d2168c5af200"
+    "arrival_matrix_sha256": "8cd75c9674421e90cb31f23c83ba42d22dff895846e8fdcaf840462d67da7597"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -8245,7 +8245,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f115c71d88187fa77ec5c7357f54ca8683caed66f475592eb551b72b5e071ff7"
+    "arrival_matrix_sha256": "7f86ac3f86f36dc83ae7934d02d0b12477b825618c6a860c71f9dd41cc133a19"
   },
   {
     "scenario": "traffic_disruption",
@@ -8272,7 +8272,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "736d05d180301fa432c08b386a99f30f4539593f56dad9f29e57119d59710e27"
+    "arrival_matrix_sha256": "65846a413f97f682ef7d4affa6c5ab9e597f406827414535d2f9a777d6809425"
   },
   {
     "scenario": "sensor_failure",
@@ -8299,7 +8299,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "736d05d180301fa432c08b386a99f30f4539593f56dad9f29e57119d59710e27"
+    "arrival_matrix_sha256": "65846a413f97f682ef7d4affa6c5ab9e597f406827414535d2f9a777d6809425"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -8326,7 +8326,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "736d05d180301fa432c08b386a99f30f4539593f56dad9f29e57119d59710e27"
+    "arrival_matrix_sha256": "65846a413f97f682ef7d4affa6c5ab9e597f406827414535d2f9a777d6809425"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -8372,7 +8372,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "b66c88ddc56e9fc2cd04db87b73fa37f35bf504acce3ab206113ea93eddb1960"
+    "arrival_matrix_sha256": "deb7f32835785246dee6a5bc163562eaf034eb2f911e66c7f083cd7eff0dfb84"
   },
   {
     "scenario": "normal_patterned",
@@ -8399,7 +8399,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "95c0bdbe52815a975e69c0655831d3bc12043661b21fafee25876c28f13dd026"
+    "arrival_matrix_sha256": "f97ac3c96dc793fac79d556eb70f2f8fe3394a913bbbcff9cf8df8a3be05c09f"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -8426,7 +8426,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "980874549b3317f04bf6a61a30a3ee724e9e868566f1201f437aeae577b64b9b"
+    "arrival_matrix_sha256": "8d6b6b02f57233e59e170de342f4ac98a7c2130eeec3f090cee101c7da427e26"
   },
   {
     "scenario": "event_heavy",
@@ -8453,7 +8453,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "7222957d860057ff7b9cee035355a77e8dcb2126948c68d8a997440105e4580e"
+    "arrival_matrix_sha256": "857e005a15bbdf3c8f499a92cf80638494c01c2541056b148711b270f2eec985"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -8486,7 +8486,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "63e5681f9ce675b942d2a104cac914b45a85836cfef3fc7dc1b8f4e2564bc5a3"
+    "arrival_matrix_sha256": "fe55569e913c2c6a6df42333a8522a7fada44a1acfde3de84e9075317850e93d"
   },
   {
     "scenario": "localized_surge",
@@ -8526,7 +8526,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "e4d6c5529e85f6a25849c56500453b24f1d861fccf201fe3396ce56abd1c8312"
+    "arrival_matrix_sha256": "140eb43660bc4ff981994302afb9473f965a385390942c24041c41099e7e40c4"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -8553,7 +8553,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5a7cb39c41f8e627a725b98d5dedff4c28f0436f1c67f5fd3f72fd12de9b0f08"
+    "arrival_matrix_sha256": "e1f5015da40e5962d0d771a474a9c6aaf3bfcef5e0304003580b69ca922668a1"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -8580,7 +8580,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f21552c88b0c65bca0215a9bba15dc09868ab182ebc73efbf1e0f9e916c1e5b1"
+    "arrival_matrix_sha256": "6b709e3aa2357c01f4bd2d03b5c3178a2651a061e34e6fe69c38088805181c92"
   },
   {
     "scenario": "traffic_disruption",
@@ -8607,7 +8607,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "95c0bdbe52815a975e69c0655831d3bc12043661b21fafee25876c28f13dd026"
+    "arrival_matrix_sha256": "f97ac3c96dc793fac79d556eb70f2f8fe3394a913bbbcff9cf8df8a3be05c09f"
   },
   {
     "scenario": "sensor_failure",
@@ -8634,7 +8634,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "95c0bdbe52815a975e69c0655831d3bc12043661b21fafee25876c28f13dd026"
+    "arrival_matrix_sha256": "f97ac3c96dc793fac79d556eb70f2f8fe3394a913bbbcff9cf8df8a3be05c09f"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -8661,7 +8661,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "95c0bdbe52815a975e69c0655831d3bc12043661b21fafee25876c28f13dd026"
+    "arrival_matrix_sha256": "f97ac3c96dc793fac79d556eb70f2f8fe3394a913bbbcff9cf8df8a3be05c09f"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -8707,7 +8707,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "95784d32178a0dcf9ee1854c20a31120372d5c657ce3384895e4d3d021d0205b"
+    "arrival_matrix_sha256": "e78cb10d715f69d2cc74680ad3c0d3df42efd0ef3fd86dbe4995f531033e5954"
   },
   {
     "scenario": "normal_patterned",
@@ -8734,7 +8734,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "96dbc7624872aca4c48abaffb1e2a20e98990060efd0dcb460c33c5709b60674"
+    "arrival_matrix_sha256": "5802b4f45754e3f4c2ed56b17312bea92bb6cc61ec232d410adedae92b4a85ba"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -8761,7 +8761,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f9c999f8c24332b1ce9133593bff416d6d9a49c6cacf6e5c90eedbff5c86cbab"
+    "arrival_matrix_sha256": "89dd4dcea9f56712168c616445891ab77f9bd19f61402097b2eacf7959546bf7"
   },
   {
     "scenario": "event_heavy",
@@ -8788,7 +8788,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "cfa98e588d409bfda363dce6c54c53d38cefd47098fae5383e26ff1fa444dbbe"
+    "arrival_matrix_sha256": "0f5b77a84eac39d0579b860f9e0e4258fb04361a4dca2ce11d97a79a49029694"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -8821,7 +8821,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "95344fbfd2f8064c2dc8a9b41d64907bf2226ec709ee7de0963c1139e1c1f8c3"
+    "arrival_matrix_sha256": "e6d488e4ad0955094cfa21a0404817bf0bd2fa4ac692f6925bcafabfc440e7a0"
   },
   {
     "scenario": "localized_surge",
@@ -8861,7 +8861,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "0e2ce3f1e5171807bca7faccabe2f292ab904708d82dec189ed1366fa5144f8e"
+    "arrival_matrix_sha256": "8359ea09c977b3e2fb0b3756067adb73bd4cefb18225dd8ea2ccf103325fd77d"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -8888,7 +8888,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "7858140a48773cdc0ea7f39fed5805c278ed69b0823562b09ae87cd152b517b3"
+    "arrival_matrix_sha256": "95a744bb0dc8f9c3a26845033f1debe1299bdc306e2a2751b9beb0c95215b9eb"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -8915,7 +8915,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "1e30e8c72f08753688e4aecaf07435b5890d97e596b0b9b8f13fe1c0be573bd4"
+    "arrival_matrix_sha256": "35874b7ff2a0a7a6f002bb5b77e13a36c9163e82bd70ee7e97cfabed0a819079"
   },
   {
     "scenario": "traffic_disruption",
@@ -8942,7 +8942,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "96dbc7624872aca4c48abaffb1e2a20e98990060efd0dcb460c33c5709b60674"
+    "arrival_matrix_sha256": "5802b4f45754e3f4c2ed56b17312bea92bb6cc61ec232d410adedae92b4a85ba"
   },
   {
     "scenario": "sensor_failure",
@@ -8969,7 +8969,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "96dbc7624872aca4c48abaffb1e2a20e98990060efd0dcb460c33c5709b60674"
+    "arrival_matrix_sha256": "5802b4f45754e3f4c2ed56b17312bea92bb6cc61ec232d410adedae92b4a85ba"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -8996,7 +8996,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "96dbc7624872aca4c48abaffb1e2a20e98990060efd0dcb460c33c5709b60674"
+    "arrival_matrix_sha256": "5802b4f45754e3f4c2ed56b17312bea92bb6cc61ec232d410adedae92b4a85ba"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -9042,7 +9042,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "9c6abc359309a90f3c9a0afefdd5cda0445af72138829fbca5c5523fa05f8704"
+    "arrival_matrix_sha256": "74d5eb6d8637c64615f1859a80cf9fa30075cfc359ecdb405ad7e080027a8698"
   },
   {
     "scenario": "normal_patterned",
@@ -9069,7 +9069,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "df92994591ab199a276d5f4e10220125ecac1f9bd44a661e32fc00b112add78c"
+    "arrival_matrix_sha256": "27f94865df44013cb9876bfbec56b9404cc48a6bfae422e537c8ecc2711dbf8e"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -9096,7 +9096,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "176ac59235642cce913b731f706a90bace84f5b458a6da364da226e7aa2785d9"
+    "arrival_matrix_sha256": "05d9f0a07b5cf1a81a852e89b23bb1583eb7b4f13f29fb553829ea9b82c37fff"
   },
   {
     "scenario": "event_heavy",
@@ -9123,7 +9123,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "642d776f28b24f68ad24bbe0633ad3125edd6a4349a7da4d8514793c4da92f51"
+    "arrival_matrix_sha256": "fa13a58b84189dd426996c461afcffb55d999ac02469f121aa07f7fff3133f86"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -9156,7 +9156,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "115b6e92ebf6abec51571954a13857f1bc8c026655bae399b732a10d05a697b6"
+    "arrival_matrix_sha256": "873e172e0e6e3395cc937656cb2ffcbc1530be57e62c078a87a84facff18ecfe"
   },
   {
     "scenario": "localized_surge",
@@ -9196,7 +9196,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "ecac2ac4b0e1201fd0493202d0f639ae5ca677493a56ff38d1e18491cb85f222"
+    "arrival_matrix_sha256": "25e96644029e79ed1cc79c7ad4ead45fcbeb28b6542294311161e30eab4b91e5"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -9223,7 +9223,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "80817cf68794878dbe6cbc8a955305e612b587e041504a297462c95817ecc10e"
+    "arrival_matrix_sha256": "1a0d1ed7787e8103f48fdfc953cd355706919820fab978b196939eca880ef253"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -9250,7 +9250,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "efc798e8049c39d1c2708ecf7a3b91aac212506b31b893a3b0bbc4ed4170c88a"
+    "arrival_matrix_sha256": "eb5d6b4adcc2d4266958645c4a0a1f7979988955be77afac4a618d1f62e2a40b"
   },
   {
     "scenario": "traffic_disruption",
@@ -9277,7 +9277,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "df92994591ab199a276d5f4e10220125ecac1f9bd44a661e32fc00b112add78c"
+    "arrival_matrix_sha256": "27f94865df44013cb9876bfbec56b9404cc48a6bfae422e537c8ecc2711dbf8e"
   },
   {
     "scenario": "sensor_failure",
@@ -9304,7 +9304,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "df92994591ab199a276d5f4e10220125ecac1f9bd44a661e32fc00b112add78c"
+    "arrival_matrix_sha256": "27f94865df44013cb9876bfbec56b9404cc48a6bfae422e537c8ecc2711dbf8e"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -9331,7 +9331,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "df92994591ab199a276d5f4e10220125ecac1f9bd44a661e32fc00b112add78c"
+    "arrival_matrix_sha256": "27f94865df44013cb9876bfbec56b9404cc48a6bfae422e537c8ecc2711dbf8e"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -9377,7 +9377,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "b0439e0117ea0fa45ef879859b1fda7d4c0c9ecf301ab6432801763f1eca03a1"
+    "arrival_matrix_sha256": "4cc8ee50af1a8ccd3e3c10f1e840d7893d675fc1039a9e974f47fbe0eeec611a"
   },
   {
     "scenario": "normal_patterned",
@@ -9404,7 +9404,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "602ffebba734bcebe554d3a8fb59afb89abecbc5a7ad142d2927f5d7ae8f6688"
+    "arrival_matrix_sha256": "b661f8acf8c0cad3b3e35e522520f57cebeeeb0a0ac86b9dddd7a9b9689fcb13"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -9431,7 +9431,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "fb0355ea532efa678a456d7c6840ce96bddeed1f7a81d9a16c4905251d807666"
+    "arrival_matrix_sha256": "8b9f28acbbbfde3e0d1a34701708dc30f81c922faa16aa7697057e98bd06684e"
   },
   {
     "scenario": "event_heavy",
@@ -9458,7 +9458,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "fe990b947edfef8fa4c5305f2ed14947ddef98e7d718b1fd44e9a41247c48d41"
+    "arrival_matrix_sha256": "27d74c20012bb7c8ad2d485855316718919181d827491dd31aeaea9cca5a5566"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -9491,7 +9491,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "b4b72a2179feeb5b1635b75fb98491fb44af98c4ab100b2d40d220aa62c0d4f8"
+    "arrival_matrix_sha256": "8f29477fae02402d9e6cde72be8bac48c1c69a4c1840b99e59ff999eafc82725"
   },
   {
     "scenario": "localized_surge",
@@ -9531,7 +9531,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "029599c36370ec7a6ade146431b105c1f416f95e4ec50392c66437663eb737fe"
+    "arrival_matrix_sha256": "159498720c8efdc80e7b8c72d374c1c7fbd01a05c819c433c590c2c5fe778420"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -9558,7 +9558,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "78d1957f567311bfccac0785481cbf6e610cd39def28ba9c570e93878e9d1cd1"
+    "arrival_matrix_sha256": "6a1f53b949464b02494696838423e6786da3d4aaad01fdda321b9575861bcf21"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -9585,7 +9585,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "f228adb3960c5946765de681630041acc6b0dea9c213d3e8971e48fab2152823"
+    "arrival_matrix_sha256": "ac6ec39f3c02e0851f0f5dedd1f75a988b1c104ce810c34e37ade8bc092b62ae"
   },
   {
     "scenario": "traffic_disruption",
@@ -9612,7 +9612,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "602ffebba734bcebe554d3a8fb59afb89abecbc5a7ad142d2927f5d7ae8f6688"
+    "arrival_matrix_sha256": "b661f8acf8c0cad3b3e35e522520f57cebeeeb0a0ac86b9dddd7a9b9689fcb13"
   },
   {
     "scenario": "sensor_failure",
@@ -9639,7 +9639,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "602ffebba734bcebe554d3a8fb59afb89abecbc5a7ad142d2927f5d7ae8f6688"
+    "arrival_matrix_sha256": "b661f8acf8c0cad3b3e35e522520f57cebeeeb0a0ac86b9dddd7a9b9689fcb13"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -9666,7 +9666,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "602ffebba734bcebe554d3a8fb59afb89abecbc5a7ad142d2927f5d7ae8f6688"
+    "arrival_matrix_sha256": "b661f8acf8c0cad3b3e35e522520f57cebeeeb0a0ac86b9dddd7a9b9689fcb13"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -9712,7 +9712,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "56c3eab62bd85326a545c83a57e1bc8ddfbd93b30aed9bb071585deedd3a1b0d"
+    "arrival_matrix_sha256": "26626c86b2a0ca822be966abb26472df921895699d6630986dc573618b140dc6"
   },
   {
     "scenario": "normal_patterned",
@@ -9739,7 +9739,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5ae6efd89db9264386604d22b3eaf4c38f8e77ef90ab80bdf81a110acc7bd806"
+    "arrival_matrix_sha256": "c8d4e609165b4c2e7c111a05d14f16f952f33e343b9be4a2f3d4bb83069c8768"
   },
   {
     "scenario": "high_demand_seasonal",
@@ -9766,7 +9766,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "4363d481bccf07eb67b19d33c04571ab62336beb5043115ae5faf2674508e2b3"
+    "arrival_matrix_sha256": "a8bb4474916ba471a78894647c56a02b21339ddef17c427372f06cb855620bbd"
   },
   {
     "scenario": "event_heavy",
@@ -9793,7 +9793,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "fa0233f92e21599f987f94974768e67a6f8c79e3e3b0e14f3e42da6bb131f846"
+    "arrival_matrix_sha256": "d6d36d5906ecc65a7413afba1516f1296dfb5622fa3539dc65d0f9bfe31d78f6"
   },
   {
     "scenario": "persistent_multi_day_surge",
@@ -9826,7 +9826,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "2f304b464c7e0733264a45315443961e4ce5f31e82f246432b67dd36e0662a99"
+    "arrival_matrix_sha256": "4196d4585c3045ccacd5d7a7c3b5b5cd773608e42e663db54d42988288f3326c"
   },
   {
     "scenario": "localized_surge",
@@ -9866,7 +9866,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "13f83036d1e288a87675cd2b7a7cf1d6acc1bf239fdd270cd81d40011af499e7"
+    "arrival_matrix_sha256": "1cf3897d23e47023adae1727ec5636df7d0a76c60c5b1a5f2fd0d4c787579f71"
   },
   {
     "scenario": "gradual_upward_trend",
@@ -9893,7 +9893,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5376393b2984f68468fbaadd7ffcf7e7460f82041e31917457ded17d4edf08b6"
+    "arrival_matrix_sha256": "b2400b5831a62f5b90f8545203b505135ddf3cc236c78c755bcfe2d9b5c1157c"
   },
   {
     "scenario": "abrupt_behavior_change",
@@ -9920,7 +9920,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5afadfeedf97e14b12bc70f88f3b0442b213791f258e1cefac92edc1d0f2f34b"
+    "arrival_matrix_sha256": "95a3fbb9b1b9b7a9411ad2618fc7e1067e61d48f77ee250f14ea161a194859e1"
   },
   {
     "scenario": "traffic_disruption",
@@ -9947,7 +9947,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5ae6efd89db9264386604d22b3eaf4c38f8e77ef90ab80bdf81a110acc7bd806"
+    "arrival_matrix_sha256": "c8d4e609165b4c2e7c111a05d14f16f952f33e343b9be4a2f3d4bb83069c8768"
   },
   {
     "scenario": "sensor_failure",
@@ -9974,7 +9974,7 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 1.0,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5ae6efd89db9264386604d22b3eaf4c38f8e77ef90ab80bdf81a110acc7bd806"
+    "arrival_matrix_sha256": "c8d4e609165b4c2e7c111a05d14f16f952f33e343b9be4a2f3d4bb83069c8768"
   },
   {
     "scenario": "reduced_truck_capacity",
@@ -10001,7 +10001,7 @@
     "sensor_outlier_probability": null,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "5ae6efd89db9264386604d22b3eaf4c38f8e77ef90ab80bdf81a110acc7bd806"
+    "arrival_matrix_sha256": "c8d4e609165b4c2e7c111a05d14f16f952f33e343b9be4a2f3d4bb83069c8768"
   },
   {
     "scenario": "combined_demand_operational_stress",
@@ -10047,6 +10047,6 @@
     "sensor_outlier_probability": 0.08,
     "truck_capacity_multiplier": 0.65,
     "policies_share_arrivals_and_sensor_noise": true,
-    "arrival_matrix_sha256": "12ce723ec3875aba5cd6e4053a688b63808702327cad58ac46de3f4101e5acde"
+    "arrival_matrix_sha256": "5e122e034b9fd1377f44596dfa9d330bf4707362bb5e930a21226a13cfab7ac3"
   }
 ]

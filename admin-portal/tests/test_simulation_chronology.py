@@ -115,6 +115,28 @@ def test_fixed_policy_first_service_is_after_the_full_interval():
     assert result.route_events[0]["dispatch_minute"] == pytest.approx(30 * 60)
 
 
+def test_fixed_policy_never_mixes_general_and_recycling_streams():
+    config = _config(horizon_days=2, truck_capacity_kg=200.0, max_daily_trips=2)
+    bins = [
+        replace(_bin(0), waste_stream="mixed_general_waste"),
+        replace(
+            _bin(1),
+            bin_type="recycling_return",
+            waste_stream="beverage_recycling",
+            material_type="plastic_cups",
+        ),
+    ]
+    distance, duration = _matrices(2, 60.0)
+    arrivals = np.zeros((48, 2), dtype=float)
+    arrivals[0] = 60.0
+    result = run_policy("fixed", 0, bins, config, distance, duration, arrivals, 110)
+
+    assert result.route_events[0]["trip_count"] == 2
+    for route in result.route_events[0]["route_bin_indices"]:
+        streams = {bins[index].waste_stream for index in route if index != -1}
+        assert len(streams) == 1
+
+
 def test_second_trip_starts_only_after_return_unload_and_turnaround():
     config = _config(horizon_days=2)
     bins = [_bin(0), _bin(1)]
