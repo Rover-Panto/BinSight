@@ -1,0 +1,48 @@
+{
+  "selected_model": "xgboost",
+  "validation_metrics": {
+    "model": "xgboost",
+    "MAE_hours": 6.098,
+    "RMSE_hours": 9.897,
+    "risk_level_accuracy": 0.688,
+    "critical_recall": 0.606
+  },
+  "test_metrics": {
+    "model": "xgboost",
+    "MAE_hours": 4.696,
+    "RMSE_hours": 7.421,
+    "risk_level_accuracy": 0.73,
+    "critical_recall": 0.645
+  },
+  "results": [
+    {
+      "model": "baseline_naive_extrapolation",
+      "MAE_hours": 26.487,
+      "RMSE_hours": 49.895,
+      "risk_level_accuracy": 0.454,
+      "critical_recall": 0.72
+    },
+    {
+      "model": "baseline_linear_regression",
+      "MAE_hours": 9.488,
+      "RMSE_hours": 12.356,
+      "risk_level_accuracy": 0.479,
+      "critical_recall": 0.161
+    },
+    {
+      "model": "random_forest",
+      "MAE_hours": 4.791,
+      "RMSE_hours": 7.917,
+      "risk_level_accuracy": 0.767,
+      "critical_recall": 0.832
+    },
+    {
+      "model": "xgboost",
+      "MAE_hours": 4.696,
+      "RMSE_hours": 7.421,
+      "risk_level_accuracy": 0.73,
+      "critical_recall": 0.645
+    }
+  ],
+  "sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7"
+}

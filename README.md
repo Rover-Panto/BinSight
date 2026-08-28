@@ -10,6 +10,7 @@ The proposal, supporting research, document-generation scripts, and responsive c
 
 - `docs/`: frontend reference, project state, admin integration, and data-preservation contracts
 - `BinSight_UI_Design_Language.txt`: citizen and admin interface rules
+- `ml/`: smart-bin overflow-risk ML pipeline, sensor simulation, feature engineering, and trained model artifacts
 - `outputs/`: current proposal documents and review material
 - `scripts/`: proposal and document-generation scripts
 - `work/binsight_assets/`: project-owned visual assets

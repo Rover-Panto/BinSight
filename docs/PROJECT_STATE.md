@@ -35,11 +35,18 @@ The citizen app currently supports:
 
 There is no collection-schedule route. BinSight describes public-bin servicing as demand-led and automatically routed.
 
-## Admin work
+## Admin and Decision-Support Work
 
 The route-optimisation and KPI dashboard is planned collaborator work. It has not merged into `main` at the date above. The collaborator should follow [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [DATA_PRESERVATION.md](DATA_PRESERVATION.md).
 
 The admin implementation should use `/admin` as its route prefix and keep admin state outside the citizen store. The first pull request must record its final route map, state model, fixtures, KPI formulas, and tests in this directory.
+
+## Machine Learning Subsystem (`ml/`)
+
+The smart-bin overflow risk prediction model and synthetic sensor simulation pipeline are located in `ml/`:
+- **Model capability**: Predicts continuous `time_to_overflow_hours` and maps to deterministic `risk_level` (`Critical`, `High`, `Medium`, `Low`) based on ultrasonic fill-level, load-cell mass, and rolling rate telemetry.
+- **Inference integration**: Exposed via `ml/src/serve.py` (`OverflowRiskModel.predict_from_history`) for IoT gateway ingestion and admin decision support.
+- **Verification**: Fully validated with automated sanity tests in `ml/tests/test_pipeline.py` and benchmarked on held-out fill cycles (MAE ~5.3h).
 
 ## Source of truth
 
