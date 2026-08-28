@@ -13,7 +13,8 @@
       "sha": "8b34c9651b4b2ef4cef7abe6f45bb54c4017a3df",
       "review": "changes_required",
       "evidence": [
-        "docs/INTEGRATION_REVIEW_LATEST.md"
+        "docs/INTEGRATION_REVIEW_LATEST.md",
+        "https://github.com/Rover-Panto/BinSight/pull/1#issuecomment-5454654718"
       ]
     },
     {
@@ -23,7 +24,8 @@
       "sha": "84952d2b59f3636d006cbe7518f895face0774a4",
       "review": "changes_required",
       "evidence": [
-        "docs/INTEGRATION_REVIEW_LATEST.md"
+        "docs/INTEGRATION_REVIEW_LATEST.md",
+        "https://github.com/Rover-Panto/BinSight/pull/2#issuecomment-5454655286"
       ]
     },
     {
@@ -33,7 +35,8 @@
       "sha": "819ff37b41a78208ba1624ad0060f8bec0358346",
       "review": "changes_required",
       "evidence": [
-        "docs/INTEGRATION_REVIEW_LATEST.md"
+        "docs/INTEGRATION_REVIEW_LATEST.md",
+        "https://github.com/Rover-Panto/BinSight/pull/3#issuecomment-5454655998"
       ]
     },
     {
@@ -43,7 +46,8 @@
       "sha": "1143545010d89b94abfa9655a5c27a318a7145b0",
       "review": "changes_required",
       "evidence": [
-        "docs/INTEGRATION_REVIEW_LATEST.md"
+        "docs/INTEGRATION_REVIEW_LATEST.md",
+        "https://github.com/Rover-Panto/BinSight/pull/4#issuecomment-5454656565"
       ]
     }
   ],
@@ -82,7 +86,8 @@
         "https://github.com/Rover-Panto/BinSight/actions/runs/33165774817",
         "https://github.com/Rover-Panto/BinSight/actions/runs/33167295593",
         "docs/INTEGRATION_BASELINE_2026-08-28.md: local and CI foundation passed at f682bef and 6fbf133; rerun on combined candidate",
-        "integration/evidence/2026-08-28-return-api.md"
+        "integration/evidence/2026-08-28-return-api.md",
+        "https://github.com/Rover-Panto/BinSight/actions/runs/33187028852"
       ]
     },
     {

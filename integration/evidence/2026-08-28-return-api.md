@@ -2,6 +2,10 @@
 
 Date: 28 August 2026. Branch: `codex/integration-test`. Main remained at `9fca9d47afb805f40034da970bb47d791ba8f0b4`. No PR1-4 merge was performed.
 
+Implementation commit: `568b3eb5b433c21178b2a2f37333fbad454a3559`. [GitHub foundation CI passed](https://github.com/Rover-Panto/BinSight/actions/runs/33187028852) for this exact revision, including the return API tests, real-HTTP fixture preflight, readiness reporting and citizen regression. This does not run hardware or resolve the independent PR blockers below.
+
+Contributor feedback: [PR1](https://github.com/Rover-Panto/BinSight/pull/1#issuecomment-5454654718), [PR2](https://github.com/Rover-Panto/BinSight/pull/2#issuecomment-5454655286), [PR3](https://github.com/Rover-Panto/BinSight/pull/3#issuecomment-5454655998), [PR4](https://github.com/Rover-Panto/BinSight/pull/4#issuecomment-5454656565).
+
 ## Reviewed Components
 
 - PR1: `8b34c9651b4b2ef4cef7abe6f45bb54c4017a3df`.
