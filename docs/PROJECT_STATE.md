@@ -56,11 +56,11 @@ The initial integration keeps PR1's Streamlit website under `admin-portal/` and 
 
 `codex/integration-test` starts from the documentation/server-policy foundation at `68f1283`. It does not initially contain PR1-4. It adds [the integration test plan](INTEGRATION_TEST_PLAN.md), synthetic fixtures, a candidate ledger and foundation CI. Component, cross-service and hardware gates remain distinct from the existing citizen/policy checks.
 
-The owner confirmed D1: a physical demo using the existing Teensy, shared ESP and Grove with the laptop as server. Hardware gates H01/H02 are now required by default in the readiness ledger. D2 confirms minimal admin ticket closing; main owns its report/photo/status backend and PR1 owns the operator view. Neither the shared report workflow nor the return HTTP integration is implemented yet.
+The owner confirmed D1: a physical demo using the existing Teensy, shared ESP and Grove with the laptop as server. Hardware gates H01/H02 are now required by default in the readiness ledger. D2 confirms minimal admin ticket closing; main owns its report/photo/status backend and PR1 owns the operator view. The shared report workflow remains pending. A simulation-only return HTTP API now exists on this test branch, with durable sessions, decisions and credits; see [RETURN_API_V1.md](RETURN_API_V1.md). The citizen UI is not connected to it.
 
 D3 is confirmed: one recycling bin as a technology demonstration, using one Grove/camera and one QR station with one active session at a time. No split compartments, sorting diverter or second physical recycling station are required. Accepted plastic, metal and glass go into the same collection bin; the ledger retains their material labels. [The station decision](RECYCLING_STATION_OPTIONS.md) supersedes the earlier split-bin recommendation. Contributors keep their PR branches and report exact tested SHAs; Codex stages reviewed changes for combined testing before any owner-approved merge into `main`.
 
-New PR1, PR2 and PR4 heads were observed during the D3 update and remain unreviewed. [The baseline record](INTEGRATION_BASELINE_2026-08-28.md#final-d3-direction-single-recycling-technology-demo) records those SHAs separately from the existing candidate; older component findings/results must not be presented as a fresh review of them.
+The latest review covers PR1 `8b34c96`, PR2 `84952d2`, PR3 `819ff37` and PR4 `1143545`. Component tests pass where supplied, but independent probes reproduce integration failures. None of these PRs has been staged or merged into main. See [the current review and next integration steps](INTEGRATION_REVIEW_LATEST.md).
 
 ## Integration ownership
 
@@ -82,9 +82,9 @@ Retain three-channel sensing capability and the existing three-bin routing fixtu
 
 See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for the dated Malaysian listings, Selangor delivery assumptions, budget totals and purchase gates.
 
-PR #3 now adds isolated laptop/webcam training code, pinned dependencies, a raw inference metadata class and three passing unit tests. It does not supply trained weights or tested Grove/ESP deployment. Main still needs to implement the inference/session HTTP endpoints and website integration. Follow [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md) for current findings and the integration contract.
+PR #3 now adds isolated laptop/webcam training code, pinned dependencies, a raw inference metadata class and three passing unit tests. It does not supply trained weights or tested Grove/ESP deployment. The test branch now implements the inference/session HTTP endpoints in simulation mode; website and physical integration remain pending. Follow [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md) for current findings and the integration contract.
 
-The documentation/integration branch now includes `server/recycling_policy.py`: a tested central-server decision tree that accepts stable high-confidence `plastic`, `metal` and `glass` labels and rejects every other material. It is not yet wired to an HTTP endpoint or the citizen return page. PR #3 contains no trained model artifact or dataset.
+The documentation/integration branch now includes `server/recycling_policy.py`: a tested central-server decision tree that accepts stable high-confidence `plastic`, `metal` and `glass` labels and rejects every other material. The new return API calls this policy and persists its outcomes. The citizen return page still uses its existing mock path. PR #3 contains no trained model artifact or dataset.
 
 ## Source of truth
 

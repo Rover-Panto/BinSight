@@ -84,3 +84,13 @@ When a migration fails during development:
 5. restore only after the fixed migration passes its test.
 
 Never paste real identity, payment, or resident data into fixtures. BinSight uses fictional demonstration records only.
+
+## Return API Store
+
+The first return API on `codex/integration-test` uses a separate SQLite database under ignored `server/data/`. It does not read, upload or migrate browser reports, photos, saved payment methods or return history. PR1 and PR2 stores also remain separate.
+
+Session/inspection actions and inference retries are idempotent. The server commits an accepted decision and its 20-sen simulated credit together. Restart retains committed records, rejects interrupted inspections and clears station readiness. An unknown database schema fails without rebuilding tables.
+
+Use `python -m server.backup SOURCE DESTINATION` for a verified SQLite backup, including committed WAL records. It refuses to overwrite an existing destination. Test restore against a copy, with separate local configuration, before changing any stored schema. Do not copy only an active database file while ignoring its WAL.
+
+The citizen API client and return-history migration are still pending. Preserve old unspecified bottles as legacy records rather than assigning invented glass/plastic labels. The current integration tests use temporary databases and fictional credentials only.

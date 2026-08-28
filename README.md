@@ -29,10 +29,12 @@ Integration coordination starts at [the test plan](docs/INTEGRATION_TEST_PLAN.md
 - `docs/PR1_PR4_FORECAST_INTEGRATION.md`: forecasting/routing ownership, shared interface and duplicate-code cleanup sequence
 - `docs/SHARED_ESP32_GATEWAY.md`: one-board fill/recognition contract and firmware ownership
 - `docs/INTEGRATION_TEST_PLAN.md`: two-site architecture, ownership, test gates and staged merge process
-- `integration/`: synthetic shared fixtures and candidate-readiness checks
+- `integration/`: shared fixtures, candidate-readiness checks, review probes and an isolated real-HTTP return preflight
 - `BinSight_UI_Design_Language.txt`: citizen and admin interface rules
-- `server/`: central-server recycling decision policy and unit tests; HTTP integration remains pending
+- `server/`: simulation-only return HTTP API, durable decisions/credits, backup tooling and policy tests; see [the API contract](docs/RETURN_API_V1.md)
 - `web/`: React and TypeScript citizen hub prototype
+
+The first return API slice is implemented on the test branch. PR1-4 remain isolated while contributors fix the remaining blockers. The citizen app stays in mock mode; no existing records or photos are imported. See [the latest review](docs/INTEGRATION_REVIEW_LATEST.md).
 
 ## Planned citizen hub
 

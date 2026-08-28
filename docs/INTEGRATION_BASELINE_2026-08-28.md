@@ -108,3 +108,11 @@ New remote heads observed while publishing D3, not reviewed in this scope update
 | PR4 | `1143545010d89b94abfa9655a5c27a318a7145b0` | Awaiting review; provider corrections and evidence need inspection |
 
 PR3 still matched `819ff37b41a78208ba1624ad0060f8bec0358346`. The candidate ledger retains its captured revisions until review selects replacements. These observations do not approve or stage any contributor code.
+
+## Return API and Refreshed Review
+
+The next review covered PR1 `8b34c96`, PR2 `84952d2`, PR3 `819ff37` and PR4 `1143545`, including PR1/PR2 commits pushed during testing. All remain changes-required and unstaged. The candidate ledger now records these exact reviewed heads, not the earlier observations above.
+
+The test branch implements a simulation-only return HTTP API with durable session/decision/credit storage, station authentication, retries, restart handling and backup/restore. A real-HTTP preflight using PR3's serializer passed. The citizen app remains in mock mode and existing records/photos were untouched.
+
+See [the review](INTEGRATION_REVIEW_LATEST.md), [the API contract](RETURN_API_V1.md) and [test evidence](../integration/evidence/2026-08-28-return-api.md). Component tests and this first API path do not satisfy the complete software or physical demo gates.

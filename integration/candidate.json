@@ -6,31 +6,188 @@
   "foundation_sha": "68f12831a3a0551502e78f19df83a509e11af4ff",
   "main_sha": "9fca9d47afb805f40034da970bb47d791ba8f0b4",
   "components": [
-    {"pr": 1, "owner": "Rover-Panto", "path": "admin-portal", "sha": "d276313467fe30c81218c980e626da6624c2d78a", "review": "changes_required"},
-    {"pr": 2, "owner": "laijoelton", "path": "hardware_pipeline", "sha": "e7055764b57663a9d916602d7b0e89f54df2eaa4", "review": "changes_required"},
-    {"pr": 3, "owner": "Rishhhj05", "path": "recycling_vision", "sha": "819ff37b41a78208ba1624ad0060f8bec0358346", "review": "changes_required"},
-    {"pr": 4, "owner": "Niccc8", "path": "ml", "sha": "038e262044a1bc29cee08d189c6fe4f78c970caf", "review": "changes_required"}
+    {
+      "pr": 1,
+      "owner": "Rover-Panto",
+      "path": "admin-portal",
+      "sha": "8b34c9651b4b2ef4cef7abe6f45bb54c4017a3df",
+      "review": "changes_required",
+      "evidence": [
+        "docs/INTEGRATION_REVIEW_LATEST.md"
+      ]
+    },
+    {
+      "pr": 2,
+      "owner": "laijoelton",
+      "path": "hardware_pipeline",
+      "sha": "84952d2b59f3636d006cbe7518f895face0774a4",
+      "review": "changes_required",
+      "evidence": [
+        "docs/INTEGRATION_REVIEW_LATEST.md"
+      ]
+    },
+    {
+      "pr": 3,
+      "owner": "Rishhhj05",
+      "path": "recycling_vision",
+      "sha": "819ff37b41a78208ba1624ad0060f8bec0358346",
+      "review": "changes_required",
+      "evidence": [
+        "docs/INTEGRATION_REVIEW_LATEST.md"
+      ]
+    },
+    {
+      "pr": 4,
+      "owner": "Niccc8",
+      "path": "ml",
+      "sha": "1143545010d89b94abfa9655a5c27a318a7145b0",
+      "review": "changes_required",
+      "evidence": [
+        "docs/INTEGRATION_REVIEW_LATEST.md"
+      ]
+    }
   ],
   "decisions": [
-    {"id": "D1", "status": "confirmed", "question": "Demo location and audience", "evidence": ["Owner direction 2026-08-28: physical ESP, Teensy and Grove with laptop server; docs/INTEGRATION_TEST_PLAN.md#physical-demo-access"]},
-    {"id": "D2", "status": "confirmed", "question": "Admin report workflow scope", "evidence": ["Owner direction 2026-08-28: minimal ticket-closing controls; docs/ADMIN_INTEGRATION.md#minimal-ticket-closing; implementation pending"]},
-    {"id": "D3", "status": "confirmed", "question": "Recycling technology-demo layout and QR session topology", "evidence": ["Owner direction 2026-08-28: one recycling bin as a technological demonstration; one Grove/camera and one QR station, no split compartments or sorting diverter; docs/RECYCLING_STATION_OPTIONS.md"]}
+    {
+      "id": "D1",
+      "status": "confirmed",
+      "question": "Demo location and audience",
+      "evidence": [
+        "Owner direction 2026-08-28: physical ESP, Teensy and Grove with laptop server; docs/INTEGRATION_TEST_PLAN.md#physical-demo-access"
+      ]
+    },
+    {
+      "id": "D2",
+      "status": "confirmed",
+      "question": "Admin report workflow scope",
+      "evidence": [
+        "Owner direction 2026-08-28: minimal ticket-closing controls; docs/ADMIN_INTEGRATION.md#minimal-ticket-closing; implementation pending"
+      ]
+    },
+    {
+      "id": "D3",
+      "status": "confirmed",
+      "question": "Recycling technology-demo layout and QR session topology",
+      "evidence": [
+        "Owner direction 2026-08-28: one recycling bin as a technological demonstration; one Grove/camera and one QR station, no split compartments or sorting diverter; docs/RECYCLING_STATION_OPTIONS.md"
+      ]
+    }
   ],
   "gates": [
-    {"id": "G01", "level": "software", "status": "partial", "evidence": ["https://github.com/Rover-Panto/BinSight/actions/runs/33165774817", "https://github.com/Rover-Panto/BinSight/actions/runs/33167295593", "docs/INTEGRATION_BASELINE_2026-08-28.md: local and CI foundation passed at f682bef and 6fbf133; rerun on combined candidate"]},
-    {"id": "G02", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G03", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G04", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G05", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G06", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G07", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G08", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G09", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G10", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G11", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G12", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "G13", "level": "software", "status": "not_run", "evidence": []},
-    {"id": "H01", "level": "hardware", "status": "not_run", "evidence": []},
-    {"id": "H02", "level": "hardware", "status": "not_run", "evidence": []}
+    {
+      "id": "G01",
+      "level": "software",
+      "status": "partial",
+      "evidence": [
+        "https://github.com/Rover-Panto/BinSight/actions/runs/33165774817",
+        "https://github.com/Rover-Panto/BinSight/actions/runs/33167295593",
+        "docs/INTEGRATION_BASELINE_2026-08-28.md: local and CI foundation passed at f682bef and 6fbf133; rerun on combined candidate",
+        "integration/evidence/2026-08-28-return-api.md"
+      ]
+    },
+    {
+      "id": "G02",
+      "level": "software",
+      "status": "failed",
+      "evidence": [
+        "integration/probes/review_latest.py",
+        "docs/INTEGRATION_REVIEW_LATEST.md"
+      ]
+    },
+    {
+      "id": "G03",
+      "level": "software",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "G04",
+      "level": "software",
+      "status": "failed",
+      "evidence": [
+        "integration/probes/review_latest.py",
+        "docs/INTEGRATION_REVIEW_LATEST.md"
+      ]
+    },
+    {
+      "id": "G05",
+      "level": "software",
+      "status": "partial",
+      "evidence": [
+        "integration/evidence/2026-08-28-return-api.md"
+      ]
+    },
+    {
+      "id": "G06",
+      "level": "software",
+      "status": "partial",
+      "evidence": [
+        "integration/evidence/2026-08-28-return-api.md"
+      ]
+    },
+    {
+      "id": "G07",
+      "level": "software",
+      "status": "partial",
+      "evidence": [
+        "integration/evidence/2026-08-28-return-api.md"
+      ]
+    },
+    {
+      "id": "G08",
+      "level": "software",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "G09",
+      "level": "software",
+      "status": "partial",
+      "evidence": [
+        "integration/evidence/2026-08-28-return-api.md"
+      ]
+    },
+    {
+      "id": "G10",
+      "level": "software",
+      "status": "partial",
+      "evidence": [
+        "integration/evidence/2026-08-28-return-api.md"
+      ]
+    },
+    {
+      "id": "G11",
+      "level": "software",
+      "status": "partial",
+      "evidence": [
+        "integration/evidence/2026-08-28-return-api.md"
+      ]
+    },
+    {
+      "id": "G12",
+      "level": "software",
+      "status": "partial",
+      "evidence": [
+        "integration/evidence/2026-08-28-return-api.md"
+      ]
+    },
+    {
+      "id": "G13",
+      "level": "software",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "H01",
+      "level": "hardware",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "H02",
+      "level": "hardware",
+      "status": "not_run",
+      "evidence": []
+    }
   ]
 }

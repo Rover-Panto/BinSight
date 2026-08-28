@@ -38,3 +38,7 @@ output/
 .DS_Store
 Thumbs.db
 web/public/images/binsight-smart-station.png
+
+# Local central-server records and credentials
+server/data/
+server/local-config.json

@@ -79,12 +79,12 @@ Use [the forecast guide](PR1_PR4_FORECAST_INTEGRATION.md), [the gateway contract
 | PR2 to PR1 | Authenticated read/export, retained history or pagination, units, timestamp normalization and stable registry mapping. PR1 keeps only the read/cache/validation code it needs. |
 | PR1 to PR4 | Local Python package/provider, not another HTTP microservice. Pass observed history, configured bins, decision cutoff and input snapshot reference; preserve ingestion cutoff and training provenance. |
 | PR4 to PR1 | One forecast per configured bin; consistent output shape; declared target and units; unavailable/cold-start/error states; supported horizons with justified uncertainty/probabilities or explicit missing capability. Hours until a threshold are not fill-growth percentage points. |
-| C3 to return server | Planned authenticated `POST /api/v1/recycling/inferences`, using the existing image-free recognition example. Main validates station/session/inspection binding, event identity, freshness and sequence. The endpoint is not implemented yet. |
+| C3 to return server | Implemented simulation-only authenticated `POST /api/v1/recycling/inferences`; main validates binding, identity, freshness and sequence. See `RETURN_API_V1.md`. Physical use and actuator commands remain disabled. |
 | Citizen to return server | QR station identity survives mock login; main creates the session and inspection. A small client polls/subscribes for decisions and stops on navigation/finish. Keep a separate mock mode; an API failure must not silently generate a mock acceptance. |
 | Return server to C3 | Matching session/inspection/command ID, expiry and terminal outcome. Deduplicate execution; boot/network recovery cannot replay old acceptance. Define removal/re-arm acknowledgement before enabling the next inspection. |
 | Citizen/admin reports | Main-owned report/photo/status API with authorisation, audit and retry/concurrent-update protection. PR1 lists/views/closes/reopens; the citizen sees their retained photos and status. Neither app reads the other's browser storage. No automatic upload of existing local records. |
 
-The coordinator will publish the session/inspection/decision endpoint schemas and mock fixtures before PR3 depends on them. PR3 should use a replaceable transport adapter meanwhile. No contributor should invent production credentials or a second citizen backend to unblock their branch.
+The simulation-only session/inspection/decision API is published in [RETURN_API_V1.md](RETURN_API_V1.md), with a real-HTTP preflight using PR3 metadata. Physical actuator commands are not implemented. PR3 should keep its transport replaceable. No contributor should invent production credentials or a second citizen backend to unblock their branch.
 
 For routing, preserve 100% as overflow and 90% as an urgent-service trigger until a reviewed policy change says otherwise. A model trained on time-to-90% cannot declare time-to-100% through a function argument. Unsupported horizons/probabilities must select PR1's named non-ML fill/health mode, not fabricated confidence.
 
@@ -130,8 +130,10 @@ Rejected-item fraction is a **rejection-rate proxy**, not a measured recycling-c
 Run from the repository root:
 
 ```powershell
+python -m pip install -r server/requirements.txt
 python -m unittest discover -s server/tests -v
 python -m unittest discover -s integration/tests -v
+python -m integration.return_preflight
 python -m integration.check_readiness
 ```
 
@@ -154,4 +156,4 @@ Contributors add real component and cross-service test commands as implementatio
 
 Use [the baseline record](INTEGRATION_BASELINE_2026-08-28.md). For each new result include: gate ID, candidate/component SHAs, command/environment, fixture/model hash, expected/observed outcome, log or CI link, data-impact check and remaining limitations. Store sanitised evidence under `integration/evidence/` or attach it to the PR; keep generated reports, databases and photos out of Git.
 
-Current main-owned backlog: session/inspection API and durable decision/credit storage; station authentication and polling/commands; report/photo/status API and audit; citizen mock/API client separation and migrations; shared gateway assembly; a safe runtime launcher. D1-D3 now have owner direction. Publish the single-station session/inspection/command schemas and keep exact wiring, optics and acceptance-gate design subject to bench verification. Owner decisions do not mark implementation or hardware gates passed.
+Implemented on the test branch: simulation-only session/inspection API, durable decision/credit storage, station authentication/polling/removal acknowledgement, isolated preflight and a loopback launcher. Main-owned backlog: citizen mock/API client and QR handoff, versioned history migration, simulated payout integration, report/photo/status API and audit, expiring actuator commands, shared gateway assembly and a coordinated local runtime. Exact wiring, optics and acceptance-gate design still need bench verification. See [the latest review](INTEGRATION_REVIEW_LATEST.md); partial API evidence does not mark full software or physical gates passed.

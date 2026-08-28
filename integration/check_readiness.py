@@ -38,7 +38,7 @@ def blockers(candidate, is_included, hardware=None):
         if not SHA.fullmatch(sha):
             raise ValueError(f"Invalid commit for PR{component['pr']}")
         if component.get("review") != "accepted_for_testing":
-            result.append(f"PR{component['pr']}: current candidate needs review")
+            result.append(f"PR{component['pr']}: review status {component.get('review', 'missing')} is not accepted_for_testing")
         if not is_included(sha):
             result.append(f"PR{component['pr']}: {sha[:7]} is not staged on this branch")
     for decision in decisions:

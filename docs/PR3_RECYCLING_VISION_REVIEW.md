@@ -93,6 +93,10 @@ The same guide appears under `docs/` and `docs/docs/`. The root dependency file 
 
 Keep one guide at `docs/RECYCLING_VISION.md`. Put training code, pinned dependencies and tests under `recycling_vision/`. Ignore `dataset/`, `runs/`, `weights/`, `.pt`, `.onnx` and generated `.tflite` files unless the team approves a small release artifact with its licence and checksum. Fill in the pull-request description and attach actual command results.
 
+## Current Integration Implementation
+
+The test branch now implements the simulation-only API in [RETURN_API_V1.md](RETURN_API_V1.md). PR3's serializer at `819ff37` passed a real-HTTP preflight against it. Use that contract for authentication, server-issued session/inspection IDs, event retries and removal acknowledgement. Older sections below describe the original review and target hardware flow; they are not evidence that Grove/ESP or the citizen browser is connected. Physical mode and actuator commands remain disabled.
+
 ## Required Data Contract
 
 Grove may return boxes and scores to the ESP32-C3 through SSCMA. The ESP32-C3 sends compact inference metadata to the server, which owns the decision. Do not include JPEG, base64 image, video, webcam URL or camera-stream fields.
