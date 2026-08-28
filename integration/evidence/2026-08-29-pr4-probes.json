@@ -1,0 +1,765 @@
+{
+  "source_head": "28509cc4e90b2c1e2c3c3c2e026244e5a6e86dee",
+  "python": "3.13.9",
+  "runtime_dependencies": {
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.4.1",
+    "pandas": "3.0.5",
+    "numpy": "2.5.1",
+    "joblib": "1.5.3"
+  },
+  "manifest_dependencies": {
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.4.1",
+    "pandas": "3.0.5",
+    "numpy": "2.5.1",
+    "joblib": "1.5.3"
+  },
+  "exact_manifest_runtime": true,
+  "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+  "passed": 12,
+  "failed": 17,
+  "checks": [
+    {
+      "check": "matching_metadata_reaches_loader",
+      "passed": true,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "numpy_major_mismatch_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "xgboost_patch_mismatch_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "missing_dependency_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "incomplete_dependency_manifest_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "malformed_dependency_version_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "unknown_schema_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "missing_target_definition_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "unsupported_target_definition_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "runtime_feature_mismatch_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "missing_availability_provenance_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "availability_before_selection_rejected",
+      "passed": false,
+      "actual": {
+        "load_calls": 1,
+        "error": null
+      }
+    },
+    {
+      "check": "unknown_estimator_rejected",
+      "passed": true,
+      "actual": {
+        "load_calls": 0,
+        "error": "ValueError: Estimator class 'UnreviewedRegressor' is not in approved allow-list: frozenset({'RandomForestRegressor', 'LinearRegression', 'XGBRegressor', 'TwelveHourModel', 'ReviewModel'})"
+      }
+    },
+    {
+      "check": "test_doubles_not_in_production_allowlist",
+      "passed": false,
+      "actual": [
+        "LinearRegression",
+        "RandomForestRegressor",
+        "ReviewModel",
+        "TwelveHourModel",
+        "XGBRegressor"
+      ]
+    },
+    {
+      "check": "normal_history_available",
+      "passed": true,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20 10:00:00+00:00",
+        "status": "available",
+        "time_to_service_threshold_hours": 5.05,
+        "risk_level": "High",
+        "fill_pct": 30.0,
+        "confidence_flag": 1,
+        "horizons": {
+          "6": {
+            "horizon_hours": 6,
+            "expected_fill_pct": 90.0,
+            "expected_growth_pct_points": 60.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "24": {
+            "horizon_hours": 24,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 240.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "48": {
+            "horizon_hours": 48,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 480.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "168": {
+            "horizon_hours": 168,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 1680.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          }
+        },
+        "decision_at": "2026-03-20T11:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "unsupported_threshold_preserves_bin",
+      "passed": true,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 100,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20T10:00:00Z",
+        "status": "unsupported_threshold",
+        "reason": "Model trained against [90.0]; requested 100% is not supported.",
+        "time_to_service_threshold_hours": null,
+        "risk_level": null,
+        "fill_pct": 30.0,
+        "confidence_flag": 1,
+        "horizons": {},
+        "decision_at": "2026-03-20T11:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "selection_window_unavailable",
+      "passed": true,
+      "actual": {
+        "schema_version": "2.0",
+        "status": "model_unavailable",
+        "reason": "Model evidence extends through 2026-03-16T00:00:00Z; decision_at 2026-03-02T12:00:00Z is before availability cutoff.",
+        "decision_at": "2026-03-02T12:00:00Z",
+        "input_snapshot_id": "review-only",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "time_to_service_threshold_hours": null,
+        "risk_level": null,
+        "fill_pct": null,
+        "confidence_flag": 0,
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "horizons": {},
+        "bin_id": "general-1"
+      }
+    },
+    {
+      "check": "decision_offset_equivalence",
+      "passed": true,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20 10:00:00+00:00",
+        "status": "available",
+        "time_to_service_threshold_hours": 5.05,
+        "risk_level": "High",
+        "fill_pct": 30.0,
+        "confidence_flag": 1,
+        "horizons": {
+          "6": {
+            "horizon_hours": 6,
+            "expected_fill_pct": 90.0,
+            "expected_growth_pct_points": 60.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "24": {
+            "horizon_hours": 24,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 240.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "48": {
+            "horizon_hours": 48,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 480.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "168": {
+            "horizon_hours": 168,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 1680.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          }
+        },
+        "decision_at": "2026-03-20T19:00:00+08:00",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "observation_offset_equivalence",
+      "passed": false,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20 18:00:00+08:00",
+        "status": "available",
+        "time_to_service_threshold_hours": 13.04,
+        "risk_level": "Medium",
+        "fill_pct": 30.0,
+        "confidence_flag": 1,
+        "horizons": {
+          "6": {
+            "horizon_hours": 6,
+            "expected_fill_pct": 90.0,
+            "expected_growth_pct_points": 60.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "24": {
+            "horizon_hours": 24,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 240.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "48": {
+            "horizon_hours": 48,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 480.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "168": {
+            "horizon_hours": 168,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 1680.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          }
+        },
+        "decision_at": "2026-03-20T11:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "mixed_observation_offsets",
+      "passed": false,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20T18:00:00+08:00",
+        "status": "model_error",
+        "time_to_service_threshold_hours": null,
+        "risk_level": null,
+        "fill_pct": 30.0,
+        "confidence_flag": 1,
+        "horizons": {},
+        "decision_at": "2026-03-20T11:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "all_low_confidence_degraded",
+      "passed": true,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20 10:00:00+00:00",
+        "status": "low_confidence",
+        "time_to_service_threshold_hours": 5.05,
+        "risk_level": "High",
+        "fill_pct": 30.0,
+        "confidence_flag": 0,
+        "horizons": {
+          "6": {
+            "horizon_hours": 6,
+            "expected_fill_pct": 90.0,
+            "expected_growth_pct_points": 60.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "24": {
+            "horizon_hours": 24,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 240.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "48": {
+            "horizon_hours": 48,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 480.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "168": {
+            "horizon_hours": 168,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 1680.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          }
+        },
+        "decision_at": "2026-03-20T11:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "latest_low_confidence_not_available",
+      "passed": false,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20 10:00:00+00:00",
+        "status": "available",
+        "time_to_service_threshold_hours": 0.66,
+        "risk_level": "Critical",
+        "fill_pct": 95.0,
+        "confidence_flag": 0,
+        "horizons": {
+          "6": {
+            "horizon_hours": 6,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 300.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "24": {
+            "horizon_hours": 24,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 1200.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "48": {
+            "horizon_hours": 48,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 2400.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "168": {
+            "horizon_hours": 168,
+            "expected_fill_pct": 100.0,
+            "expected_growth_pct_points": 8400.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          }
+        },
+        "decision_at": "2026-03-20T11:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "unknown_fill_not_available",
+      "passed": true,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20 10:00:00+00:00",
+        "status": "model_error",
+        "reason": "non-finite or negative prediction",
+        "time_to_service_threshold_hours": null,
+        "risk_level": null,
+        "fill_pct": "nan",
+        "confidence_flag": 1,
+        "horizons": {},
+        "decision_at": "2026-03-20T11:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "unknown_fill_record_json_safe",
+      "passed": false,
+      "actual": {
+        "error": "ValueError",
+        "message": "Out of range float values are not JSON compliant: nan"
+      }
+    },
+    {
+      "check": "duplicate_only_history_cold_start",
+      "passed": false,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20 09:00:00+00:00",
+        "status": "available",
+        "time_to_service_threshold_hours": 31.11,
+        "risk_level": "Low",
+        "fill_pct": 20.0,
+        "confidence_flag": 1,
+        "horizons": {
+          "6": {
+            "horizon_hours": 6,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "24": {
+            "horizon_hours": 24,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "48": {
+            "horizon_hours": 48,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "168": {
+            "horizon_hours": 168,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          }
+        },
+        "decision_at": "2026-03-20T11:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "single_old_reading_stale",
+      "passed": true,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20 09:00:00+00:00",
+        "status": "stale",
+        "time_to_service_threshold_hours": 31.11,
+        "risk_level": "Low",
+        "fill_pct": 20.0,
+        "confidence_flag": 1,
+        "horizons": {
+          "6": {
+            "horizon_hours": 6,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "24": {
+            "horizon_hours": 24,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "48": {
+            "horizon_hours": 48,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "168": {
+            "horizon_hours": 168,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          }
+        },
+        "reason": "Latest observation is 3891.0h old (max 72.0h).",
+        "decision_at": "2026-08-29T12:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "late_receipt_excluded",
+      "passed": true,
+      "actual": {
+        "schema_version": "2.0",
+        "bin_id": "general-1",
+        "model_version": "2.0.0",
+        "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+        "target_threshold_pct": 90.0,
+        "estimate_type": "expected_hours_to_service_threshold",
+        "waste_type": null,
+        "waste_type_used_as_feature": false,
+        "timestamp": "2026-03-20 09:00:00+00:00",
+        "status": "cold_start",
+        "time_to_service_threshold_hours": 31.11,
+        "risk_level": "Low",
+        "fill_pct": 20.0,
+        "confidence_flag": 1,
+        "horizons": {
+          "6": {
+            "horizon_hours": 6,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "24": {
+            "horizon_hours": 24,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "48": {
+            "horizon_hours": 48,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          },
+          "168": {
+            "horizon_hours": 168,
+            "expected_fill_pct": 20.0,
+            "expected_growth_pct_points": 0.0,
+            "overflow_probability": null,
+            "overflow_probability_status": "unsupported"
+          }
+        },
+        "decision_at": "2026-03-20T11:00:00Z",
+        "input_snapshot_id": "review-only"
+      }
+    },
+    {
+      "check": "missing_configured_bin_identified",
+      "passed": true,
+      "actual": [
+        {
+          "schema_version": "2.0",
+          "bin_id": "general-1",
+          "model_version": "2.0.0",
+          "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+          "target_threshold_pct": 90.0,
+          "estimate_type": "expected_hours_to_service_threshold",
+          "waste_type": null,
+          "waste_type_used_as_feature": false,
+          "timestamp": "2026-03-20 10:00:00+00:00",
+          "status": "available",
+          "time_to_service_threshold_hours": 5.05,
+          "risk_level": "High",
+          "fill_pct": 30.0,
+          "confidence_flag": 1,
+          "horizons": {
+            "6": {
+              "horizon_hours": 6,
+              "expected_fill_pct": 90.0,
+              "expected_growth_pct_points": 60.0,
+              "overflow_probability": null,
+              "overflow_probability_status": "unsupported"
+            },
+            "24": {
+              "horizon_hours": 24,
+              "expected_fill_pct": 100.0,
+              "expected_growth_pct_points": 240.0,
+              "overflow_probability": null,
+              "overflow_probability_status": "unsupported"
+            },
+            "48": {
+              "horizon_hours": 48,
+              "expected_fill_pct": 100.0,
+              "expected_growth_pct_points": 480.0,
+              "overflow_probability": null,
+              "overflow_probability_status": "unsupported"
+            },
+            "168": {
+              "horizon_hours": 168,
+              "expected_fill_pct": 100.0,
+              "expected_growth_pct_points": 1680.0,
+              "overflow_probability": null,
+              "overflow_probability_status": "unsupported"
+            }
+          },
+          "decision_at": "2026-03-20T11:00:00Z",
+          "input_snapshot_id": "review-only"
+        },
+        {
+          "schema_version": "2.0",
+          "bin_id": "recycling-1",
+          "timestamp": null,
+          "status": "unavailable",
+          "time_to_service_threshold_hours": null,
+          "risk_level": null,
+          "fill_pct": null,
+          "confidence_flag": 0,
+          "target_threshold_pct": 90.0,
+          "estimate_type": "expected_hours_to_service_threshold",
+          "model_version": "2.0.0",
+          "model_sha256": "881eec29de1296ea9f5f448d34023b7db05ff98de84c9c601ee583df1abc26a7",
+          "waste_type": null,
+          "waste_type_used_as_feature": false,
+          "horizons": {},
+          "decision_at": "2026-03-20T11:00:00Z",
+          "input_snapshot_id": "review-only"
+        }
+      ]
+    },
+    {
+      "check": "probabilities_remain_unsupported",
+      "passed": true,
+      "actual": {
+        "6": {
+          "horizon_hours": 6,
+          "expected_fill_pct": 90.0,
+          "expected_growth_pct_points": 60.0,
+          "overflow_probability": null,
+          "overflow_probability_status": "unsupported"
+        },
+        "24": {
+          "horizon_hours": 24,
+          "expected_fill_pct": 100.0,
+          "expected_growth_pct_points": 240.0,
+          "overflow_probability": null,
+          "overflow_probability_status": "unsupported"
+        },
+        "48": {
+          "horizon_hours": 48,
+          "expected_fill_pct": 100.0,
+          "expected_growth_pct_points": 480.0,
+          "overflow_probability": null,
+          "overflow_probability_status": "unsupported"
+        },
+        "168": {
+          "horizon_hours": 168,
+          "expected_fill_pct": 100.0,
+          "expected_growth_pct_points": 1680.0,
+          "overflow_probability": null,
+          "overflow_probability_status": "unsupported"
+        }
+      }
+    }
+  ]
+}

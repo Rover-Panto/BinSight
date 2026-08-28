@@ -2,7 +2,7 @@
   "schema_version": 1,
   "branch": "codex/integration-test",
   "demo_mode": "physical",
-  "captured_at": "2026-08-28",
+  "captured_at": "2026-08-29",
   "foundation_sha": "68f12831a3a0551502e78f19df83a509e11af4ff",
   "main_sha": "9fca9d47afb805f40034da970bb47d791ba8f0b4",
   "components": [
@@ -43,11 +43,12 @@
       "pr": 4,
       "owner": "Niccc8",
       "path": "ml",
-      "sha": "1143545010d89b94abfa9655a5c27a318a7145b0",
+      "sha": "28509cc4e90b2c1e2c3c3c2e026244e5a6e86dee",
       "review": "changes_required",
       "evidence": [
         "docs/INTEGRATION_REVIEW_LATEST.md",
-        "https://github.com/Rover-Panto/BinSight/pull/4#issuecomment-5454656565"
+        "docs/PR4_REVIEW_2026-08-29.md",
+        "integration/evidence/2026-08-29-pr4-probes.json"
       ]
     }
   ],
@@ -111,7 +112,9 @@
       "status": "failed",
       "evidence": [
         "integration/probes/review_latest.py",
-        "docs/INTEGRATION_REVIEW_LATEST.md"
+        "docs/INTEGRATION_REVIEW_LATEST.md",
+        "integration/probes/review_pr4_update.py",
+        "integration/evidence/2026-08-29-pr4-probes.json"
       ]
     },
     {

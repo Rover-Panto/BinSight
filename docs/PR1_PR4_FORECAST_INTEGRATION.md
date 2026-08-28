@@ -2,7 +2,7 @@
 
 Owner instruction: 28 August 2026. **PR4 owns forecasting. PR1 owns collection decisions, routing and operational KPIs.** This document specifies work to implement; it does not claim that the branches are integrated or that PR4 is ready for deployment.
 
-Use [the integration test branch plan](INTEGRATION_TEST_PLAN.md) for staging, owner decisions and evidence gates, and [the latest baseline](INTEGRATION_BASELINE_2026-08-28.md) for PR4's subsequent provider changes. The original starting heads below remain historical context.
+Use [the integration test branch plan](INTEGRATION_TEST_PLAN.md) for staging, owner decisions and evidence gates, and [the 29 August PR4 review](PR4_REVIEW_2026-08-29.md) for its current provider changes. Head `28509cc` supplies an installable provider but still needs manifest, quality, observation-timezone and bundle-promotion fixes. The original starting heads below remain historical context.
 
 Starting review heads: PR1 `c256bd44a60d12628b9f0354879e1ad90a15ec1e`; PR4 `313f76b2c8c0356f966018f591b1dec56b68a939`. Recheck the current heads and preserve newer contributor changes before editing. Resolve the [review findings](PR_REVIEW_2026-08-28.md) alongside this integration.
 

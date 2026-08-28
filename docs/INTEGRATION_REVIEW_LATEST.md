@@ -1,15 +1,15 @@
 # Latest PR Review and Integration Record
 
-Reviewed 28 August 2026 on `codex/integration-test`. This supersedes the earlier head review for current integration decisions.
+PR4 re-reviewed 29 August 2026 on `codex/integration-test`; the other rows retain their 28 August reviewed heads. A newer contributor push does not inherit approval from these results.
 
 | PR | Reviewed head | Component tests | Integration status |
 | --- | --- | --- | --- |
 | #1 routing/admin | `8b34c9651b4b2ef4cef7abe6f45bb54c4017a3df` | 111 passed | Changes required; not staged |
 | #2 fill/gateway | `84952d2b59f3636d006cbe7518f895face0774a4` | No host/firmware test suite supplied | Changes required; not staged |
 | #3 vision | `819ff37b41a78208ba1624ad0060f8bec0358346` | 3 passed; PR3 serializer passed real-HTTP server preflight | Changes required; not staged |
-| #4 forecast | `1143545010d89b94abfa9655a5c27a318a7145b0` | 27 passed | Changes required; not staged |
+| #4 forecast | `28509cc4e90b2c1e2c3c3c2e026244e5a6e86dee` | 32 passed; independent checks: 12 passed / 17 failed | Changes required; not staged |
 
-Passing component tests do not establish combined or physical readiness. PR1-4 remain outside this branch and `main`. The new main-owned return API is the only integration implementation added in this pass.
+Passing component tests do not establish combined or physical readiness. PR1-4 remain outside this branch and `main`. The main-owned return API remains simulation-only. PR2 has a newer unreviewed push; its findings below apply to `84952d2`, not that newer head.
 
 ## Blocking Findings
 
@@ -29,17 +29,21 @@ The Teensy waits only 500 ms for an uncorrelated `ACK:<status>`, while the gatew
 
 References: PR2 `hardware_pipeline/tools/serial_bridge.py:68`, `:109`, `:110`; gateway sketch `:117`, `:139`, `:165`; retained probe `integration/probes/review_latest.py`.
 
-### P1: PR4 can load a model before validating its runtime provenance
+### P1: PR4 still accepts invalid runtime metadata and faulty readings
 
-The manifest requires a `dependencies` object but the provider never checks those versions before `joblib.load`. The probe supplied an impossible NumPy version and observed one deserialization call. The wheel builds and imports outside the repository, but it does not package a default model bundle. The contributor must validate schema, target definition, runtime feature list, estimator allow-list, dependency versions and model availability time before deserialization, then either package the reviewed bundle or require an explicit bundle path.
+At `28509cc`, the dependency check permits adjacent major versions, skips missing versions and ignores minor/patch differences. Unknown schemas, missing or unsupported target definitions, non-runtime feature lists and invalid availability provenance still reach the loader. The independent tests isolate these checks without deserializing a test artifact. Replace permissive checks with a typed, fail-closed manifest and a tested version policy.
 
-The manifest says validation selected the model through 15 March and records `trained_at` on 28 August, but runtime availability uses a 28 February training-data cutoff. A 2 March historical decision returned `available`. Normalize all decision/training/receipt timestamps to UTC and reject decisions before the latest evidence used for model selection. The current `tz_localize(None)` logic returned different states for the same instant written as UTC and Malaysia time.
+The quality fix only catches all-zero histories. One valid 20% reading followed by a flagged 95% reading returns `available` with 0.66 hours to the service threshold. Duplicate copies of one reading also return `available`; unknown fill can leave NaN in a result. Select distinct, usable observations before feature construction, enforce freshness from the last-good timestamp and return JSON-safe degraded records.
 
-### P1: PR4 output cannot yet drive PR1 routes safely
+### P2: PR4 observation timezones and model-copy selection remain inconsistent
 
-Configured bins lose `bin_id` on unsupported-threshold responses. Low-confidence histories still return `available`; months-old single-reading histories remain `cold_start` instead of stale. PR4 supports hours to a 90% service threshold and explicitly has no calibrated horizon probabilities. PR1 still owns and runs a separate 1,903-line pattern forecaster. PR1 must not reinterpret hours as growth or invent probabilities. Add one adapter that returns one identified capability/state record per configured bin; route with current validated fill plus a named non-ML fallback when capability is missing. Retire the duplicate forecaster only after that adapter and historical replay tests pass.
+Only temporary filtering Series are converted to UTC. Equivalent observations written in UTC and Malaysia time produce 5.05 versus 13.04 hours; mixed offsets return `model_error`. Carry normalized timestamps through sorting and feature construction using one documented model timezone.
 
-References: PR4 `ml/src/serve.py:85`, `:121`, `:172`, `:358`, `:361`, `:505`; PR1 `admin-portal/binsight/pr2_forecasting.py:795`; retained probe output.
+The new default bundle now installs and loads outside the checkout, but training writes `ml/models` while the default provider and wheel use `ml/binsight_ml/models`. Add an explicit promotion/hash verification step so the post-training smoke test cannot silently load the old copy.
+
+Resolved at this head: missing packaged bundle, missing bin ID on unsupported thresholds, pre-selection historical availability, decision-cutoff timezone equivalence, all-zero confidence status and stale single-reading precedence. See [the dated PR4 review](PR4_REVIEW_2026-08-29.md) for exact line references, fixes, environment and retained evidence.
+
+PR4 still supports only expected hours to a 90% service threshold, not calibrated probabilities. PR1's separate forecaster and missing capability-aware adapter remain integration work. Do not reinterpret hours as growth or delete the existing predictor before live/replay adapter tests pass.
 
 ### P2: PR1's optional post-optimizer can invalidate route duration
 
@@ -67,7 +71,7 @@ This is partial G06/G07/G09/G10/G12 evidence. QR/login/browser transport, simula
 
 1. PR2 fixes loss semantics and replaces the generic blocking sketch with one compile-tested shared C3 shell. Keep fill UART and recognition I2C in independent bounded tasks/queues.
 2. PR3 supplies the reviewed Grove artifact and SSCMA adapter. Run the main return preflight with recorded metadata, then on the exact combined C3 build.
-3. PR4 fixes pre-load provenance and point-in-time/output contracts. Add a PR1 adapter contract test before deleting PR1's duplicate predictor.
+3. PR4 closes the remaining manifest, usable-reading, observation-timezone and bundle-promotion gaps from the 29 August review. Add a PR1 adapter contract test before deleting PR1's duplicate predictor.
 4. PR1 keeps the post-optimizer disabled, adds a physical demo registry and consumes the installed PR4 provider with a named non-ML fallback.
 5. Main adds a feature-flagged citizen client/QR handoff and versioned return-data migration, then the report API and PR1 ticket controls.
 6. Run G01-G13 on the exact staged heads, then H01-H02 on the bench. Merge focused PRs to `main` only after owner approval.
@@ -79,6 +83,9 @@ python -m unittest discover -s server/tests -v
 python -m unittest discover -s integration/tests -v
 python -m integration.return_preflight
 python integration/probes/review_latest.py --pr1-root PATH_TO_PR1 --pr2-root PATH_TO_PR2 --pr4-root PATH_TO_PR4
+python integration/probes/review_pr4_update.py --pr4-root PATH_TO_PR4 --output pr4-review-results.json
 ```
+
+The older `review_latest.py` is historical evidence against its recorded heads. Use `review_pr4_update.py` for the new PR4 review; its expected nonzero exit records unresolved checks, not a foundation CI failure.
 
 From `web/`: `pnpm lint`, `pnpm test:run`, `pnpm build`, and `pnpm test:e2e`. From PR1: its full `pytest` suite. From PR3: `python -m unittest recycling_vision.test_relay -v`. From PR4: `pytest ml/tests -q`.
