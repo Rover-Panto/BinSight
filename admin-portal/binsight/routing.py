@@ -22,6 +22,7 @@ class RoutePlan:
     avoided_loss_value_m_equivalent: float = 0.0
     net_value_m_equivalent: float = 0.0
     dispatch_reason: str = "no_candidate"
+    route_destinations: list[str] = field(default_factory=list)
 
 
 def _routing_demand_kg(value: float) -> int:

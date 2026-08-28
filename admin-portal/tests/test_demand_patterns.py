@@ -108,7 +108,14 @@ def test_material_profiles_change_mass_and_fill_rates():
     )
     deterministic = replace(config, demand=quiet_demand)
     bins = []
-    for material, bin_type, stream, density, fraction in config.waste.material_profiles:
+    for (
+        material,
+        bin_type,
+        stream,
+        destination,
+        density,
+        fraction,
+    ) in config.waste.material_profiles:
         bins.append(
             BinSpec(
                 "SAME-PATTERN",
@@ -122,6 +129,7 @@ def test_material_profiles_change_mass_and_fill_rates():
                 bin_type=bin_type,
                 waste_stream=stream,
                 material_type=material,
+                destination_id=destination,
                 bulk_density_kg_per_m3=density,
                 demand_rate_multiplier=fraction * config.pilot.bins_per_service_site,
             )
@@ -130,12 +138,13 @@ def test_material_profiles_change_mass_and_fill_rates():
     material_mass = result.expected_mean_kg.sum(axis=0)
     np.testing.assert_allclose(
         material_mass / material_mass.sum(),
-        [0.34, 0.07, 0.59],
+        [0.34, 0.07, 0.10, 0.49],
         atol=1e-9,
     )
     fill_growth = material_mass / np.array([item.capacity_kg for item in bins])
-    assert fill_growth[0] > fill_growth[2]
-    assert fill_growth[1] > fill_growth[2]
+    assert fill_growth[0] > fill_growth[3]
+    assert fill_growth[1] > fill_growth[3]
+    assert fill_growth[2] < fill_growth[3]
 
 
 def test_ar1_regimes_persist_and_local_surge_is_localized():

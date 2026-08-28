@@ -29,12 +29,12 @@ def _inputs():
     return config, bins, rows
 
 
-def test_33_bins_are_consolidated_into_exactly_11_unoffset_site_records():
+def test_44_bins_are_consolidated_into_exactly_11_unoffset_site_records():
     _, bins, rows = _inputs()
     records = build_site_records(bins, rows)
 
     assert len(records) == 11
-    assert all(record["bin_count"] == 3 for record in records)
+    assert all(record["bin_count"] == 4 for record in records)
     for record in records:
         site = bins[bins["site_id"] == record["site_id"]]
         assert site[["latitude", "longitude"]].drop_duplicates().shape[0] == 1
@@ -46,10 +46,10 @@ def test_33_bins_are_consolidated_into_exactly_11_unoffset_site_records():
 def test_site_state_priority_and_all_bin_details_are_rendered():
     config, bins, rows = _inputs()
     rows[0]["selection"] = "Required"
-    rows[3]["selection"] = "Inspection required"
-    rows[6]["selection"] = "Efficient nearby pickup"
-    rows[9]["selection"] = "Completed"
-    records = build_site_records(bins, rows, {str(bins.iloc[9]["bin_id"])})
+    rows[4]["selection"] = "Inspection required"
+    rows[8]["selection"] = "Efficient nearby pickup"
+    rows[12]["selection"] = "Completed"
+    records = build_site_records(bins, rows, {str(bins.iloc[12]["bin_id"])})
     states = {record["site_id"]: record["state"] for record in records}
     assert list(states.values())[:4] == ["required", "inspection", "optional", "completed"]
 
@@ -59,7 +59,7 @@ def test_site_state_priority_and_all_bin_details_are_rendered():
     ]]
     rendered = build_dispatch_map(config, bins, geometry, rows).get_root().render()
     assert rendered.count("binsight-site-marker state-") == 11
-    assert rendered.count("three co-located underground bins") == 11
+    assert rendered.count("4 co-located underground bins") == 11
     assert "state-required" in rendered
     assert "state-inspection" in rendered
     assert "state-optional" in rendered
@@ -69,7 +69,10 @@ def test_site_state_priority_and_all_bin_details_are_rendered():
     assert "No collection required" in rendered
     assert "Mixed General Waste" in rendered
     assert "Plastic Cups" in rendered
+    assert "Metal Cans" in rendered
     assert "Glass Bottles" in rendered
+    assert "MBSJ USJ 9 Recycling Centre" in rendered
+    assert "no API key" in rendered
 
 
 def test_map_is_hard_bounded_and_tiles_do_not_wrap():

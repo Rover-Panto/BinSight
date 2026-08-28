@@ -150,6 +150,19 @@ def test_client_surfaces_authentication_and_temporary_failures():
     )
     with pytest.raises(TelemetryAuthenticationError):
         client.fetch_events()
+
+
+def test_client_allows_exact_loopback_http_and_rejects_lookalike_hosts():
+    TelemetryClient("http://localhost:8502", "test-key")
+    TelemetryClient("http://127.0.0.1:8502", "test-key")
+    TelemetryClient("http://[::1]:8502", "test-key")
+    for lookalike in (
+        "http://localhost.attacker.example",
+        "http://127.0.0.1.attacker.example",
+        "http://telemetry.example",
+    ):
+        with pytest.raises(ValueError, match="exact loopback host"):
+            TelemetryClient(lookalike, "test-key")
     client = TelemetryClient(
         "https://telemetry.example",
         "test-key",

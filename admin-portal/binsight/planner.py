@@ -57,6 +57,7 @@ class PlanningService:
         *,
         network_version: str,
         model_version: str,
+        destination_matrices: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
     ) -> None:
         self.config = config
         self.bins = bins
@@ -65,6 +66,7 @@ class PlanningService:
         self.store = store
         self.network_version = network_version
         self.model_version = model_version
+        self.destination_matrices = dict(destination_matrices or {})
 
     def evaluate(
         self,
@@ -109,27 +111,63 @@ class PlanningService:
                 continue
             observed_at = pd.to_datetime(row["observed_at"], utc=True)
             serviced_at = pd.to_datetime(service["serviced_at"], utc=True)
-            if observed_at > serviced_at:
-                continue
             service_iso = serviced_at.isoformat()
-            normalized.at[index, "timestamp"] = service_iso
-            normalized.at[index, "observed_at"] = service_iso
-            normalized.at[index, "fill_pct"] = 0.0
-            normalized.at[index, "weight_kg"] = 0.0
-            normalized.at[index, "time_to_overflow_hours"] = np.nan
-            normalized.at[index, "risk_level"] = "low"
-            normalized.at[index, "confidence_flag"] = True
-            normalized.at[index, "forecast_status"] = "stable_no_overflow"
-            normalized.at[index, "forecast_method"] = "post-service-state"
-            normalized.at[index, "stale_flag"] = False
-            normalized.at[index, "offline_flag"] = False
-            normalized.at[index, "reading_age_hours"] = max(
+            service_age_hours = max(
                 0.0, (clock - serviced_at.to_pydatetime()).total_seconds() / 3600.0
             )
             normalized.at[index, "service_plan_id"] = service["plan_id"]
             normalized.at[index, "service_state_at"] = service_iso
+            normalized.at[index, "service_confirmation_state"] = (
+                "confirmed_empty"
+                if service_age_hours
+                <= self.config.operations.post_service_empty_state_hours
+                else "telemetry_confirmation_required"
+            )
             service_markers.append(
                 f"SERVICE:{service['plan_id']}:{bin_id}:{service_iso}"
+            )
+            if observed_at > serviced_at:
+                continue
+            if (
+                service_age_hours
+                <= self.config.operations.post_service_empty_state_hours
+            ):
+                normalized.at[index, "timestamp"] = service_iso
+                normalized.at[index, "observed_at"] = service_iso
+                normalized.at[index, "fill_pct"] = 0.0
+                normalized.at[index, "weight_kg"] = 0.0
+                normalized.at[index, "time_to_overflow_hours"] = np.nan
+                normalized.at[index, "risk_level"] = "low"
+                normalized.at[index, "confidence_flag"] = True
+                normalized.at[index, "forecast_status"] = "stable_no_overflow"
+                normalized.at[index, "forecast_method"] = "post-service-state"
+                normalized.at[index, "stale_flag"] = False
+                normalized.at[index, "offline_flag"] = False
+                normalized.at[index, "reading_age_hours"] = service_age_hours
+                continue
+
+            # The durable service fact remains, but an old pre-service reading
+            # cannot prove that the bin is still empty forever. After the
+            # bounded grace window, fail closed to inspection until a new
+            # post-service observation arrives.
+            existing_flags = row.get("quality_flags", ())
+            if not isinstance(existing_flags, (tuple, list, set)):
+                existing_flags = (str(existing_flags),) if existing_flags else ()
+            normalized.at[index, "fill_pct"] = np.nan
+            normalized.at[index, "weight_kg"] = np.nan
+            normalized.at[index, "time_to_overflow_hours"] = np.nan
+            normalized.at[index, "risk_level"] = "unknown"
+            normalized.at[index, "confidence_flag"] = False
+            normalized.at[index, "forecast_status"] = "unavailable"
+            normalized.at[index, "forecast_method"] = "post-service-confirmation-expired"
+            normalized.at[index, "stale_flag"] = True
+            normalized.at[index, "offline_flag"] = bool(
+                offline_after_hours is not None
+                and service_age_hours > offline_after_hours
+            )
+            normalized.at[index, "reading_age_hours"] = service_age_hours
+            normalized.at[index, "quality_flags"] = tuple(
+                sorted(set(existing_flags) | {"post_service_telemetry_missing"})
             )
         source_identity_ids = sorted(
             str(value) for value in normalized.get("event_id", pd.Series(dtype=object)).dropna()
@@ -163,6 +201,7 @@ class PlanningService:
             last_valid_readings,
             self.duration_matrix_s,
             optional_dispatch_allowed=optional_dispatch_allowed,
+            destination_matrices=self.destination_matrices,
         )
         bucket_seconds = self.config.operations.dynamic_replan_interval_minutes * 60
         bucket = int(clock.timestamp()) // bucket_seconds
@@ -271,6 +310,20 @@ class PlanningService:
         duration[0, :] = self.duration_matrix_s[start_index, :]
         distance[0, 0] = 0
         duration[0, 0] = 0
+        adjusted_destinations: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        for destination_id, (destination_distance, destination_duration) in (
+            self.destination_matrices.items()
+        ):
+            adjusted_destination_distance = np.array(destination_distance, copy=True)
+            adjusted_destination_duration = np.array(destination_duration, copy=True)
+            adjusted_destination_distance[0, :] = destination_distance[start_index, :]
+            adjusted_destination_duration[0, :] = destination_duration[start_index, :]
+            adjusted_destination_distance[0, 0] = 0
+            adjusted_destination_duration[0, 0] = 0
+            adjusted_destinations[destination_id] = (
+                adjusted_destination_distance,
+                adjusted_destination_duration,
+            )
         revised_config = replace(
             self.config,
             operations=replace(
@@ -288,6 +341,7 @@ class PlanningService:
             self.store,
             network_version=self.network_version + ":active-suffix",
             model_version=self.model_version,
+            destination_matrices=adjusted_destinations,
         )
         result = suffix_service.evaluate(
             adjusted,

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import ipaddress
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import requests
 
@@ -42,8 +43,19 @@ class TelemetryClient:
         verify_tls: bool = True,
         session: requests.Session | None = None,
     ) -> None:
-        if not base_url.lower().startswith(("https://", "http://127.0.0.1", "http://localhost")):
-            raise ValueError("Telemetry API must use HTTPS except for an explicit local host")
+        parsed = urlparse(base_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("Telemetry API URL must include an HTTP(S) scheme and host")
+        if parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError("Telemetry API URL cannot embed credentials, query strings, or fragments")
+        is_loopback = parsed.hostname.lower() == "localhost"
+        if not is_loopback:
+            try:
+                is_loopback = ipaddress.ip_address(parsed.hostname).is_loopback
+            except ValueError:
+                is_loopback = False
+        if parsed.scheme != "https" and not is_loopback:
+            raise ValueError("Telemetry API must use HTTPS except for an exact loopback host")
         if not api_key or api_key.lower().startswith(("change", "placeholder")):
             raise ValueError("A non-placeholder telemetry API key is required")
         if timeout_seconds <= 0 or timeout_seconds > 60:

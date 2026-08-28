@@ -72,7 +72,7 @@ The route solver minimizes:
 
 subject to route flow, a 9,000 kg mass limit, 22 m³ compacted-body limit, two daily trips, 480-minute route limit, mandatory-stop service and stable tie-breaking. OR-Tools disjunctions implement optional skip penalties.
 
-Registered `waste_stream` values are also hard constraints: general waste and beverage-return recycling routes are solved separately and then combined under the same daily trip limit. No generated trip mixes incompatible streams.
+Registered `waste_stream` values are also hard constraints. General waste and dry recycling are solved separately under the same daily trip limit. Plastic, metal and glass remain separate monitored bins but share the configured dry-recycling truck stream. General routes start and end at the waste depot. Recycling routes are costed and displayed as `depot -> selected recycling bins -> USJ 9 recycling facility -> depot`; their bin-to-end arc includes both facility unloading access and the return to the depot. No generated trip mixes general waste with recycling.
 
 Here `E_i` is the central fused fill estimate before the one-sided safety margin. Safety selection and capacity use conservative `U_i`; low-fill economics use `E_i` so an uncertainty margin does not erase the cost of an expected low-fill pickup.
 
@@ -98,7 +98,11 @@ The simulation evaluates at every six-hour sensor observation. Non-mandatory pos
 
 Repeated inputs are idempotent within the interval, but elapsed time creates a new decision snapshot because observation age changes. Draft proposals never overwrite an accepted route.
 
-A completed service is a durable planning event. It writes a zero-fill service observation and supersedes older delayed pre-service readings until a genuinely newer acquisition arrives, preventing an already emptied bin from being selected again.
+A completed service is a durable planning event. For six hours it supersedes delayed pre-service readings with a confirmed-empty state, preventing immediate duplicate collection. That override then expires: without a genuinely newer post-service acquisition, fill and weight become unknown, the forecast becomes unavailable, and the bin is sent to inspection. The service plan ID and service timestamp remain separate durable facts, so the system neither forgets the collection nor claims the bin stays empty forever.
+
+## Current four-bin smoke evidence
+
+The bounded `four-bin-smoke` run contains two paired normal-scenario replications. It verified end-to-end execution with no routing fallbacks or unfinished trips. Mean wasted pickups fell from 197.5 to 39.5 and mean overflow incidents fell from 6 to 4, while mean distance increased from 766.0 km to 1,273.6 km and trips increased from 18 to 36. Two replications are not inferential evidence. The result shows that the current safety settings do not yet satisfy the distance objective, so dynamic routing remains demonstration/shadow-mode logic rather than a proven replacement for the fixed schedule.
 
 For an active route, the current leg is frozen. `PlanningService.replan_remaining_after_event()` uses the frozen destination as the start of a new suffix, excludes completed/current-service bins, applies residual mass and volume, and writes a separate draft referencing the active accepted plan. Operator acceptance remains required.
 

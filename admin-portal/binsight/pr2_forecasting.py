@@ -884,8 +884,16 @@ def _should_retrain(
         return True
     try:
         trained_at = _as_utc(state.get("trained_at"), "state.trained_at")
+        trained_data_cutoff = _as_utc(
+            state.get("trained_data_cutoff"), "state.trained_data_cutoff"
+        )
         trained_count = int(state.get("trained_record_count", 0))
     except (TypeError, ValueError):
+        return True
+    if trained_at > decision_at or trained_data_cutoff > decision_at:
+        # A replay at an earlier decision point cannot reuse a state trained or
+        # populated with later evidence. Refit only from the already-cut-off
+        # history supplied to this decision.
         return True
     current_count = int(cleaned["usable"].sum()) if not cleaned.empty else 0
     new_count = max(0, current_count - trained_count)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,24 +22,39 @@ from binsight.dispatch import (
 )
 from binsight.maps import build_dispatch_map, build_overview_map, build_tracking_map
 from binsight.network import load_cached_service_network, route_coordinates
-from binsight.pipeline import experiment_scenarios, run_experiment
+from binsight.pipeline import run_experiment
 from binsight.planner import PlanningService
 from binsight.planning_store import PlanningStore
+from binsight.runtime import configure_logging, error_reference
 from binsight.tracking import build_tracking_manifest
 
 
 ROOT = Path(__file__).resolve().parent
 ARTIFACTS = ROOT / "artifacts"
-EVIDENCE_ARTIFACTS = (
-    ARTIFACTS / "dynamic_v2"
-    if (ARTIFACTS / "dynamic_v2" / "paired_effects.csv").exists()
-    else ARTIFACTS
-)
 DATA = ROOT / "data"
 DISPATCH_LOG = DATA / "mock_truck_dispatches.jsonl"
 LAST_VALID_READINGS = DATA / "last_valid_sensor_readings.json"
 PLANNING_DB = DATA / "routing_plans.sqlite3"
 CONFIG = load_config(ROOT / "config.json")
+LOGGER = configure_logging(ROOT)
+CONFIG_SHA256 = hashlib.sha256(
+    json.dumps(CONFIG.to_dict(), sort_keys=True, separators=(",", ":")).encode("utf-8")
+).hexdigest()
+EVIDENCE_ARTIFACTS = ARTIFACTS
+EVIDENCE_PROVENANCE: dict = {}
+for candidate in (
+    ARTIFACTS / "dynamic_v2",
+    ARTIFACTS / "four-bin-smoke",
+    ARTIFACTS,
+):
+    provenance_path = candidate / "run_provenance.json"
+    if not provenance_path.exists():
+        continue
+    candidate_provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    if candidate_provenance.get("config_sha256") == CONFIG_SHA256:
+        EVIDENCE_ARTIFACTS = candidate
+        EVIDENCE_PROVENANCE = candidate_provenance
+        break
 
 
 st.set_page_config(
@@ -406,11 +422,23 @@ def _dispatch_geometries(plan, bins: pd.DataFrame) -> tuple[list[list[tuple[floa
     network = load_cached_service_network(DATA / "subang_jaya_osrm_network.json")
     geometries: list[list[tuple[float, float]]] = []
     fallback_used = False
-    for route in plan.route_plan.routes:
+    for route_number, route in enumerate(plan.route_plan.routes):
         service_indices = [
             0 if index == -1 else int(bins.iloc[index]["service_index"])
             for index in route
         ]
+        route_destinations = getattr(plan.route_plan, "route_destinations", [])
+        destination_id = (
+            route_destinations[route_number]
+            if route_number < len(route_destinations)
+            else (
+                str(bins.iloc[route[1]].get("destination_id", "waste_depot"))
+                if len(route) > 2
+                else "waste_depot"
+            )
+        )
+        if destination_id == "recycling_facility" and service_indices[-1] == 0:
+            service_indices.insert(-1, 1)
         try:
             geometry = route_coordinates(
                 network,
@@ -455,7 +483,10 @@ required_files = [
     EVIDENCE_ARTIFACTS / "representative_route_events.json",
     ARTIFACTS / "road_distance_matrix_m.npy",
     ARTIFACTS / "road_duration_matrix_s.npy",
+    ARTIFACTS / "recycling_road_distance_matrix_m.npy",
+    ARTIFACTS / "recycling_road_duration_matrix_s.npy",
     DATA / "subang_jaya_osrm_network.json",
+    EVIDENCE_ARTIFACTS / "run_provenance.json",
 ]
 
 with st.sidebar:
@@ -467,11 +498,14 @@ with st.sidebar:
     st.markdown('<div class="sidebar-label">Pilot configuration</div>', unsafe_allow_html=True)
     st.write(CONFIG.pilot.label)
     st.metric("Underground bins", CONFIG.pilot.bin_count)
-    st.metric("Three-bin service sites", required_service_sites(CONFIG))
+    st.metric("Four-bin service sites", required_service_sites(CONFIG))
     st.metric("Truck payload", f"{CONFIG.operations.truck_capacity_kg:,.0f} kg")
     st.metric(
         "Paired runs",
-        f"{CONFIG.operations.replications} × {len(experiment_scenarios(CONFIG))} scenarios",
+        (
+            f"{EVIDENCE_PROVENANCE.get('paired_replications_per_scenario', 0)} × "
+            f"{EVIDENCE_PROVENANCE.get('scenario_count', 0)} scenario(s)"
+        ),
     )
     if st.button("Run 30-day experiment", type="primary", width="stretch"):
         with st.spinner("Running paired 30-day simulations…"):
@@ -480,7 +514,7 @@ with st.sidebar:
         st.rerun()
     st.markdown(
         '<div class="environment-note"><strong>Prototype environment</strong><br>'
-        'Routes and dispatches are simulated locally. No municipal fleet is connected.</div>',
+        'Localhost-only server · mock dispatches only. No municipal fleet is connected.</div>',
         unsafe_allow_html=True,
     )
 
@@ -514,6 +548,12 @@ forecast = json.loads((EVIDENCE_ARTIFACTS / "forecast_evaluation.json").read_tex
 bins = pd.read_csv(ARTIFACTS / "district_bins.csv")
 distance_matrix = np.load(ARTIFACTS / "road_distance_matrix_m.npy")
 duration_matrix = np.load(ARTIFACTS / "road_duration_matrix_s.npy")
+recycling_distance_matrix = np.load(
+    ARTIFACTS / "recycling_road_distance_matrix_m.npy"
+)
+recycling_duration_matrix = np.load(
+    ARTIFACTS / "recycling_road_duration_matrix_s.npy"
+)
 routes = json.loads((EVIDENCE_ARTIFACTS / "representative_routes.geojson").read_text(encoding="utf-8"))
 route_events = json.loads(
     (EVIDENCE_ARTIFACTS / "representative_route_events.json").read_text(encoding="utf-8")
@@ -535,6 +575,7 @@ tracking_manifest = build_tracking_manifest(
     bins,
     service_network,
     DATA / "osrm_route_geometry_cache.json",
+    {CONFIG.pilot.recycling_facility_id: 1},
 )
 
 input_tab, overview_tab, tracking_tab, log_tab = st.tabs(
@@ -547,7 +588,18 @@ input_tab, overview_tab, tracking_tab, log_tab = st.tabs(
 )
 
 with overview_tab:
-    st.markdown('<p class="micro-label">Simulation evidence · 30-day paired experiment</p>', unsafe_allow_html=True)
+    evidence_replications = int(
+        EVIDENCE_PROVENANCE.get("paired_replications_per_scenario", 0)
+    )
+    st.markdown(
+        '<p class="micro-label">Simulation evidence · bounded 30-day paired run</p>',
+        unsafe_allow_html=True,
+    )
+    if evidence_replications < 10:
+        st.warning(
+            f"Integration smoke evidence only: {evidence_replications} paired replication(s) "
+            "per scenario. Use this to verify execution, not to claim statistical performance."
+        )
     filter_left, filter_right = st.columns(2)
     scenario = filter_left.selectbox(
         "Evaluation scenario",
@@ -590,7 +642,7 @@ with overview_tab:
         st.subheader("Representative road routes")
         st.caption(
             f"Smart dispatch from simulation day {representative_smart_event['day']}, "
-            f"{representative_smart_event['hour'] % 24:02d}:00. Each marker is one simulated service site with three co-located bins."
+            f"{representative_smart_event['hour'] % 24:02d}:00. Each marker is one simulated service site with four co-located bins."
         )
         _render_map(
             _overview_map(
@@ -639,7 +691,7 @@ with overview_tab:
         st.dataframe(display.round(3), width="stretch")
         st.warning("The comparison measures this configured simulation, not proven real-world impact.")
 
-    with st.expander("Simulated service-site schedule · 11 sites / 33 bins"):
+    with st.expander("Simulated service-site schedule · 11 sites / 44 bins"):
         site_table = sites[
             [
                 "site_id",
@@ -681,8 +733,9 @@ with input_tab:
     st.markdown('<p class="micro-label">Built-in routing demonstration</p>', unsafe_allow_html=True)
     st.subheader("Run the demonstration route")
     st.caption(
-        "The demonstration supplies all 33 configured bins automatically. Each of the 11 sites has "
-        "one mixed-general-waste bin, one plastic-cup recycling bin, and one glass-bottle recycling bin. "
+        "The demonstration supplies all 44 configured bins automatically. Each of the 11 sites has "
+        "one general-waste bin and separate plastic, metal, and glass recycling bins. "
+        "Recyclables unload at the marked USJ 9 recycling facility; general waste returns to the waste depot. "
         "BinSight validates the snapshot, evaluates trip value, separates incompatible collection streams, "
         "and proposes capacity-feasible road routes."
     )
@@ -721,7 +774,7 @@ with input_tab:
         hide_index=True,
         width="stretch",
     )
-    st.caption("Preview shows 12 of 33 bins; the route evaluation always uses the complete demonstration snapshot.")
+    st.caption("Preview shows 12 of 44 bins; the route evaluation always uses the complete demonstration snapshot.")
 
     if st.button("Run demonstration and build collection route", type="primary", width="stretch"):
         _clear_dispatch_state()
@@ -742,6 +795,12 @@ with input_tab:
                     store,
                     network_version="subang-jaya-osrm-v1",
                     model_version="forecast-synthetic-q90-v2",
+                    destination_matrices={
+                        "recycling_facility": (
+                            recycling_distance_matrix,
+                            recycling_duration_matrix,
+                        )
+                    },
                 )
                 result = service.evaluate(
                     raw_snapshot,
@@ -766,8 +825,13 @@ with input_tab:
             st.rerun()
         except ValueError as exc:
             st.error(str(exc))
-        except Exception as exc:
-            st.error(f"The route could not be built: {exc}")
+        except Exception:
+            reference = error_reference()
+            LOGGER.exception("%s route demonstration failed", reference)
+            st.error(
+                "The route could not be built safely. No dispatch was recorded. "
+                f"Reference: {reference}"
+            )
 
     if "dispatch_plan" in st.session_state:
         plan = st.session_state["dispatch_plan"]
@@ -850,10 +914,21 @@ with input_tab:
                 for trip_number, (route, load) in enumerate(
                     zip(plan.route_plan.routes, loads), start=1
                 ):
-                    labels = [
-                        "DEPOT" if index == -1 else str(plan_bins.iloc[index]["bin_id"])
+                    labels = ["DEPOT"] + [
+                        str(plan_bins.iloc[index]["bin_id"])
                         for index in route
+                        if index != -1
                     ]
+                    route_position = trip_number - 1
+                    destination_id = (
+                        plan.route_plan.route_destinations[route_position]
+                        if route_position < len(plan.route_plan.route_destinations)
+                        else "waste_depot"
+                    )
+                    if destination_id == "recycling_facility":
+                        labels.extend(["USJ 9 RECYCLING", "DEPOT"])
+                    else:
+                        labels.append("DEPOT")
                     st.markdown(f"**Trip {trip_number} · {load:,.0f} kg**")
                     st.write(" → ".join(labels))
                 st.caption(f"Solver: {plan.route_plan.solver_method}")

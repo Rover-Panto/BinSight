@@ -11,7 +11,7 @@ from binsight.config import load_config
 from binsight.dispatch import (
     COLLECTION_REQUIRED,
     INSPECTION_REQUIRED,
-    build_dispatch_plan,
+    build_dispatch_plan as _build_dispatch_plan,
     load_mock_dispatches,
     make_demo_snapshot,
     make_snapshot_template,
@@ -26,6 +26,24 @@ from binsight.dispatch import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def build_dispatch_plan(snapshot, bins, matrix, config, *args, **kwargs):
+    """Exercise production destination routing with the matching cached matrix."""
+    district = pd.read_csv(ROOT / "artifacts" / "district_bins.csv")
+    order = {str(value): index + 1 for index, value in enumerate(district["bin_id"])}
+    locations = [0] + [order[str(value)] for value in bins["bin_id"]]
+    recycling_distance = np.load(
+        ROOT / "artifacts" / "recycling_road_distance_matrix_m.npy"
+    )[np.ix_(locations, locations)]
+    recycling_duration = np.load(
+        ROOT / "artifacts" / "recycling_road_duration_matrix_s.npy"
+    )[np.ix_(locations, locations)]
+    kwargs.setdefault(
+        "destination_matrices",
+        {"recycling_facility": (recycling_distance, recycling_duration)},
+    )
+    return _build_dispatch_plan(snapshot, bins, matrix, config, *args, **kwargs)
 
 
 def _project_inputs():
@@ -130,7 +148,7 @@ def test_optional_consolidation_gap_defers_value_route_but_not_emergency():
 def test_snapshot_validation_requires_all_unique_bins_and_timezone():
     config, bins, _ = _project_inputs()
     snapshot = make_snapshot_template(bins["bin_id"])
-    with pytest.raises(ValueError, match="exactly 33 rows"):
+    with pytest.raises(ValueError, match="exactly 44 rows"):
         validate_snapshot(
             snapshot.iloc[:-1],
             bins["bin_id"],

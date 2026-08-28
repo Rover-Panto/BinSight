@@ -6,7 +6,7 @@ Status: implemented for file/replay and read-only API use; physical validation r
 
 `binsight/pr2_forecasting.py` converts the historical readings exposed by PR #2 into one synchronized, complete predictive snapshot for PR #1. It forecasts fill and overflow risk; it does not optimize a route. The resulting frame is passed through the existing PR #1 validator and trip-value dispatch policy, which separately decides whether a collection is operationally worthwhile.
 
-The adapter reads PR #2 fields `timestamp`, `bin_id`, `fill_pct`, `estimated_density`, `confidence_flag`, and `ingested_at`. Acquisition time is never replaced by ingestion time. The explicit maps in `config/pr2_forecasting.json` translate `bin_01`–`bin_03` for the physical pilot and `bin_01`–`bin_33` for the competition simulation into canonical `UGB-###` IDs.
+The adapter reads PR #2 fields `timestamp`, `bin_id`, `fill_pct`, `estimated_density`, `confidence_flag`, and `ingested_at`. Acquisition time is never replaced by ingestion time. The explicit maps in `config/pr2_forecasting.json` translate `bin_01`–`bin_03` for the incomplete physical pilot and `bin_01`–`bin_44` for the competition simulation into canonical `UGB-###` IDs.
 
 PR #2 currently returns at most 2,000 readings per bin. At the branch's two-second firmware cadence this represents only about 1.1 hours, not enough to learn the requested seasonal history. API mode therefore appends responses to a routing-owned SQLite cache. The cache is idempotent, refuses contradictory duplicates, and never writes the producer database. Field claims still require PR #2 to expose durable, correctly identified history from the actual three-channel producer.
 
@@ -78,7 +78,7 @@ P(F_{b,h}\ge100)=1-\Phi\left(\frac{100-\mu_{b,h}}{\sigma_{b,h}}\right).
 
 ## Adaptation and drift
 
-Every invocation recomputes the current trajectory, recent rates, and online residual error from readings at or before the decision cutoff. The fitted pattern retrains when either:
+Every invocation recomputes the current trajectory, recent rates, and online residual error from readings at or before the decision cutoff. A saved model whose training timestamp or training-data cutoff is later than the simulated decision time is rejected and rebuilt from evidence available at that decision; this prevents a historical replay from borrowing a model created in its future. The fitted pattern retrains when either:
 
 - at least 168 hours have elapsed and at least 48 new usable readings exist; or
 - the seven-day median rate differs from the preceding 21-day reference by at least a factor of two and at least 12 new readings exist.
@@ -100,7 +100,7 @@ Overall confidence requires a confident sensor, reading age at most 12 hours, th
 
 ## Evaluation evidence
 
-`scripts/evaluate_pr2_forecasting_adapter.py` runs chronological rolling origins against a deterministic 33-bin acceptance fixture containing normal, event, sparse-history, sensor-failure, and distribution-drift regimes. It censors fill scoring after a collection because observed post-collection fill is not the counterfactual no-service trajectory. The full artifact is `artifacts/pr2_forecast_adapter_evaluation.json`; it is synthetic acceptance evidence, not field validation.
+`scripts/evaluate_pr2_forecasting_adapter.py` runs chronological rolling origins against a deterministic acceptance fixture containing normal, event, sparse-history, sensor-failure, and distribution-drift regimes. It censors fill scoring after a collection because observed post-collection fill is not the counterfactual no-service trajectory. The full artifact is `artifacts/pr2_forecast_adapter_evaluation.json`; it is synthetic acceptance evidence, not field validation.
 
 | Horizon | Adapter MAE | Current-fill MAE | Last-rate MAE | Central-band coverage |
 | --- | ---: | ---: | ---: | ---: |
@@ -128,13 +128,13 @@ The self-evaluation exposes the main weaknesses rather than hiding them: the lit
 | Online residual update and controlled retraining | `test_online_residual_updates_each_reading_and_scheduled_retrain_is_controlled` |
 | Collection resets trajectory but retains learned pattern | `test_confirmed_collection_resets_trajectory_but_keeps_learned_pattern` |
 | Determinism for fixed history/model/event inputs | `test_output_is_deterministic_and_threshold_crossing_is_interpolated` |
-| Complete routable 33-bin snapshot and PR #1 validation | `test_realistic_pr2_history_produces_valid_routable_33_bin_snapshot` |
+| Complete routable 44-bin snapshot and PR #1 validation | `test_realistic_pr2_history_produces_valid_routable_44_bin_snapshot` |
 | Strict JSON command output | `test_forecast_cli_writes_strict_json_snapshot` |
 | Chronological baselines, leakage guard and required metrics | `test_rolling_origin_evaluation_is_chronological_and_compares_all_baselines` |
 | Read-only PR #2 API shape and cross-bin refusal | `test_client_reads_pr2_history_and_rejects_cross_bin_payloads` |
 | Append-only cache idempotency and conflict refusal | `test_routing_owned_history_cache_is_idempotent_and_never_overwrites_conflicts` |
 
-The complete admin/routing suite passes 97 tests. The only emitted warnings are three pre-existing SWIG deprecation warnings from imported dependencies.
+The complete admin/routing suite passes 107 tests. The only emitted warnings are three SWIG deprecation warnings from imported OR-Tools dependencies.
 
 ## Commands
 

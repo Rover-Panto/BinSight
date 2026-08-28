@@ -70,6 +70,7 @@ async function mapContract(frame) {
       routeInsideBounds,
       resetControlCount: document.querySelectorAll(".binsight-reset").length,
       siteMarkerCount: document.querySelectorAll(".binsight-site-marker").length,
+      recyclingFacilityCount: document.querySelectorAll('[aria-label="Recycling facility"]').length,
       iframeNoHorizontalOverflow:
         document.documentElement.scrollWidth <= window.innerWidth + 1,
     };
@@ -209,7 +210,7 @@ async function main() {
       operationsContract,
       trackingContract,
       popupRows,
-      popupHasThreeBinIds: (popupText.match(/UGB-\d{3}/g) || []).length === 3,
+      popupHasFourBinIds: (popupText.match(/UGB-\d{3}/g) || []).length === 4,
       stateTokens,
       truckMovedAfterResume:
         after.minute > before.minute &&
@@ -228,6 +229,7 @@ async function main() {
     const failed =
       contracts.some((item) =>
         item.siteMarkerCount !== 11 ||
+        item.recyclingFacilityCount !== 1 ||
         !item.noWrap ||
         item.maxBoundsViscosity !== 1 ||
         item.zoomAfterForcedZoomOut < item.minZoom ||
@@ -235,8 +237,8 @@ async function main() {
         !item.routeInsideBounds ||
         !item.iframeNoHorizontalOverflow
       ) ||
-      popupRows !== 3 ||
-      !result.popupHasThreeBinIds ||
+      popupRows !== 4 ||
+      !result.popupHasFourBinIds ||
       !result.truckMovedAfterResume ||
       completionState.beforeComplete === "completed" ||
       completionState.afterComplete !== "completed" ||

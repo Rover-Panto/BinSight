@@ -1,11 +1,14 @@
+import json
 from pathlib import Path
+import shutil
 
 import pandas as pd
 import pytest
 
 from binsight.config import load_config
 from binsight.maps import build_tracking_map
-from binsight.tracking import tracking_frame_at
+from binsight.network import load_cached_service_network
+from binsight.tracking import build_tracking_manifest, tracking_frame_at
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -112,3 +115,43 @@ def test_tracking_map_has_controls_layers_reduced_motion_and_11_sites():
     assert "prefers-reduced-motion:reduce" in rendered
     assert "LOCAL SIMULATION" in rendered
     assert "tracking-completed" in rendered
+
+
+def test_recycling_facility_is_a_trackable_stop_and_unload_location(tmp_path):
+    config = load_config(ROOT / "config.json")
+    bins = pd.read_csv(ROOT / "artifacts" / "district_bins.csv")
+    network = load_cached_service_network(ROOT / "data" / "subang_jaya_osrm_network.json")
+    route_sets = json.loads(
+        (ROOT / "artifacts" / "four-bin-smoke" / "representative_route_events.json")
+        .read_text(encoding="utf-8")
+    )
+    events = route_sets["normal_patterned"]["smart"]
+    recycling_event = next(
+        event
+        for event in events
+        if "recycling_facility" in event.get("route_destinations", [])
+    )
+
+    route_cache = tmp_path / "route-cache.json"
+    shutil.copy2(ROOT / "data" / "osrm_route_geometry_cache.json", route_cache)
+    manifest = build_tracking_manifest(
+        recycling_event,
+        bins,
+        network,
+        route_cache,
+        {config.pilot.recycling_facility_id: 1},
+    )
+
+    facility_segments = [
+        segment for segment in manifest["segments"] if segment["kind"] == "facility"
+    ]
+    assert facility_segments
+    assert facility_segments[0]["next_stop"] == config.pilot.recycling_facility_id
+    assert facility_segments[0]["geometry"][0] == pytest.approx(
+        network.snapped_coordinates[1]
+    )
+    assert any(
+        segment["status"] == "RETURNING_TO_DEPOT"
+        and segment["payload_kg"] == 0.0
+        for segment in manifest["segments"]
+    )

@@ -48,6 +48,7 @@ def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 def _requested_coordinates(config: Config, sites: list[dict]) -> tuple[tuple[float, float], ...]:
     return (
         (config.pilot.depot_lat, config.pilot.depot_lon),
+        (config.pilot.recycling_facility_lat, config.pilot.recycling_facility_lon),
         *(
             (float(site["latitude"]), float(site["longitude"]))
             for site in sites
@@ -122,6 +123,7 @@ def download_or_load_service_network(
         "response_sha256": hashlib.sha256(raw).hexdigest(),
         "pilot_label": config.pilot.label,
         "depot_label": config.pilot.depot_label,
+        "recycling_facility_label": config.pilot.recycling_facility_label,
         "routing_profile": "driving (fastest-route distances)",
         "service_points": size,
     }
@@ -182,6 +184,58 @@ def expand_bin_duration_matrix(
     if any(index < 0 or index >= service_network.service_count for index in indices):
         raise ValueError("Bin service index is outside the OSRM service network")
     return service_network.duration_matrix_s[np.ix_(indices, indices)].copy()
+
+
+def expand_destination_distance_matrix(
+    service_network: ServiceNetwork,
+    bin_service_indices: Iterable[int],
+    destination_service_index: int,
+) -> np.ndarray:
+    """Build depot-start tours that unload at a destination before returning.
+
+    The routing solver uses one virtual depot node for both tour ends. For a
+    non-depot unload destination, every bin-to-virtual-depot arc is therefore
+    the exact road distance bin -> destination -> depot. Depot-to-bin arcs and
+    all bin-to-bin arcs are unchanged.
+    """
+    bin_indices = [int(index) for index in bin_service_indices]
+    matrix = expand_bin_distance_matrix(service_network, bin_indices)
+    destination = int(destination_service_index)
+    if destination < 0 or destination >= service_network.service_count:
+        raise ValueError("Destination service index is outside the OSRM network")
+    if destination == 0:
+        return matrix
+    destination_to_depot = service_network.distance_matrix_m[destination, 0]
+    for local_index, service_index in enumerate(bin_indices, start=1):
+        matrix[local_index, 0] = (
+            service_network.distance_matrix_m[service_index, destination]
+            + destination_to_depot
+        )
+    matrix[0, 0] = 0
+    return matrix
+
+
+def expand_destination_duration_matrix(
+    service_network: ServiceNetwork,
+    bin_service_indices: Iterable[int],
+    destination_service_index: int,
+) -> np.ndarray:
+    """Duration counterpart to :func:`expand_destination_distance_matrix`."""
+    bin_indices = [int(index) for index in bin_service_indices]
+    matrix = expand_bin_duration_matrix(service_network, bin_indices)
+    destination = int(destination_service_index)
+    if destination < 0 or destination >= service_network.service_count:
+        raise ValueError("Destination service index is outside the OSRM network")
+    if destination == 0:
+        return matrix
+    destination_to_depot = service_network.duration_matrix_s[destination, 0]
+    for local_index, service_index in enumerate(bin_indices, start=1):
+        matrix[local_index, 0] = (
+            service_network.duration_matrix_s[service_index, destination]
+            + destination_to_depot
+        )
+    matrix[0, 0] = 0
+    return matrix
 
 
 def route_coordinates(

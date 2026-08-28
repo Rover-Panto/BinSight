@@ -27,21 +27,24 @@ def test_arrivals_are_seeded_nonnegative_and_policy_independent(tmp_path):
     assert not np.allclose(first, different)
 
 
-def test_every_service_site_has_general_plastic_and_glass_bins():
+def test_every_service_site_has_general_plastic_metal_and_glass_bins():
     bins = pd.read_csv(ROOT / "artifacts" / "district_bins.csv")
     expected_materials = {
         "mixed_general_waste",
         "plastic_cups",
+        "metal_cans",
         "glass_bottles",
     }
     expected_capacities = {
         "mixed_general_waste": 540.0,
         "plastic_cups": 112.5,
+        "metal_cans": 315.0,
         "glass_bottles": 1125.0,
     }
     for _, site in bins.groupby("site_id"):
-        assert len(site) == 3
+        assert len(site) == 4
         assert set(site["material_type"]) == expected_materials
-        assert (site["waste_stream"] == "beverage_recycling").sum() == 2
+        assert (site["waste_stream"] == "dry_recycling").sum() == 3
+        assert (site["destination_id"] == "recycling_facility").sum() == 3
         for row in site.itertuples():
             assert row.capacity_kg == expected_capacities[row.material_type]

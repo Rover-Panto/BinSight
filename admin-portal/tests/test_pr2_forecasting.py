@@ -285,6 +285,32 @@ def test_online_residual_updates_each_reading_and_scheduled_retrain_is_controlle
     assert retrained.diagnostics["model_version"] != first.diagnostics["model_version"]
 
 
+def test_future_trained_state_is_rebuilt_from_the_historical_cutoff():
+    config = _config()
+    bins = _bins()
+    readings = _regular_history(["bin_01", "bin_02", "bin_03"], days=35)
+    decision = START + timedelta(days=35)
+    initial = AdaptivePR2ForecastAdapter(
+        config, bins, "physical-pilot"
+    ).build_snapshot(readings, decision)
+    future_state = dict(initial.model_state)
+    future_state["trained_at"] = (decision + timedelta(days=2)).isoformat()
+    future_state["trained_data_cutoff"] = (
+        decision + timedelta(days=1)
+    ).isoformat()
+
+    replay = AdaptivePR2ForecastAdapter(
+        config,
+        bins,
+        "physical-pilot",
+        model_state=future_state,
+    ).build_snapshot(readings, decision)
+
+    assert replay.diagnostics["model_retrained"] is True
+    assert pd.Timestamp(replay.model_state["trained_at"]) == pd.Timestamp(decision)
+    assert pd.Timestamp(replay.model_state["trained_data_cutoff"]) <= pd.Timestamp(decision)
+
+
 def test_output_is_deterministic_and_threshold_crossing_is_interpolated():
     readings = _regular_history(["bin_01", "bin_02", "bin_03"], days=35)
     decision = START + timedelta(days=35)
@@ -331,10 +357,10 @@ def test_rolling_origin_evaluation_is_chronological_and_compares_all_baselines()
         assert f"seasonal_moving_average_mae_{horizon}h_pct" in evaluation["overall"]
 
 
-def test_realistic_pr2_history_produces_valid_routable_33_bin_snapshot():
+def test_realistic_pr2_history_produces_valid_routable_44_bin_snapshot():
     config = _config()
-    bins = _bins(33)
-    source_ids = [f"bin_{index:02d}" for index in range(1, 34)]
+    bins = _bins(44)
+    source_ids = [f"bin_{index:02d}" for index in range(1, 45)]
     readings = _regular_history(source_ids, days=21)
     decision = START + timedelta(days=21)
     result = AdaptivePR2ForecastAdapter(
@@ -348,18 +374,27 @@ def test_realistic_pr2_history_produces_valid_routable_33_bin_snapshot():
         now_utc=decision,
     )
 
-    assert len(validated) == 33
+    assert len(validated) == 44
     assert validated["bin_id"].tolist() == bins["bin_id"].tolist()
     assert set(result.frame["timestamp"]) == {decision.isoformat()}
     assert (pd.to_datetime(result.cleaned_history["observed_at"], utc=True) <= decision).all()
     distance = np.load(ROOT / "artifacts" / "road_distance_matrix_m.npy")
     duration = np.load(ROOT / "artifacts" / "road_duration_matrix_s.npy")
+    recycling_distance = np.load(
+        ROOT / "artifacts" / "recycling_road_distance_matrix_m.npy"
+    )
+    recycling_duration = np.load(
+        ROOT / "artifacts" / "recycling_road_duration_matrix_s.npy"
+    )
     plan = build_dispatch_plan(
         validated,
         bins,
         distance,
         application_config,
         duration_matrix_s=duration,
+        destination_matrices={
+            "recycling_facility": (recycling_distance, recycling_duration)
+        },
     )
     assert plan.decision_state in {
         "COLLECTION_REQUIRED",

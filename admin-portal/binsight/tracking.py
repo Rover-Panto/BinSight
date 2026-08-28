@@ -61,6 +61,7 @@ def build_tracking_manifest(
     bins: pd.DataFrame,
     service_network: ServiceNetwork,
     cache_path: str | Path,
+    destination_service_indices: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Convert one completed simulated dispatch into browser-playable segments."""
     timeline = sorted(
@@ -69,7 +70,18 @@ def build_tracking_manifest(
     if not timeline:
         raise ValueError("The route event has no timestamped execution timeline")
     by_id = {str(row.bin_id): row for row in bins.itertuples()}
-    depot = service_network.snapped_coordinates[0]
+    destination_service_indices = dict(destination_service_indices or {})
+    def service_index(stop_id: str) -> int:
+        if stop_id == "DEPOT":
+            return 0
+        if stop_id in destination_service_indices:
+            index = int(destination_service_indices[stop_id])
+            if index < 0 or index >= service_network.service_count:
+                raise ValueError(f"Destination {stop_id} has an invalid service index")
+            return index
+        if stop_id not in by_id:
+            raise ValueError(f"Tracking timeline contains unknown stop {stop_id}")
+        return int(by_id[stop_id].service_index)
     served_bins = [str(value) for value in route_event.get("served_bins", [])]
     payload_capacity = max(
         (
@@ -90,16 +102,14 @@ def build_tracking_manifest(
         trip_number = int(row.get("trip_number", trip_number or 1))
         if "payload_kg" in row:
             payload = float(row["payload_kg"])
-        if status in {"EN_ROUTE", "RETURNING_TO_DEPOT"}:
+        if status in {"EN_ROUTE", "EN_ROUTE_TO_UNLOAD", "RETURNING_TO_DEPOT"}:
             duration = max(0.0, float(row.get("travel_minutes", 0.0)))
             if duration <= 0:
                 continue
             origin_id = str(row.get("origin", "DEPOT"))
             destination_id = str(row.get("destination", "DEPOT"))
-            origin_service = 0 if origin_id == "DEPOT" else int(by_id[origin_id].service_index)
-            destination_service = (
-                0 if destination_id == "DEPOT" else int(by_id[destination_id].service_index)
-            )
+            origin_service = service_index(origin_id)
+            destination_service = service_index(destination_id)
             geometry = route_coordinates(
                 service_network, [origin_service, destination_service], cache_path
             )
@@ -146,18 +156,27 @@ def build_tracking_manifest(
             payload = float(row.get("payload_kg", payload))
         elif status in {"UNLOADING", "TURNAROUND"}:
             duration = max(0.0, float(row.get("duration_minutes", 0.0)))
+            stop_id = (
+                str(row.get("unload_destination_id", "DEPOT"))
+                if status == "UNLOADING"
+                else "DEPOT"
+            )
+            stop_service = service_index(stop_id)
+            stop_coordinate = service_network.snapped_coordinates[stop_service]
             segments.append(
                 {
-                    "kind": "depot",
+                    "kind": "depot" if stop_service == 0 else "facility",
                     "status": status,
                     "trip_number": trip_number,
                     "start_minute": start,
                     "end_minute": start + duration,
-                    "next_stop": "DEPOT",
+                    "next_stop": stop_id,
                     "payload_kg": payload if status == "UNLOADING" else 0.0,
                     "payload_capacity_kg": payload_capacity,
                     "bins_completed": bins_completed,
-                    "geometry": [[float(depot[0]), float(depot[1])]],
+                    "geometry": [
+                        [float(stop_coordinate[0]), float(stop_coordinate[1])]
+                    ],
                     "cumulative_m": [0.0],
                 }
             )

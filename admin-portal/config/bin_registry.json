@@ -15,7 +15,7 @@
     },
     {
       "profile_id": "competition-simulation",
-      "label": "Thirty-three-bin competition simulation",
+      "label": "Forty-four-bin four-material competition simulation",
       "source_mode": "synthetic",
       "bin_ids": [
         "UGB-001", "UGB-002", "UGB-003", "UGB-004", "UGB-005", "UGB-006",
@@ -23,7 +23,9 @@
         "UGB-013", "UGB-014", "UGB-015", "UGB-016", "UGB-017", "UGB-018",
         "UGB-019", "UGB-020", "UGB-021", "UGB-022", "UGB-023", "UGB-024",
         "UGB-025", "UGB-026", "UGB-027", "UGB-028", "UGB-029", "UGB-030",
-        "UGB-031", "UGB-032", "UGB-033"
+        "UGB-031", "UGB-032", "UGB-033", "UGB-034", "UGB-035", "UGB-036",
+        "UGB-037", "UGB-038", "UGB-039", "UGB-040", "UGB-041", "UGB-042",
+        "UGB-043", "UGB-044"
       ],
       "road_matrix_order": [
         "DEPOT", "UGB-001", "UGB-002", "UGB-003", "UGB-004", "UGB-005", "UGB-006",
@@ -31,7 +33,9 @@
         "UGB-013", "UGB-014", "UGB-015", "UGB-016", "UGB-017", "UGB-018",
         "UGB-019", "UGB-020", "UGB-021", "UGB-022", "UGB-023", "UGB-024",
         "UGB-025", "UGB-026", "UGB-027", "UGB-028", "UGB-029", "UGB-030",
-        "UGB-031", "UGB-032", "UGB-033"
+        "UGB-031", "UGB-032", "UGB-033", "UGB-034", "UGB-035", "UGB-036",
+        "UGB-037", "UGB-038", "UGB-039", "UGB-040", "UGB-041", "UGB-042",
+        "UGB-043", "UGB-044"
       ],
       "controller_topology": {},
       "live_integration_enabled": false
@@ -45,7 +49,7 @@
       "controller_id": "TEENSY-PILOT-01",
       "controller_channel": 1,
       "service_site_id": "SJ-01",
-      "service_index": 1,
+      "service_index": 2,
       "latitude": 3.07528,
       "longitude": 101.575341,
       "capacity_kg": 540.0,
@@ -62,7 +66,7 @@
       "controller_id": "TEENSY-PILOT-01",
       "controller_channel": 2,
       "service_site_id": "SJ-01",
-      "service_index": 1,
+      "service_index": 2,
       "latitude": 3.07528,
       "longitude": 101.575341,
       "capacity_kg": 112.5,
@@ -79,7 +83,7 @@
       "controller_id": "TEENSY-PILOT-01",
       "controller_channel": 3,
       "service_site_id": "SJ-01",
-      "service_index": 1,
+      "service_index": 2,
       "latitude": 3.07528,
       "longitude": 101.575341,
       "capacity_kg": 1125.0,

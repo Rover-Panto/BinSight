@@ -20,6 +20,12 @@ def _service(tmp_path):
     bins = pd.read_csv(ROOT / "artifacts" / "district_bins.csv")
     distance = np.load(ROOT / "artifacts" / "road_distance_matrix_m.npy")
     duration = np.load(ROOT / "artifacts" / "road_duration_matrix_s.npy")
+    recycling_distance = np.load(
+        ROOT / "artifacts" / "recycling_road_distance_matrix_m.npy"
+    )
+    recycling_duration = np.load(
+        ROOT / "artifacts" / "recycling_road_duration_matrix_s.npy"
+    )
     store = PlanningStore(tmp_path / "plans.sqlite3")
     return PlanningService(
         config,
@@ -29,6 +35,9 @@ def _service(tmp_path):
         store,
         network_version="test-network",
         model_version="test-model",
+        destination_matrices={
+            "recycling_facility": (recycling_distance, recycling_duration)
+        },
     ), store, bins
 
 
@@ -126,6 +135,7 @@ def test_network_or_model_version_change_creates_a_distinct_plan_identity(tmp_pa
         store,
         network_version="changed-network",
         model_version="changed-model",
+        destination_matrices=service.destination_matrices,
     ).evaluate(snapshot, decision_at=clock)
 
     assert changed.created
@@ -163,6 +173,34 @@ def test_completed_service_supersedes_delayed_pre_collection_telemetry(tmp_path)
         }
     )
     assert set(store.latest_services()) == served_ids
+    store.close()
+
+
+def test_completed_service_empty_override_expires_to_inspection(tmp_path):
+    service, store, bins = _service(tmp_path)
+    clock = datetime.now(timezone.utc).replace(microsecond=0)
+    snapshot = make_demo_snapshot(bins, clock)
+    first = service.evaluate(snapshot, decision_at=clock)
+    served_indices = list(first.plan.route_plan.served_bin_indices)
+    served_ids = {str(bins.iloc[index]["bin_id"]) for index in served_indices}
+    store.accept(first.plan.plan_id, "test-operator")
+    store.complete(first.plan.plan_id, "test-operator", "route finished")
+
+    after_grace = service.evaluate(
+        snapshot,
+        decision_at=clock
+        + timedelta(hours=service.config.operations.post_service_empty_state_hours + 1),
+    )
+    rows = after_grace.snapshot[
+        after_grace.snapshot["bin_id"].astype(str).isin(served_ids)
+    ]
+    assert rows["fill_pct"].isna().all()
+    assert rows["weight_kg"].isna().all()
+    assert (rows["forecast_status"] == "unavailable").all()
+    assert (rows["service_confirmation_state"] == "telemetry_confirmation_required").all()
+    assert not rows["confidence_flag"].any()
+    assert all("post_service_telemetry_missing" in flags for flags in rows["quality_flags"])
+    assert set(served_indices).issubset(after_grace.plan.review_bin_indices)
     store.close()
 
 

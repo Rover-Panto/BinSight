@@ -24,6 +24,7 @@ class BinSpec:
     bin_type: str = "general_waste"
     waste_stream: str = "mixed_general_waste"
     material_type: str = "mixed_general_waste"
+    destination_id: str = "waste_depot"
     capacity_litres: float = 4500.0
     bulk_density_kg_per_m3: float = 120.0
     demand_rate_multiplier: float = 1.0
@@ -67,7 +68,7 @@ def load_site_plan(path: str | Path, config: Config) -> list[dict]:
             int(site["households"]) * config.waste.household_kg_per_day
             + int(site["commercial_units"]) * config.waste.commercial_kg_per_day
         )
-        for material, _, _, density, mass_fraction in config.waste.material_profiles:
+        for material, _, _, _, density, mass_fraction in config.waste.material_profiles:
             design_interval_demand_kg = (
                 daily_demand_kg
                 * mass_fraction
@@ -97,14 +98,16 @@ def build_district(
     sites = load_site_plan(site_plan_path, config)
     if len(sites) != service_site_count:
         raise ValueError("Service-site count and site plan are inconsistent")
-    if service_network.service_count != len(sites) + 1:
-        raise ValueError("OSRM network must contain depot plus every collection site")
+    if service_network.service_count != len(sites) + 2:
+        raise ValueError(
+            "OSRM network must contain the depot, recycling facility and every collection site"
+        )
     depot = 0
     bins: list[BinSpec] = []
     for site_index, site in enumerate(sites):
         requested_lat = float(site["latitude"])
         requested_lon = float(site["longitude"])
-        service_index = site_index + 1
+        service_index = site_index + 2
         snapped_lat, snapped_lon = service_network.snapped_coordinates[service_index]
         snap_distance = service_network.snap_distances_m[service_index]
         if snap_distance > 250:
@@ -124,6 +127,7 @@ def build_district(
             material_type,
             bin_type,
             waste_stream,
+            destination_id,
             bulk_density,
             mass_fraction,
         ) in enumerate(material_profiles):
@@ -146,6 +150,7 @@ def build_district(
                     bin_type=bin_type,
                     waste_stream=waste_stream,
                     material_type=material_type,
+                    destination_id=destination_id,
                     capacity_litres=config.waste.bin_capacity_litres,
                     bulk_density_kg_per_m3=bulk_density,
                     demand_rate_multiplier=(

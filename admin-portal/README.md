@@ -1,6 +1,6 @@
 # BinSight Focus Area C — Subang Jaya
 
-This directory contains BinSight's independent operations and routing prototype. The `competition-simulation` profile serves a synthetic district of **500 households and 20 commercial units** with **33 Dutch-style 4.5 m³ underground bins at 11 service sites**. The separate `physical-pilot` profile explicitly maps one three-bin Teensy 4.1/C3 hardware producer to canonical routing IDs. Simulation service groups are not represented as 11 deployed controllers.
+This directory contains BinSight's independent operations and routing prototype. The `competition-simulation` profile serves a synthetic district of **500 households and 20 commercial units** with **44 Dutch-style 4.5 m³ underground bins at 11 service sites**: general waste, plastic, metal and glass at every site. The separate `physical-pilot` profile still maps the real three-channel Teensy 4.1/C3 hardware producer. It is intentionally reported as partial for the four-bin demonstration until the producer contract gains a fourth channel.
 
 The portal is decision support, not an autonomous municipal dispatch system. Site coordinates, demand, vehicle performance, and sensor behavior are configurable planning assumptions.
 
@@ -16,26 +16,27 @@ The portal is decision support, not an autonomous municipal dispatch system. Sit
 - Minute-level SimPy execution with travel, per-bin service, unloading, turnaround, traffic, payload-dependent fuel, and overflow during an active trip.
 - A fair fixed baseline whose first collection occurs after its configured interval, plus a three-day common warm-up report for both policies.
 - Eleven paired scenarios spanning normal patterns, seasonal/event demand, persistent/local surges, trend/change point, traffic, sensor failure, reduced capacity and combined stress.
-- Eleven consolidated site markers, three-bin status popups, bounded Subang Jaya maps, route layers, and mock truck tracking.
+- Eleven consolidated site markers, four-bin status popups, a marked recycling facility, bounded keyless OpenStreetMap maps, route layers, and mock truck tracking.
 - Profile-aware legacy or telemetry-routing 2.0/2.1 intake; immutable draft/accepted/completed/cancelled plans; idempotent local-only mock dispatch; and full source/decision provenance.
 
 ## Fixed physical design
 
 | Item | Prototype value |
 | --- | --- |
-| Underground bins | 33 total; 4.5 m³ each |
-| Service sites | 11; exactly 3 bins per site |
-| Simulation grouping | 11 service groups of 3 bins; no deployed-controller claim |
+| Underground bins | 44 total; 4.5 m³ each |
+| Service sites | 11; exactly 4 material bins per site |
+| Simulation grouping | 11 service groups of 4 bins; no deployed-controller claim |
 | Physical competition model | 1 Teensy 4.1/C3 producer and 3 bins |
 | Depot | Provisional Subang Jaya/Batu Tiga point at 3.06192, 101.55272 |
+| Recycling destination | Provisional MBSJ USJ 9 Recycling Centre at 3.04547, 101.58697 |
 | Vehicle archetype | VDL Maxxum/UGS underground-container collection system |
 | Route payload assumption | 9,000 kg, maximum 2 trips per calendar day |
 
-No bins, sites, or trucks were added by the optimization work.
+The four-bin change affects the local demonstration and simulator only. It does not fabricate a fourth live hardware channel.
 
 ## Evidence status
 
-The corrected 30-pair v1 result does **not** show routine fuel savings: after equal warm-up it used 23.79% more road distance and 18.90% more fuel than the fixed schedule. That result motivated dynamic trip-value policy v2; it remains historical evidence and is not a performance claim for v2. The current policy's matched simulation evidence is written to `artifacts/dynamic_v2/` and summarized separately in [DYNAMIC_V2_RESULTS.md](DYNAMIC_V2_RESULTS.md). Neither version is field evidence.
+Evidence artifacts are accepted by the website only when their recorded configuration hash matches the active four-bin configuration. The current `artifacts/four-bin-smoke/` set contains two paired normal-scenario replications for integration verification only. It reduced wasted pickups and overflow in those seeds but increased trips and distance, so it is **not** a performance or production-deployment claim. The older 33-bin studies remain historical references and are no longer presented as current evidence.
 
 ## Run on Windows
 
@@ -45,6 +46,7 @@ From the repository root, run `Setup-BinSight-Admin.cmd` once and then `Start-Bi
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m binsight.cli prepare
+.\.venv\Scripts\python.exe -m binsight.cli health
 .\.venv\Scripts\python.exe -m binsight.cli run --artifact-set dynamic_v2 --replications 30 --parallel-workers 4
 .\.venv\Scripts\streamlit.exe run app.py
 ```
@@ -53,9 +55,9 @@ Ordinary reruns use the committed road matrices. Use `--refresh-map` only when d
 
 ## Routing demonstration and integration contracts
 
-The portal's **Routing demo** is deliberately demonstration-only: it loads the complete configured 33-bin scenario automatically, shows a 12-row preview, and evaluates all bins when the operator runs it. Manual CSV/JSON upload and paste controls are not exposed in the presentation UI.
+The portal's **Routing demo** is deliberately demonstration-only: it loads the complete configured 44-bin scenario automatically, shows a 12-row preview, and evaluates all bins when the operator runs it. Manual CSV/JSON upload and paste controls are not exposed in the presentation UI.
 
-The integration and command-line adapters remain documented for engineering use. The legacy competition snapshot has one row for each `UGB-001` through `UGB-033`. The preferred telemetry-routing 2.1 envelope contains the three registered physical-pilot fill channels and carries per-bin event kind, bin type/waste stream, timing, availability, quality and forecast provenance. The one general-waste and two beverage-return recycling channels may be planned together, but generated truck trips never mix streams. Vision recognition/session events remain outside routing. See [TELEMETRY_ROUTING_CONTRACT.md](../docs/TELEMETRY_ROUTING_CONTRACT.md).
+The integration and command-line adapters remain documented for engineering use. The competition snapshot has one row for each `UGB-001` through `UGB-044`. The preferred telemetry-routing 2.1 envelope still contains only the three registered physical-pilot fill channels and carries per-bin event kind, bin type/waste stream, timing, availability, quality and forecast provenance. That live profile therefore cannot claim complete four-bin coverage. Vision recognition/session events remain outside routing. See [TELEMETRY_ROUTING_CONTRACT.md](../docs/TELEMETRY_ROUTING_CONTRACT.md).
 
 ```text
 timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence_flag
@@ -72,7 +74,7 @@ The dispatcher never silently converts an uncertain record into a safe record. S
 
 ### PR #2 historical forecasting adapter
 
-The read-only adapter can turn PR #2's per-bin history API or an exported JSON/CSV history into the complete predictive snapshot above. It explicitly maps hardware IDs, accumulates API history in a routing-owned cache, detects collection resets and sensor jumps, learns gated calendar/event patterns, emits probabilistic 6/24/48/168-hour fill forecasts, and validates the result before it is written. Pseudo-density remains context only and `weight_kg` stays null without calibration. Each three-bin site is modelled as mixed general waste, plastic cups and glass bottles; the latter two share the beverage-recycling stream but use different bulk densities and simulated fill rates. See [PR2_FORECASTING_ADAPTER.md](PR2_FORECASTING_ADAPTER.md) for the equations, thresholds, fallback hierarchy, evaluation and limitations.
+The read-only adapter can turn PR #2's per-bin history API or an exported JSON/CSV history into the predictive snapshot above. It explicitly maps hardware IDs, accumulates API history in a routing-owned cache, detects collection resets and sensor jumps, and validates the result before it is written. Historical replay rejects saved model state trained or populated after the simulated decision cutoff. Pseudo-density remains context only and `weight_kg` stays null without calibration. The four-bin simulation uses material-specific density and fill behavior; live PR #2 remains three-channel and incomplete until its owner updates that contract. See [PR2_FORECASTING_ADAPTER.md](PR2_FORECASTING_ADAPTER.md).
 
 ```powershell
 .\.venv\Scripts\python.exe -m binsight.cli forecast-pr2 `
@@ -118,6 +120,7 @@ For MQTT mode, set `BINSIGHT_MQTT_HOST`, `BINSIGHT_MQTT_PORT`, `BINSIGHT_MQTT_US
 ## Evidence and documentation
 
 - [SITING_PLAN.md](SITING_PLAN.md) — capacity equation and preliminary coordinates.
+- [PRODUCTION_RUNBOOK.md](PRODUCTION_RUNBOOK.md) — localhost startup, health, backup, logs and recovery.
 - [METHODS.md](METHODS.md) — simulation, observation, forecast, routing, fuel, and inference method.
 - [DYNAMIC_ROUTING_MODEL.md](DYNAMIC_ROUTING_MODEL.md) — exact v2 objective, provisional weights, constraints and deferral rule.
 - [PR2_FORECASTING_ADAPTER.md](PR2_FORECASTING_ADAPTER.md) — PR #2 history bridge, mathematical forecast, online adaptation and acceptance evidence.

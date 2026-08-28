@@ -29,23 +29,23 @@ VDL describes the Maxxum for 4.5 m³ underground containers and lists a 1,500 kg
 
 BinSight's 120 kg/m³ loose mixed-waste density, 3.5 compaction ratio, 9,000 kg route payload, and fuel parameters are prototype assumptions. The resulting nominal 540 kg per bin is below the 1,500 kg lift reference but is not a manufacturer-approved wet gross mass. Malaysian chassis, axle, crane, water-ingress, and homologation limits require verification.
 
-## Why 33 bins
+## Why 44 bins
 
-At 80% design fill, one three-bin site provides `3 × 540 × 0.80 = 1,296 kg`. For three days and a 25% reserve:
+For three days and a 25% reserve, the district design load is:
 
-`ceil(3,603.6 × 3 × 1.25 ÷ 1,296) = 11 sites`
+`3,603.6 × 3 × 1.25 = 13,513.5 kg`
 
-At three bins per simulated service group, this gives **33 bins and 11 service groups**. Every site is checked individually in `SITING_PLAN.md`. This is a routing/capacity model, not 11 deployed controllers. The physical profile is one Teensy 4.1/C3 relay with one registered general-waste bin and two recycling-return bins. Their fill channels are routing inputs, while the separate vision/session domain is not.
+The four configurable material allocations require 11 general, 11 plastic, 6 metal, and 8 glass bins by district capacity. The demonstration deliberately puts one of every material at each of 11 sites, giving **44 bins and 11 service sites** with consistent source separation. `SITING_PLAN.md` shows the calculation. This is a routing/capacity model, not 11 deployed controllers. The physical profile is one Teensy 4.1/C3 relay with only three registered fill channels and is therefore explicitly incomplete for this four-bin target.
 
 ## OpenStreetMap and OSRM
 
 OSRM's Table service computes durations—and optionally distances—between all ordered pairs of supplied coordinates. Distances are along the fastest routes, in metres: [OSRM Table service](https://project-osrm.org/docs/v26.4.0/api/#table-service).
 
-BinSight caches the depot/site matrix, its expansion to depot + 33 bins, requested/snapped coordinates, durations, distances, and display geometry. Three bins at one site repeat the same costs because they are physically co-located. The UI uses one site marker rather than misleading visual offsets.
+BinSight caches the depot/recycling-facility/site matrix, its expansion to an origin plus 44 bins, requested/snapped coordinates, durations, distances, and display geometry. Four bins at one site repeat the same site costs because they are physically co-located. Separate return matrices charge dry-recycling routes for unloading at the recycling facility and returning to the depot. The UI uses one site marker rather than misleading visual offsets.
 
 Normal human map viewing must preserve visible attribution and comply with the OpenStreetMap Foundation's tile rules. The public tile service is best-effort, requires correct URL/attribution, and prohibits bulk prefetch: [OSMF Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/). Deployment should use a suitable hosted provider or self-hosted Malaysian OSM stack.
 
-The depot at **3.06192, 101.55272** is a provisional routing anchor, not operator authorization.
+The depot at **3.06192, 101.55272** and MBSJ USJ 9 Recycling Centre at **3.04547, 101.58697** are provisional routing anchors, not operator authorization. Vehicle acceptance, material handling, access, and hours remain field gates.
 
 ## Legacy electronics/MQTT reference and current target
 
@@ -69,7 +69,7 @@ The 0.45 L/km base rate, 3.0 L/hour idle rate, 15% full-payload penalty, and tra
 
 ## Forecast and experiment design
 
-The v2 forecaster is trained on a separate 730-day patterned synthetic pre-period. Train, calibration and untouched holdout timestamps are separated by the complete 168-hour maximum target horizon; calibration fits the 48-hour q90 adjustment, while holdout reports 6/24/48/168-hour errors, time-to-overflow error, alert quality, interval coverage and probability calibration. The 30-day operational window is excluded. The policy comparison uses 30 paired replications per scenario. Fixed and dynamic policies share arrivals, events and observation noise within each pair. Raw and equal three-day post-warm-up metrics are both saved.
+The v2 forecaster is trained on a separate 730-day patterned synthetic pre-period. Train, calibration and untouched holdout timestamps are separated by the complete 168-hour maximum target horizon; calibration fits the 48-hour q90 adjustment, while holdout reports 6/24/48/168-hour errors, time-to-overflow error, alert quality, interval coverage and probability calibration. The 30-day operational window is excluded. The confirmatory policy design uses 30 paired replications per scenario, with fixed and dynamic policies sharing arrivals, events and observation noise within each pair. The current four-bin artifact is only a two-pair normal-scenario smoke run; the older 30-pair studies have a different configuration hash and are retained as historical evidence.
 
 Eleven separate scenarios cover normal patterned demand, a high-demand season, event-heavy demand, persistent and localized surges, gradual trend, abrupt change, traffic disruption, sensor failure, reduced capacity and combined demand/operational stress. The demand equation combines normalized hourly/day/week/month/year factors, targeted event shapes, bounded trends, district/local AR(1) regimes and non-negative Gamma arrivals. Confidence intervals represent Monte Carlo variation under assumptions, not field causality.
 

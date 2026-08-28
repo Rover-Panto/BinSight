@@ -15,6 +15,10 @@ class PilotConfig:
     depot_label: str
     depot_lat: float
     depot_lon: float
+    recycling_facility_id: str
+    recycling_facility_label: str
+    recycling_facility_lat: float
+    recycling_facility_lon: float
     radius_m: int
     network_type: str
     bin_count: int
@@ -41,9 +45,11 @@ class WasteConfig:
     bin_capacity_litres: float
     mixed_waste_density_kg_per_m3: float
     plastic_cups_bulk_density_kg_per_m3: float
+    metal_cans_bulk_density_kg_per_m3: float
     glass_bottles_bulk_density_kg_per_m3: float
     general_waste_mass_fraction: float
     plastic_cups_mass_fraction: float
+    metal_cans_mass_fraction: float
     glass_bottles_mass_fraction: float
     sizing_target_fill_pct: float
     sizing_reserve_factor: float
@@ -61,27 +67,38 @@ class WasteConfig:
         return self.municipal_kg_per_capita_day * self.household_size_persons
 
     @property
-    def material_profiles(self) -> tuple[tuple[str, str, str, float, float], ...]:
-        """Material, bin type, collection stream, bulk density and mass share."""
+    def material_profiles(self) -> tuple[tuple[str, str, str, str, float, float], ...]:
+        """Material, bin type, stream, destination, density and mass share."""
         return (
             (
                 "mixed_general_waste",
                 "general_waste",
                 "mixed_general_waste",
+                "waste_depot",
                 self.mixed_waste_density_kg_per_m3,
                 self.general_waste_mass_fraction,
             ),
             (
                 "plastic_cups",
-                "recycling_return",
-                "beverage_recycling",
+                "recycling_plastic",
+                "dry_recycling",
+                "recycling_facility",
                 self.plastic_cups_bulk_density_kg_per_m3,
                 self.plastic_cups_mass_fraction,
             ),
             (
+                "metal_cans",
+                "recycling_metal",
+                "dry_recycling",
+                "recycling_facility",
+                self.metal_cans_bulk_density_kg_per_m3,
+                self.metal_cans_mass_fraction,
+            ),
+            (
                 "glass_bottles",
-                "recycling_return",
-                "beverage_recycling",
+                "recycling_glass",
+                "dry_recycling",
+                "recycling_facility",
                 self.glass_bottles_bulk_density_kg_per_m3,
                 self.glass_bottles_mass_fraction,
             ),
@@ -163,6 +180,7 @@ class OperationsConfig:
     smart_include_current_trigger_pct: float
     smart_include_predicted_trigger_pct: float
     smart_min_dispatch_gap_hours: int
+    post_service_empty_state_hours: float
     smart_max_dispatch_distance_km: float
     smart_dispatch_time_to_overflow_hours: float
     smart_emergency_current_trigger_pct: float
@@ -312,6 +330,13 @@ def validate_config(config: Config) -> None:
     if not (-90 <= p.depot_lat <= 90 and -180 <= p.depot_lon <= 180):
         raise ValueError("Depot must be valid WGS84 latitude/longitude")
     if not (
+        -90 <= p.recycling_facility_lat <= 90
+        and -180 <= p.recycling_facility_lon <= 180
+    ):
+        raise ValueError("Recycling facility must use valid WGS84 coordinates")
+    if not p.recycling_facility_id.strip() or not p.recycling_facility_label.strip():
+        raise ValueError("Recycling facility identity and label cannot be blank")
+    if not (
         -90 <= p.map_southwest_lat < p.map_northeast_lat <= 90
         and -180 <= p.map_southwest_lon < p.map_northeast_lon <= 180
     ):
@@ -321,20 +346,25 @@ def validate_config(config: Config) -> None:
         and p.map_southwest_lon <= p.depot_lon <= p.map_northeast_lon
     ):
         raise ValueError("Pilot map bounds must contain the depot")
+    if not (
+        p.map_southwest_lat <= p.recycling_facility_lat <= p.map_northeast_lat
+        and p.map_southwest_lon <= p.recycling_facility_lon <= p.map_northeast_lon
+    ):
+        raise ValueError("Pilot map bounds must contain the recycling facility")
     if not 8 <= p.map_min_zoom < p.map_max_zoom <= 22:
         raise ValueError("Pilot map zooms must satisfy 8 <= min < max <= 22")
     if p.radius_m < 300 or p.radius_m > 20_000:
         raise ValueError("radius_m must be between 300 and 20,000 metres")
     if p.bin_count < 3:
         raise ValueError("At least three bins are required by the competition brief")
-    if p.bins_per_service_site != 3:
-        raise ValueError("The competition simulation groups exactly three bins per service site")
+    if p.bins_per_service_site != 4:
+        raise ValueError("The demonstration requires four material bins per service site")
     if p.physical_prototype_bin_count != 3:
         raise ValueError("The physical prototype must contain exactly three bins")
     if p.physical_controller_bin_count != 3:
         raise ValueError("The physical Teensy prototype must expose exactly three bin channels")
     if p.bin_count % p.bins_per_service_site != 0:
-        raise ValueError("Digital bin_count must be divisible into three-bin service sites")
+        raise ValueError("Digital bin_count must be divisible into four-bin service sites")
     if not p.site_plan_file.lower().endswith(".json"):
         raise ValueError("site_plan_file must be a JSON file")
     if p.households != 500 or p.commercial_units != 20:
@@ -346,6 +376,7 @@ def validate_config(config: Config) -> None:
         "commercial_kg_per_day": w.commercial_kg_per_day,
         "bin_capacity_kg": w.bin_capacity_kg,
         "plastic_cups_bulk_density_kg_per_m3": w.plastic_cups_bulk_density_kg_per_m3,
+        "metal_cans_bulk_density_kg_per_m3": w.metal_cans_bulk_density_kg_per_m3,
         "glass_bottles_bulk_density_kg_per_m3": w.glass_bottles_bulk_density_kg_per_m3,
         "horizon_days": o.horizon_days,
         "truck_capacity_kg": o.truck_capacity_kg,
@@ -367,6 +398,7 @@ def validate_config(config: Config) -> None:
         "operations.overflow_avoidance_value_m": o.overflow_avoidance_value_m,
         "operations.emergency_avoidance_value_m": o.emergency_avoidance_value_m,
         "operations.max_route_duration_minutes": o.max_route_duration_minutes,
+        "operations.post_service_empty_state_hours": o.post_service_empty_state_hours,
     }
     for name, value in positive.items():
         if value <= 0:
@@ -378,6 +410,7 @@ def validate_config(config: Config) -> None:
     material_fractions = (
         w.general_waste_mass_fraction,
         w.plastic_cups_mass_fraction,
+        w.metal_cans_mass_fraction,
         w.glass_bottles_mass_fraction,
     )
     if any(value <= 0 or value >= 1 for value in material_fractions):
@@ -447,7 +480,7 @@ def validate_config(config: Config) -> None:
         raise ValueError("max_daily_trips must be in 1..20")
     if any(
         w.material_capacity_kg(density) > o.crane_lift_limit_kg
-        for _, _, _, density, _ in w.material_profiles
+        for _, _, _, _, density, _ in w.material_profiles
     ):
         raise ValueError("A full underground bin must not exceed the truck's crane lift limit")
     if not (
@@ -579,7 +612,7 @@ def required_service_sites(config: Config) -> int:
         * config.waste.sizing_reserve_factor
     )
     sites_by_material = []
-    for _, _, _, density, mass_fraction in config.waste.material_profiles:
+    for _, _, _, _, density, mass_fraction in config.waste.material_profiles:
         usable_capacity_kg = (
             config.waste.material_capacity_kg(density)
             * config.waste.sizing_target_fill_pct

@@ -2,7 +2,7 @@
 
 ## System boundary
 
-The model is a terminating 30-day stochastic planning experiment for 33 underground bins at 11 three-bin service groups serving 500 households and 20 commercial units. It includes hourly waste generation, six-hourly sensing and replanning, forecast/decision logic, road routing, travel, collection service, depot unloading, turnaround, traffic effects, payload-dependent fuel, and physical overflow while the vehicle is busy. These service groups are simulation topology, not a claim of 11 deployed controllers.
+The model is a terminating 30-day stochastic planning experiment for 44 underground bins at 11 four-bin service sites serving 500 households and 20 commercial units. It includes hourly waste generation, six-hourly sensing and replanning, forecast/decision logic, stream-specific road routing, travel, collection service, unloading, return to depot, turnaround, traffic effects, payload-dependent fuel, and physical overflow while the vehicle is busy. These service sites are simulation topology, not a claim of 11 deployed controllers.
 
 It does not model crew shifts, disposal-facility queues, weather, illegal dumping, mechanical failure, embodied emissions, capital cost, or measured Malaysian truck telemetry.
 
@@ -13,7 +13,7 @@ It does not model crew shifts, disposal-facility queues, weather, illegal dumpin
 | Simulation clock | minute | SimPy processes execute through the 30-day horizon |
 | Waste | kg | Non-negative hourly arrivals continue during travel/service |
 | Bin volume | m³ | 4.5 per underground bin |
-| Nominal bin mass capacity | kg | Material-specific: 540 general, 112.5 plastic cups, 1,125 glass bottles |
+| Nominal bin mass capacity | kg | Material-specific: 540 general, 112.5 plastic, 315 metal, 1,125 glass |
 | Road distance | m | OSRM fastest-route distance over OpenStreetMap data |
 | Road duration | s | OSRM fastest-route duration before traffic multiplier |
 | Truck payload | kg | 9,000 kg prototype assumption |
@@ -26,7 +26,7 @@ Every bin starts empty. Raw metrics include the full 30 days. Post-warm-up metri
 
 Residential mean generation is 7.03 kg/household/day, from 1.90 kg/person/day and 3.7 people/household. Commercial mean generation is the editable assumption of 4.43 kg/unit/day. Total configured mean generation is 3,603.6 kg/day.
 
-Each service site contains exactly three co-located 4.5 m³ bins: one mixed-general-waste bin and two beverage-recycling bins dedicated to plastic cups and glass bottles. The simulation allocates site waste mass by configurable prototype fractions of 34%, 7% and 59%, respectively. Bulk-density assumptions are 120, 25 and 250 kg/m³, producing full-bin mass capacities of 540, 112.5 and 1,125 kg. These values make fill a material-specific volume proxy instead of treating a light cup and a glass bottle as equal mass-per-volume. The two recycling materials share the `beverage_recycling` collection stream, while general waste remains separate.
+Each service site contains exactly four co-located 4.5 m³ bins: general waste, plastic, metal, and glass. The simulation allocates site waste mass by configurable prototype fractions of 34%, 7%, 10%, and 49%, respectively. Bulk-density assumptions are 120, 25, 70, and 250 kg/m³, producing full-bin mass capacities of 540, 112.5, 315, and 1,125 kg. These values make fill a material-specific volume proxy instead of treating dissimilar materials as equal mass-per-volume. Plastic, metal, and glass share the `dry_recycling` collection stream and unload at the recycling facility; general waste remains a separate stream and unloads at the waste depot.
 
 For bin `b` and hour `t`, non-negative arrivals are sampled as
 
@@ -48,13 +48,13 @@ Events carry type, location/target area or site, start/end, buildup, peak, decay
 
 The same immutable arrival tensor and event context is supplied to both policies in a paired replication. A bin stores no more than its material-specific mass capacity: excess mass becomes `overflow_spilled_kg`, a below-to-capacity crossing becomes an incident, and time at capacity contributes `overflow_bin_hours`.
 
-`SITING_PLAN.md` proves the district count and checks each site's three-day reserved capacity. Loading fails if the plan no longer conserves all 500 households and 20 commercial units.
+`SITING_PLAN.md` documents the four-material capacity assumptions. Loading fails if the plan no longer conserves all 500 households and 20 commercial units or if a site is missing one of the four required materials.
 
 ## Spatial model
 
-OSRM's Table service provides a 12 × 12 matrix for the depot and 11 sites. Each cell is the distance or duration of the fastest road route from one ordered location to another. The code expands both matrices to 34 × 34—depot plus 33 bins—by reusing a site's row and column for its three genuinely co-located bins. It does not move the bins or invent a short road between them.
+OSRM's Table service provides a 13 × 13 matrix for the depot, recycling facility, and 11 sites. Each cell is the distance or duration of the fastest road route from one ordered location to another. The code expands matrices to 45 × 45—one route origin plus 44 bins—by reusing a site's row and column for its four genuinely co-located bins. General-waste return arcs use the depot matrix. Recycling return arcs represent bin → recycling facility → depot, so the optimizer pays for the required unload destination and final return. The expansion does not move bins or invent a short road between them.
 
-Routes are therefore vectors of matrix indices during optimization and road-coordinate polylines only during display. The map uses 11 consolidated markers, each with the state and material of all three bins. The interface uses a keyless light CARTO/OpenStreetMap tile layer; committed matrices allow simulation reruns without refreshing the public router or loading a map to calculate route cost.
+Routes are therefore vectors of matrix indices during optimization and road-coordinate polylines only during display. The map uses 11 consolidated site markers, each with the state and material of all four bins, plus distinct depot and recycling-facility markers. The interface uses keyless OpenStreetMap tiles with a CARTO fallback and a light no-tile background; committed matrices allow simulation reruns without refreshing the public router or loading a map to calculate route cost.
 
 ## Hidden state and sensor observations
 
@@ -93,7 +93,7 @@ The maximum of two trips is enforced across the entire calendar day. It is not r
 
 OR-Tools solves asymmetric prize-collecting depot tours using cached road distance and duration matrices, up to two trips, a 9,000 kg payload, compacted vehicle-volume capacity, 480-minute route duration and a 250 ms/solution-limit prototype search. Mandatory stops cannot be dropped. Optional stops have disjunction penalties equal to avoided loss, so waiting competes with route operation in the same objective. Candidate preselection uses the same upward-rounded integer mass and volume demands as OR-Tools, so it cannot pass a nominally feasible load that the solver rejects by rounding.
 
-If OR-Tools returns no solution for mandatory work, a deterministic fallback exactly partitions required bins into dual-capacity-feasible buckets and orders each bucket by nearest road distance. Optional non-positive work is deferred instead of forcing a fallback trip. Every route begins and ends at the depot.
+If OR-Tools returns no solution for mandatory work, a deterministic fallback exactly partitions required bins into dual-capacity-feasible buckets and orders each bucket by nearest road distance. Optional non-positive work is deferred instead of forcing a fallback trip. Every route begins at the depot. General-waste routes unload at the depot. Dry-recycling routes visit the recycling facility to unload and then return to the depot; destination identity is retained in plan, dispatch, simulation, and map evidence.
 
 Every proposal records the policy/model/network/config versions, source event IDs, per-bin decision inputs, objective components and dropped nodes. It is stored immutably as `DRAFT`; operator acceptance, completion or cancellation are separate transitions. A repeated event set in one planning bucket is idempotent. On an active-route event, the current leg is frozen, its committed capacity is deducted, and any changed suffix is a new draft linked to the accepted plan.
 
@@ -111,7 +111,7 @@ Collection and depot pauses add idle fuel at 3.0 L/hour. Total fuel is the sum o
 
 ## Experimental design
 
-The independent unit is one complete paired 30-day replication. Thirty pairs are run in each condition:
+The independent unit is one complete paired 30-day replication. A confirmatory comparison is designed for thirty matched-seed pairs in each declared condition:
 
 | Scenario | Change from base |
 | --- | --- |
@@ -127,7 +127,7 @@ The independent unit is one complete paired 30-day replication. Thirty pairs are
 | Reduced truck capacity | Payload/body capacity ×0.65 |
 | Combined stress | Seasonal/event/regime/change, traffic, sensing and capacity changes together |
 
-Within each replication and scenario, both policies share the exact arrival matrix, event context and sensor randomness. Across scenarios, the same replication seed drives comparable base stochastic regimes while declared scenario transformations differ. Development/tuning used the +1,310,000/+1,320,000 blocks. The locked v2 evaluation begins at base seed +1,610,000 for arrivals and +1,620,000 for sensors, is disjoint from development runs, and is saved with arrival hashes in `artifacts/dynamic_v2/seed_manifest.json`.
+Within each replication and scenario, both policies share the exact arrival matrix, event context and sensor randomness. Across scenarios, the same replication seed drives comparable base stochastic regimes while declared scenario transformations differ. The older locked v2 evaluation is retained under `artifacts/dynamic_v2/` but predates the four-bin configuration. The current `artifacts/four-bin-smoke/` run contains only two normal-scenario pairs and is a functional smoke check, not a confirmatory evaluation.
 
 For lower-is-better metrics, beneficial effect = fixed − smart. For higher-is-better metrics, beneficial effect = smart − fixed. Positive is always favorable. Reports contain policy means, paired mean effect, 95% Student-t interval, 19,999-draw paired sign-flip p-value, and a Shapiro-Wilk diagnostic. Percentage change is `n/a` when the fixed mean is zero.
 
@@ -135,7 +135,7 @@ The intervals describe Monte Carlo uncertainty under configured assumptions only
 
 ## Verification contract
 
-- Exactly 33 bins and 11 three-bin service groups in the competition simulation; exactly the explicitly registered three physical bins in the pilot profile.
+- Exactly 44 bins and 11 four-bin service sites in the competition simulation; exactly the explicitly registered three physical bins in the incomplete pilot profile.
 - Exactly 500 households and 20 commercial units conserved.
 - Valid site capacity and WGS84 coordinates.
 - Same arrivals and observation noise in each policy pair.
@@ -149,11 +149,11 @@ The intervals describe Monte Carlo uncertainty under configured assumptions only
 - Unknown forecasts, future events, duplicate/replayed events and controller reboots preserve identity and cannot silently create a safe reading.
 - Forecast train/calibration/holdout boundaries retain a full 168-hour target-horizon purge, exclude the operational window and report multi-horizon/q90/probability checks.
 - Plan lifecycle, idempotency, single-runner ownership and active-route suffix revision remain auditable.
-- Eleven markers with three-bin popups and bounded maps at desktop, tablet, and mobile widths.
+- Eleven site markers with four-bin popups, distinct unload destinations, and bounded maps at desktop, tablet, and mobile widths.
 - Seeds, configuration, package versions, matrices, events, and results retained.
 
 ## Permitted claim
 
-> Under the stated Subang Jaya demand, sensor, underground-bin, vehicle, traffic, and OSM-road assumptions, the modeled policy produced [effect and interval] relative to the fixed schedule across 30 paired replications.
+> Under the stated Subang Jaya demand, sensor, underground-bin, vehicle, traffic, and OSM-road assumptions, the modeled policy produced [effect and interval] relative to the fixed schedule across a pre-registered matched-seed evaluation.
 
 Do not state that BinSight will reduce municipal overflow, fuel, or emissions until field inputs and outcomes are measured.

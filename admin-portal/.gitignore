@@ -13,4 +13,9 @@ data/mock_truck_dispatches.jsonl
 data/last_valid_sensor_readings.json
 data/last_valid_sensor_readings.json.lock
 data/pr2_forecast_state_*.json
+data/logs/
+data/backups/
+data/startup-health.json
 artifacts/ui-qa-*/
+artifacts/four-bin-smoke/fill_forecaster.joblib
+artifacts/four-bin-smoke/synthetic_forecast_training_data.csv.gz

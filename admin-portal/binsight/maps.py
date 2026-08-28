@@ -45,7 +45,10 @@ def validate_pilot_extent(
     bins: pd.DataFrame,
     route_points: Iterable[tuple[float, float]] = (),
 ) -> None:
-    points = [(config.pilot.depot_lat, config.pilot.depot_lon)]
+    points = [
+        (config.pilot.depot_lat, config.pilot.depot_lon),
+        (config.pilot.recycling_facility_lat, config.pilot.recycling_facility_lon),
+    ]
     points.extend(
         (float(row.latitude), float(row.longitude))
         for row in bins.drop_duplicates("site_id").itertuples()
@@ -157,7 +160,7 @@ def _site_popup(record: dict[str, Any]) -> str:
     return (
         "<div class='site-popup'>"
         f"<h4>{html.escape(record['site_id'])} · {html.escape(record['site_label'])}</h4>"
-        f"<p>{html.escape(record['controller_id'])} · three co-located underground bins</p>"
+        f"<p>{html.escape(record['controller_id'])} · {record['bin_count']} co-located underground bins</p>"
         "<div class='site-popup-scroll'><table><thead><tr>"
         "<th>Bin</th><th>Material</th><th>Fill</th><th>Weight</th><th>TTO</th><th>Risk</th>"
         "<th>Confidence</th><th>State</th><th>Reason</th>"
@@ -181,21 +184,30 @@ def create_restricted_map(config: Config, zoom_start: int | None = None) -> foli
     )
     route_map.options["maxBounds"] = bounds
     route_map.options["maxBoundsViscosity"] = 1.0
-    # Use CARTO's public, keyless light tiles so the operations map stays
-    # readable in presentations and does not depend on an API credential.
+    # Public OpenStreetMap raster tiles require no application API key. Route,
+    # site and facility overlays remain visible even if a tile request fails.
     folium.TileLayer(
-        tiles="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
-        attr=(
-            "&copy; OpenStreetMap contributors &copy; CARTO; "
-            "routes calculated with OSRM"
-        ),
-        name="Light operations basemap",
+        tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        attr="&copy; OpenStreetMap contributors; routes calculated with OSRM",
+        name="OpenStreetMap · no API key",
+        overlay=False,
+        control=True,
+        no_wrap=True,
+        min_zoom=config.pilot.map_min_zoom,
+        max_zoom=config.pilot.map_max_zoom,
+        show=True,
+    ).add_to(route_map)
+    folium.TileLayer(
+        tiles="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        attr="&copy; OpenStreetMap contributors &copy; CARTO",
+        name="CARTO light fallback · no API key",
         overlay=False,
         control=True,
         no_wrap=True,
         min_zoom=config.pilot.map_min_zoom,
         max_zoom=config.pilot.map_max_zoom,
         subdomains="abcd",
+        show=False,
     ).add_to(route_map)
     boundary = folium.FeatureGroup(name="Optional pilot boundary", show=True)
     folium.Rectangle(
@@ -241,7 +253,7 @@ def _add_map_css(route_map: folium.Map) -> None:
         folium.Element(
             """
 <style>
-.leaflet-container{background:#0d151c;color:#e8f2f5;font-family:Inter,Segoe UI,sans-serif;}
+.leaflet-container{background:#e8ece8;color:#172126;font-family:Inter,Segoe UI,sans-serif;}
 .leaflet-control-layers,.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#121e27;color:#e8f2f5;border:1px solid #304654;}
 .leaflet-control-layers{max-width:min(280px,calc(100vw - 64px));font-size:12px;}
 .leaflet-control-layers label{white-space:normal;}
@@ -297,7 +309,10 @@ def add_controller_sites(
                 icon_size=(34, 34),
                 icon_anchor=(17, 17),
             ),
-            tooltip=f"{record['site_id']} · {meta['label']} · {record['attention_count']}/3",
+            tooltip=(
+                f"{record['site_id']} · {meta['label']} · "
+                f"{record['attention_count']}/{record['bin_count']}"
+            ),
             popup=folium.Popup(_site_popup(record), max_width=760),
         ).add_to(layers["sites"])
         if record["state"] in {"required", "inspection", "optional"}:
@@ -328,6 +343,34 @@ def add_depot(route_map: folium.Map, config: Config) -> folium.FeatureGroup:
             ),
             icon_size=(32, 32),
             icon_anchor=(16, 16),
+        ),
+    ).add_to(layer)
+    layer.add_to(route_map)
+    return layer
+
+
+def add_recycling_facility(route_map: folium.Map, config: Config) -> folium.FeatureGroup:
+    layer = folium.FeatureGroup(name="Recycling facility", show=True)
+    popup = (
+        "<div class='site-popup'>"
+        f"<h4>{html.escape(config.pilot.recycling_facility_label)}</h4>"
+        "<p>Provisional demonstration unload destination for plastic, metal and glass. "
+        "Vehicle acceptance and operating hours require field confirmation before deployment.</p>"
+        "</div>"
+    )
+    folium.Marker(
+        [config.pilot.recycling_facility_lat, config.pilot.recycling_facility_lon],
+        tooltip=f"RECYCLING · {config.pilot.recycling_facility_label}",
+        popup=folium.Popup(popup, max_width=420),
+        icon=folium.DivIcon(
+            html=(
+                "<div style='display:grid;place-items:center;width:34px;height:34px;"
+                "border-radius:50%;background:#287f83;color:#fff;border:3px solid #eaf7ef;"
+                "box-shadow:0 0 0 3px #071015;font:900 14px monospace' "
+                "aria-label='Recycling facility'>R</div>"
+            ),
+            icon_size=(34, 34),
+            icon_anchor=(17, 17),
         ),
     ).add_to(layer)
     layer.add_to(route_map)
@@ -389,6 +432,7 @@ def _add_legend(route_map: folium.Map, include_tracking: bool = False) -> None:
   <span class="legend-shape" style="background:#23a6a0;border-radius:50%"></span>+ Efficient pickup &nbsp;
   <span class="legend-shape" style="background:#7f919b"></span>· Can wait<br>
   <span class="legend-shape" style="background:#55a879"></span>✓ Completed
+  <br><b>D</b> Waste depot &nbsp; <b>R</b> Recycling facility
   {tracking}
 </div>
 """
@@ -423,6 +467,7 @@ def build_overview_map(
     add_static_route_layers(route_map, smart, fixed)
     add_controller_sites(route_map, build_site_records(bins, snapshot_rows))
     add_depot(route_map, config)
+    add_recycling_facility(route_map, config)
     return finalize_map(route_map, config)
 
 
@@ -438,6 +483,7 @@ def build_dispatch_map(
     add_static_route_layers(route_map, geometries)
     add_controller_sites(route_map, build_site_records(bins, audit_rows))
     add_depot(route_map, config)
+    add_recycling_facility(route_map, config)
     return finalize_map(route_map, config)
 
 
@@ -457,6 +503,7 @@ def build_tracking_map(
     site_records = build_site_records(bins, snapshot_rows)
     add_controller_sites(route_map, site_records)
     add_depot(route_map, config)
+    add_recycling_facility(route_map, config)
     active_layer = folium.FeatureGroup(name="Active truck route", show=True)
     completed_layer = folium.FeatureGroup(name="Completed route segments", show=True)
     remaining_layer = folium.FeatureGroup(name="Remaining route segments", show=True)
@@ -573,7 +620,7 @@ def build_tracking_map(
         const isComplete = minute >= doneAt;
         element.classList.toggle('tracking-completed', isComplete);
         element.querySelector('.site-symbol').textContent=isComplete?'✓':element.dataset.originalSymbol;
-        element.querySelector('.site-badge').textContent=isComplete?'0/3':element.dataset.originalBadge;
+        element.querySelector('.site-badge').textContent=isComplete?('0/'+element.dataset.originalBadge.split('/')[1]):element.dataset.originalBadge;
         element.setAttribute('data-state',isComplete?'completed':element.dataset.originalState);
       }});
     }});

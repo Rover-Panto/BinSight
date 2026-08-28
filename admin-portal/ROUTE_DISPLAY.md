@@ -5,10 +5,11 @@ The portal displays capacity-feasible routes on OpenStreetMap-derived roads and 
 ## Markers
 
 - There is **one marker per service site**, not one artificially offset marker per bin.
-- Each of the 11 markers represents one ESP32 and its three co-located underground bins.
-- A marker badge shows how many of those bins need attention, such as `2/3`.
-- Opening the popup shows all three bin IDs, fill, weight, time to overflow, risk, confidence, decision reason, and state.
-- Site color/shape uses the highest-priority state among its three bins. Text and shape accompany color so the state is not color-only.
+- Each of the 11 markers represents one simulated service group and its four co-located underground bins: general, plastic, metal and glass.
+- A marker badge shows how many of those bins need attention, such as `2/4`.
+- Opening the popup shows all four bin IDs, fill, weight, time to overflow, risk, confidence, decision reason, and state.
+- Site color/shape uses the highest-priority state among its four bins. Text and shape accompany color so the state is not color-only.
+- `D` marks the waste depot and `R` marks the provisional MBSJ USJ 9 recycling destination.
 
 Operational states are collection required, inspection required, no collection required, in transit, servicing, completed, and depot. Completed status is applied only after the simulated service-completion timestamp.
 
@@ -18,8 +19,9 @@ Operational states are collection required, inspection required, no collection r
 - Fixed routes use a restrained dashed gray comparison line.
 - Separate layer controls expose routes, site status, and truck tracking.
 - Route popups identify policy, dispatch/trip, and distance.
+- Recycling geometry explicitly visits the recycling facility before returning to the depot.
 
-The map is bounded to the configured Subang Jaya pilot rectangle. Minimum/maximum zoom are 13/18, tile wrapping is disabled, and a reset control returns to the intended service area. This prevents an operator from accidentally losing the pilot among unrelated cities while retaining normal inspection zoom.
+The map is bounded to the configured Subang Jaya pilot rectangle. Minimum/maximum zoom are 13/18, tile wrapping is disabled, and a reset control returns to the intended service area. The primary OpenStreetMap and fallback CARTO layers are public raster layers that require no application API key; routes and markers remain visible on a light fallback background if tiles fail.
 
 ## Mock live tracking
 

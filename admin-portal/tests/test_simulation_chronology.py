@@ -137,6 +137,52 @@ def test_fixed_policy_never_mixes_general_and_recycling_streams():
         assert len(streams) == 1
 
 
+def test_recycling_trip_unloads_at_facility_before_empty_return_to_depot():
+    config = _config(horizon_days=2)
+    bins = [
+        replace(
+            _bin(0),
+            bin_type="recycling_plastic",
+            waste_stream="dry_recycling",
+            material_type="plastic_cups",
+            destination_id="recycling_facility",
+        )
+    ]
+    distance, duration = _matrices(1, 60.0)
+    recycling_distance = distance.copy()
+    recycling_duration = duration.copy()
+    recycling_distance[1, 0] = 3_000.0
+    recycling_duration[1, 0] = 300.0
+    arrivals = np.zeros((48, 1), dtype=float)
+    arrivals[0, 0] = 60.0
+
+    result = run_policy(
+        "fixed",
+        0,
+        bins,
+        config,
+        distance,
+        duration,
+        arrivals,
+        111,
+        destination_matrices={
+            "recycling_facility": (recycling_distance, recycling_duration)
+        },
+        destination_return_legs={"recycling_facility": (800.0, 120.0)},
+    )
+
+    timeline = _statuses(result)
+    to_facility = next(row for row in timeline if row["status"] == "EN_ROUTE_TO_UNLOAD")
+    unload = next(row for row in timeline if row["status"] == "UNLOADING")
+    depot_return = next(row for row in timeline if row["status"] == "RETURNING_TO_DEPOT")
+    assert to_facility["destination"] == config.pilot.recycling_facility_id
+    assert unload["unload_destination"] == "recycling_facility"
+    assert unload["simulation_minute"] < depot_return["simulation_minute"]
+    assert depot_return["origin"] == config.pilot.recycling_facility_id
+    assert depot_return["payload_kg"] == 0.0
+    assert result.metrics["distance_km"] == pytest.approx(4.0)
+
+
 def test_second_trip_starts_only_after_return_unload_and_turnaround():
     config = _config(horizon_days=2)
     bins = [_bin(0), _bin(1)]

@@ -6,7 +6,7 @@ import json
 import os
 import time
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -421,6 +421,7 @@ def build_dispatch_plan(
     duration_matrix_s: np.ndarray | None = None,
     *,
     optional_dispatch_allowed: bool = True,
+    destination_matrices: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
 ) -> DispatchPlan:
     """Build a dynamic safety-constrained, trip-value collection proposal."""
     if snapshot["bin_id"].tolist() != bins["bin_id"].astype(str).tolist():
@@ -432,6 +433,19 @@ def build_dispatch_plan(
         duration_matrix_s = np.asarray(distance_matrix_m, dtype=float) / speed_mps
     if duration_matrix_s.shape != distance_matrix_m.shape:
         raise ValueError("Road duration matrix must match the distance matrix")
+    destination_matrices = dict(destination_matrices or {})
+    destination_matrices.setdefault(
+        "waste_depot", (distance_matrix_m, duration_matrix_s)
+    )
+    for destination_id, (destination_distance, destination_duration) in destination_matrices.items():
+        if destination_distance.shape != distance_matrix_m.shape:
+            raise ValueError(
+                f"Distance matrix for {destination_id} must contain the depot plus every bin"
+            )
+        if destination_duration.shape != duration_matrix_s.shape:
+            raise ValueError(
+                f"Duration matrix for {destination_id} must contain the depot plus every bin"
+            )
 
     fill_pct = snapshot["fill_pct"].to_numpy(dtype=float)
     weights = snapshot["weight_kg"].to_numpy(dtype=float)
@@ -847,6 +861,26 @@ def build_dispatch_plan(
         if "waste_stream" in bins.columns
         else ["mixed_general_waste"] * len(bins)
     )
+    destination_values = (
+        bins["destination_id"].fillna("waste_depot").astype(str).tolist()
+        if "destination_id" in bins.columns
+        else ["waste_depot"] * len(bins)
+    )
+
+    def stream_destination_and_matrices(
+        indices: list[int],
+    ) -> tuple[str, np.ndarray, np.ndarray]:
+        destinations = {destination_values[index] for index in indices}
+        if len(destinations) != 1:
+            raise ValueError("A compatible waste stream cannot mix unload destinations")
+        destination_id = next(iter(destinations))
+        matrices = destination_matrices.get(destination_id)
+        if matrices is None:
+            raise ValueError(
+                f"No trusted road matrix is configured for unload destination {destination_id}"
+            )
+        return destination_id, matrices[0], matrices[1]
+
     candidate_streams = sorted({stream_values[index] for index in candidates})
     if not feasible_mandatory and not optional_dispatch_allowed:
         route_plan = RoutePlan(
@@ -857,14 +891,25 @@ def build_dispatch_plan(
             dropped_bin_indices=candidates,
             dispatch_reason="optional_consolidation_gap",
         )
+    elif not candidates:
+        route_plan = RoutePlan(
+            routes=[],
+            distance_m=0,
+            served_bin_indices=[],
+            solver_method="value_none",
+            dispatch_reason="no_candidate",
+        )
     elif len(candidate_streams) <= 1:
+        destination_id, active_distance_matrix, active_duration_matrix = (
+            stream_destination_and_matrices(candidates)
+        )
         route_plan = solve_value_routes(
             candidates,
             feasible_mandatory,
             conservative_weight,
             compacted_volume_m3,
-            distance_matrix_m,
-            duration_matrix_s,
+            active_distance_matrix,
+            active_duration_matrix,
             skip_penalties,
             operations.truck_capacity_kg,
             truck_volume_m3,
@@ -877,6 +922,10 @@ def build_dispatch_plan(
             low_fill_costs,
             operations.route_solver_milliseconds,
             minimum_net_value_m_equivalent=operations.minimum_route_value_m,
+        )
+        route_plan = replace(
+            route_plan,
+            route_destinations=[destination_id] * len(route_plan.routes),
         )
     else:
         stream_plans: list[RoutePlan] = []
@@ -893,6 +942,9 @@ def build_dispatch_plan(
             stream_candidates = [
                 index for index in candidates if stream_values[index] == stream
             ]
+            destination_id, active_distance_matrix, active_duration_matrix = (
+                stream_destination_and_matrices(stream_candidates)
+            )
             stream_mandatory = [
                 index for index in feasible_mandatory if stream_values[index] == stream
             ]
@@ -913,8 +965,8 @@ def build_dispatch_plan(
                 stream_mandatory,
                 conservative_weight,
                 compacted_volume_m3,
-                distance_matrix_m,
-                duration_matrix_s,
+                active_distance_matrix,
+                active_duration_matrix,
                 skip_penalties,
                 operations.truck_capacity_kg,
                 truck_volume_m3,
@@ -927,6 +979,10 @@ def build_dispatch_plan(
                 low_fill_costs,
                 operations.route_solver_milliseconds,
                 minimum_net_value_m_equivalent=operations.minimum_route_value_m,
+            )
+            stream_plan = replace(
+                stream_plan,
+                route_destinations=[destination_id] * len(stream_plan.routes),
             )
             stream_plans.append(stream_plan)
             remaining_trips -= len(stream_plan.routes)
@@ -973,6 +1029,11 @@ def build_dispatch_plan(
                     else "no_positive_value_route"
                 )
             ),
+            route_destinations=[
+                destination
+                for plan in stream_plans
+                for destination in plan.route_destinations
+            ],
         )
     served_set = set(route_plan.served_bin_indices)
     selected_siblings = sorted(served_set & sibling_candidates)
@@ -1286,12 +1347,25 @@ def mock_dispatch_payload(
     loads = route_loads_kg(plan, snapshot)
     routes = []
     for trip_number, (route, load) in enumerate(zip(plan.route_plan.routes, loads), start=1):
-        stops = ["DEPOT" if index == -1 else str(bins.iloc[index]["bin_id"]) for index in route]
+        route_position = trip_number - 1
+        route_destinations = plan.route_plan.route_destinations
+        destination_id = (
+            route_destinations[route_position]
+            if route_position < len(route_destinations)
+            else "waste_depot"
+        )
+        bin_stops = [str(bins.iloc[index]["bin_id"]) for index in route if index != -1]
+        stops = ["DEPOT", *bin_stops]
+        if destination_id == "recycling_facility":
+            stops.extend([config.pilot.recycling_facility_id, "DEPOT"])
+        else:
+            stops.append("DEPOT")
         routes.append(
             {
                 "trip_number": trip_number,
                 "vehicle_id": "MOCK-TRUCK-01",
                 "stops": stops,
+                "unload_destination": destination_id,
                 "estimated_load_kg": round(load, 1),
             }
         )
@@ -1311,6 +1385,12 @@ def mock_dispatch_payload(
             "label": config.pilot.depot_label,
             "latitude": config.pilot.depot_lat,
             "longitude": config.pilot.depot_lon,
+        },
+        "recycling_facility": {
+            "id": config.pilot.recycling_facility_id,
+            "label": config.pilot.recycling_facility_label,
+            "latitude": config.pilot.recycling_facility_lat,
+            "longitude": config.pilot.recycling_facility_lon,
         },
         "route_distance_km": round(plan.route_plan.distance_m / 1000.0, 3),
         "trip_count": len(plan.route_plan.routes),

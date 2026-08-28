@@ -35,6 +35,7 @@ from .pr2_forecasting import (
     snapshot_json,
 )
 from .registry import BinRegistry
+from .runtime import collect_runtime_health, create_state_backup
 from .telemetry_client import TelemetryClient
 
 
@@ -58,6 +59,20 @@ def _planning_inputs(profile_id: str):
         ]
         bins["material_type"] = [
             entries[str(value)].material_type for value in bins["bin_id"]
+        ]
+        bins["capacity_kg"] = [
+            entries[str(value)].capacity_kg for value in bins["bin_id"]
+        ]
+        bins["capacity_litres"] = [
+            entries[str(value)].capacity_litres for value in bins["bin_id"]
+        ]
+        bins["destination_id"] = [
+            (
+                "waste_depot"
+                if entries[str(value)].waste_stream == "mixed_general_waste"
+                else "recycling_facility"
+            )
+            for value in bins["bin_id"]
         ]
         indices = np.array([0, 1, 2, 3])
         distance = distance[np.ix_(indices, indices)]
@@ -87,6 +102,20 @@ def _load_planning_snapshot(path: str | None, profile_id: str) -> pd.DataFrame:
 def _evaluate_once(snapshot_path: str | None, profile_id: str):
     root = project_root()
     config, bins, distance, duration = _planning_inputs(profile_id)
+    recycling_distance = np.load(
+        root / "artifacts" / "recycling_road_distance_matrix_m.npy"
+    )
+    recycling_duration = np.load(
+        root / "artifacts" / "recycling_road_duration_matrix_s.npy"
+    )
+    if profile_id == "physical-pilot":
+        physical_indices = np.array([0, 1, 2, 3])
+        recycling_distance = recycling_distance[
+            np.ix_(physical_indices, physical_indices)
+        ]
+        recycling_duration = recycling_duration[
+            np.ix_(physical_indices, physical_indices)
+        ]
     raw = _load_planning_snapshot(snapshot_path, profile_id)
     store = PlanningStore(root / "data" / "routing_plans.sqlite3")
     service = PlanningService(
@@ -97,6 +126,9 @@ def _evaluate_once(snapshot_path: str | None, profile_id: str):
         store,
         network_version="subang-jaya-osrm-v1",
         model_version="hist-gradient-boosting-multihorizon-q90-overflow-v3",
+        destination_matrices={
+            "recycling_facility": (recycling_distance, recycling_duration)
+        },
     )
     history_path = root / "data" / "last_valid_sensor_readings.json"
     history = load_last_valid_readings(history_path)
@@ -205,6 +237,9 @@ def main() -> None:
     start.add_argument("--interval-seconds", type=float, default=900.0)
     subparsers.add_parser("planner-stop", help="Request a clean planner shutdown")
     subparsers.add_parser("planner-status", help="Show local planner status")
+    subparsers.add_parser("health", help="Verify local production readiness")
+    backup = subparsers.add_parser("backup-state", help="Back up local operator state")
+    backup.add_argument("--output", default=None, help="Optional new backup directory")
     args = parser.parse_args()
     if args.command == "prepare":
         config, service_network, _, bins, _, _ = prepare_project(
@@ -349,6 +384,14 @@ def main() -> None:
                 indent=2,
             )
         )
+        return
+    if args.command == "health":
+        health = collect_runtime_health(project_root())
+        print(json.dumps(health, indent=2))
+        raise SystemExit(0 if health["status"] == "READY" else 1)
+    if args.command == "backup-state":
+        destination = create_state_backup(project_root(), args.output)
+        print(json.dumps({"status": "BACKUP_CREATED", "path": str(destination)}, indent=2))
         return
     control_dir = project_root() / "data" / "planner-control"
     runner = ControlledPlanningRunner(control_dir, getattr(args, "interval_seconds", 900.0))

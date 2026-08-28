@@ -9,5 +9,14 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 
+echo Checking BinSight local readiness...
+".venv\Scripts\python.exe" -m binsight.cli health > "data\startup-health.json"
+if errorlevel 1 (
+  echo BinSight is not ready. Review admin-portal\data\startup-health.json.
+  type "data\startup-health.json"
+  pause
+  exit /b 1
+)
+
 start "" "http://127.0.0.1:8501/"
-".venv\Scripts\python.exe" -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true
+".venv\Scripts\python.exe" -m streamlit run app.py

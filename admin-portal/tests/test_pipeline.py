@@ -22,17 +22,25 @@ def test_prepare_project_persists_matching_osrm_distance_and_duration_matrices(t
 
     config, network, depot, bins, distance, duration = prepare_project(tmp_path)
 
-    assert config.pilot.bin_count == 33
-    assert network.service_count == 12
+    assert config.pilot.bin_count == 44
+    assert network.service_count == 13
     assert depot == 0
-    assert len(bins) == 33
-    assert distance.shape == duration.shape == (34, 34)
+    assert len(bins) == 44
+    assert distance.shape == duration.shape == (45, 45)
     np.testing.assert_array_equal(
         np.load(tmp_path / "artifacts" / "road_distance_matrix_m.npy"), distance
     )
     np.testing.assert_array_equal(
         np.load(tmp_path / "artifacts" / "road_duration_matrix_s.npy"), duration
     )
+    recycling_distance = np.load(
+        tmp_path / "artifacts" / "recycling_road_distance_matrix_m.npy"
+    )
+    recycling_duration = np.load(
+        tmp_path / "artifacts" / "recycling_road_duration_matrix_s.npy"
+    )
+    assert recycling_distance.shape == recycling_duration.shape == (45, 45)
+    assert not np.array_equal(recycling_distance[:, 0], distance[:, 0])
 
 
 def test_declared_stress_scenarios_change_one_primary_condition_at_a_time():

@@ -12,9 +12,10 @@ def test_competition_scale_is_locked():
     assert config.pilot.commercial_units == 20
     assert config.operations.horizon_days == 30
     assert config.pilot.physical_prototype_bin_count == 3
-    assert config.pilot.bins_per_service_site == 3
+    assert config.pilot.bins_per_service_site == 4
     assert config.pilot.physical_controller_bin_count == 3
-    assert config.pilot.bin_count == 33
+    assert config.pilot.bin_count == 44
+    assert config.pilot.recycling_facility_id == "USJ9-RECYCLING-CENTRE"
     assert config.waste.household_kg_per_day == 7.03
     assert config.waste.bin_capacity_kg == 540.0
     assert config.operations.crane_lift_limit_kg == 1500

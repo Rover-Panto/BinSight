@@ -22,6 +22,8 @@ from .network import (
     download_or_load_service_network,
     expand_bin_distance_matrix,
     expand_bin_duration_matrix,
+    expand_destination_distance_matrix,
+    expand_destination_duration_matrix,
     route_coordinates,
 )
 from .simulation import SimulationScenario, run_policy
@@ -45,9 +47,23 @@ def prepare_project(project_dir: str | Path, refresh_graph: bool = False):
     duration_matrix = expand_bin_duration_matrix(
         service_network, [item.service_index for item in bins]
     )
+    recycling_matrix = expand_destination_distance_matrix(
+        service_network, [item.service_index for item in bins], 1
+    )
+    recycling_duration = expand_destination_duration_matrix(
+        service_network, [item.service_index for item in bins], 1
+    )
     save_district(bins, root / "artifacts" / "district_bins.csv")
     np.save(root / "artifacts" / "road_distance_matrix_m.npy", matrix)
     np.save(root / "artifacts" / "road_duration_matrix_s.npy", duration_matrix)
+    np.save(
+        root / "artifacts" / "recycling_road_distance_matrix_m.npy",
+        recycling_matrix,
+    )
+    np.save(
+        root / "artifacts" / "recycling_road_duration_matrix_s.npy",
+        recycling_duration,
+    )
     return config, service_network, depot, bins, matrix, duration_matrix
 
 
@@ -165,6 +181,21 @@ def run_experiment(
     config, service_network, depot, bins, matrix, duration_matrix = prepare_project(
         root, refresh_graph
     )
+    recycling_matrix = np.load(
+        root / "artifacts" / "recycling_road_distance_matrix_m.npy"
+    )
+    recycling_duration_matrix = np.load(
+        root / "artifacts" / "recycling_road_duration_matrix_s.npy"
+    )
+    destination_matrices = {
+        "recycling_facility": (recycling_matrix, recycling_duration_matrix)
+    }
+    destination_return_legs = {
+        "recycling_facility": (
+            float(service_network.distance_matrix_m[1, 0]),
+            float(service_network.duration_matrix_s[1, 0]),
+        )
+    }
     replication_count = (
         config.operations.replications if replications is None else int(replications)
     )
@@ -235,6 +266,8 @@ def run_experiment(
             forecaster=None,
             scenario=scenario,
             demand_context=demand.context,
+            destination_matrices=destination_matrices,
+            destination_return_legs=destination_return_legs,
         )
         smart = run_policy(
             "smart",
@@ -248,6 +281,8 @@ def run_experiment(
             forecaster=forecaster,
             scenario=scenario,
             demand_context=demand.context,
+            destination_matrices=destination_matrices,
+            destination_return_legs=destination_return_legs,
         )
         manifest = {
             "scenario": scenario.name,
@@ -473,10 +508,18 @@ def write_representative_route_geojson(
         if not events:
             continue
         event = max(events, key=lambda item: item["distance_km"])
+        destinations = event.get("route_destinations", [])
         for trip_index, route in enumerate(event["route_bin_indices"], start=1):
             service_indices = [
                 depot if index == -1 else bins[index].service_index for index in route
             ]
+            destination_id = (
+                destinations[trip_index - 1]
+                if trip_index - 1 < len(destinations)
+                else "waste_depot"
+            )
+            if destination_id == "recycling_facility" and service_indices[-1] == depot:
+                service_indices.insert(-1, 1)
             coordinates = route_coordinates(
                 service_network,
                 service_indices,
@@ -490,6 +533,7 @@ def write_representative_route_geojson(
                         "day": event["day"],
                         "trip": trip_index,
                         "distance_km_for_dispatch": event["distance_km"],
+                        "unload_destination": destination_id,
                     },
                     "geometry": {
                         "type": "LineString",

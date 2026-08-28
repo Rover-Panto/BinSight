@@ -110,6 +110,8 @@ def run_policy(
     forecaster: ForecastBundle | None = None,
     scenario: SimulationScenario | None = None,
     demand_context: DemandContext | None = None,
+    destination_matrices: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
+    destination_return_legs: dict[str, tuple[float, float]] | None = None,
 ) -> PolicyResult:
     if policy not in {"fixed", "smart"}:
         raise ValueError("policy must be 'fixed' or 'smart'")
@@ -130,6 +132,21 @@ def run_policy(
     expected_shape = (len(bins) + 1, len(bins) + 1)
     if distance_matrix_m.shape != expected_shape or duration_matrix_s.shape != expected_shape:
         raise ValueError("Road distance and duration matrices must contain depot plus every bin")
+    active_destination_matrices = dict(destination_matrices or {})
+    active_destination_matrices.setdefault(
+        "waste_depot", (distance_matrix_m, duration_matrix_s)
+    )
+    for destination_id, matrices in active_destination_matrices.items():
+        if matrices[0].shape != expected_shape or matrices[1].shape != expected_shape:
+            raise ValueError(
+                f"Destination matrices for {destination_id} must contain depot plus every bin"
+            )
+    destination_return_legs = dict(destination_return_legs or {})
+    for destination_id, (distance_m, duration_s) in destination_return_legs.items():
+        if destination_id not in active_destination_matrices:
+            raise ValueError(f"Return leg has no destination matrix: {destination_id}")
+        if distance_m < 0 or duration_s < 0:
+            raise ValueError("Destination return distance and duration cannot be negative")
 
     env = simpy.Environment()
     capacities = np.array([item.capacity_kg for item in bins], dtype=float)
@@ -354,10 +371,64 @@ def run_policy(
             overflow_probability_48h,
         )
 
+    def execute_travel_leg(
+        route_event: dict[str, Any],
+        *,
+        trip_number: int,
+        status: str,
+        origin_id: str,
+        destination_id: str,
+        distance_m: float,
+        osrm_duration_s: float,
+        payload_kg: float,
+    ):
+        travel_minutes, traffic, duration_source = leg_travel_minutes(
+            distance_m,
+            osrm_duration_s,
+            config,
+            env.now,
+            active_scenario.traffic_multiplier,
+        )
+        timeline_event(
+            route_event,
+            status,
+            trip_number=trip_number,
+            origin=origin_id,
+            destination=destination_id,
+            next_stop=destination_id,
+            travel_minutes=round(travel_minutes, 3),
+            distance_km=round(distance_m / 1000.0, 4),
+            traffic=traffic.label,
+            duration_source=duration_source,
+            payload_kg=round(payload_kg, 3),
+        )
+        leg_fuel = calculate_leg_fuel(
+            distance_m / 1000.0,
+            payload_kg,
+            effective_truck_capacity,
+            traffic.fuel_multiplier,
+            config,
+        )
+        yield env.timeout(travel_minutes)
+        record("distance_km", distance_m / 1000.0)
+        record("travel_time_hours", travel_minutes / 60.0)
+        record("base_driving_fuel_l", leg_fuel.base_driving_l)
+        record("traffic_fuel_penalty_l", leg_fuel.traffic_penalty_l)
+        record("payload_fuel_penalty_l", leg_fuel.payload_penalty_l)
+
     def execute_plan(plan: RoutePlan, route_event: dict[str, Any]):
         nonlocal truck_active
         completed_bins: list[int] = []
         for trip_number, route in enumerate(plan.routes, start=1):
+            route_position = trip_number - 1
+            unload_destination_id = (
+                plan.route_destinations[route_position]
+                if route_position < len(plan.route_destinations)
+                else "waste_depot"
+            )
+            route_distance_matrix, route_duration_matrix = active_destination_matrices[
+                unload_destination_id
+            ]
             start_day = int(env.now // 1440)
             if trips_by_day.get(start_day, 0) >= config.operations.max_daily_trips:
                 next_day = (start_day + 1) * 1440
@@ -382,49 +453,106 @@ def run_policy(
             for origin, destination in zip(route[:-1], route[1:]):
                 origin_location = 0 if origin == -1 else origin + 1
                 destination_location = 0 if destination == -1 else destination + 1
-                distance_m = float(distance_matrix_m[origin_location, destination_location])
-                osrm_duration = float(duration_matrix_s[origin_location, destination_location])
-                travel_minutes, traffic, duration_source = leg_travel_minutes(
-                    distance_m,
-                    osrm_duration,
-                    config,
-                    env.now,
-                    active_scenario.traffic_multiplier,
+                distance_m = float(
+                    route_distance_matrix[origin_location, destination_location]
                 )
-                destination_id = "DEPOT" if destination == -1 else bins[destination].bin_id
+                osrm_duration = float(
+                    route_duration_matrix[origin_location, destination_location]
+                )
+                next_stop_id = "DEPOT" if destination == -1 else bins[destination].bin_id
                 status = "RETURNING_TO_DEPOT" if destination == -1 else "EN_ROUTE"
-                timeline_event(
+
+                if (
+                    destination == -1
+                    and unload_destination_id != "waste_depot"
+                    and unload_destination_id in destination_return_legs
+                ):
+                    return_distance_m, return_duration_s = destination_return_legs[
+                        unload_destination_id
+                    ]
+                    unload_distance_m = max(0.0, distance_m - return_distance_m)
+                    unload_duration_s = max(0.0, osrm_duration - return_duration_s)
+                    facility_id = config.pilot.recycling_facility_id
+                    yield from execute_travel_leg(
+                        route_event,
+                        trip_number=trip_number,
+                        status="EN_ROUTE_TO_UNLOAD",
+                        origin_id="DEPOT" if origin == -1 else bins[origin].bin_id,
+                        destination_id=facility_id,
+                        distance_m=unload_distance_m,
+                        osrm_duration_s=unload_duration_s,
+                        payload_kg=payload_kg,
+                    )
+                    timeline_event(
+                        route_event,
+                        "UNLOADING",
+                        trip_number=trip_number,
+                        unload_destination=unload_destination_id,
+                        unload_destination_id=facility_id,
+                        payload_kg=round(payload_kg, 3),
+                        duration_minutes=config.operations.depot_unload_minutes,
+                    )
+                    unload_fuel = calculate_idle_fuel(
+                        config.operations.depot_unload_minutes,
+                        config.operations.depot_idle_l_per_hour,
+                    )
+                    yield env.timeout(config.operations.depot_unload_minutes)
+                    record(
+                        "depot_unloading_time_hours",
+                        config.operations.depot_unload_minutes / 60.0,
+                    )
+                    record("depot_idle_fuel_l", unload_fuel)
+                    payload_kg = 0.0
+                    yield from execute_travel_leg(
+                        route_event,
+                        trip_number=trip_number,
+                        status="RETURNING_TO_DEPOT",
+                        origin_id=facility_id,
+                        destination_id="DEPOT",
+                        distance_m=return_distance_m,
+                        osrm_duration_s=return_duration_s,
+                        payload_kg=payload_kg,
+                    )
+                    if (
+                        trip_number < len(plan.routes)
+                        and config.operations.turnaround_minutes > 0
+                    ):
+                        timeline_event(
+                            route_event,
+                            "TURNAROUND",
+                            trip_number=trip_number,
+                            duration_minutes=config.operations.turnaround_minutes,
+                        )
+                        yield env.timeout(config.operations.turnaround_minutes)
+                        record(
+                            "turnaround_time_hours",
+                            config.operations.turnaround_minutes / 60.0,
+                        )
+                    timeline_event(
+                        route_event,
+                        "TRIP_COMPLETE",
+                        trip_number=trip_number,
+                        bins_completed=len(completed_bins),
+                    )
+                    continue
+
+                yield from execute_travel_leg(
                     route_event,
-                    status,
                     trip_number=trip_number,
-                    origin="DEPOT" if origin == -1 else bins[origin].bin_id,
-                    destination=destination_id,
-                    next_stop=destination_id,
-                    travel_minutes=round(travel_minutes, 3),
-                    distance_km=round(distance_m / 1000.0, 4),
-                    traffic=traffic.label,
-                    duration_source=duration_source,
-                    payload_kg=round(payload_kg, 3),
+                    status=status,
+                    origin_id="DEPOT" if origin == -1 else bins[origin].bin_id,
+                    destination_id=next_stop_id,
+                    distance_m=distance_m,
+                    osrm_duration_s=osrm_duration,
+                    payload_kg=payload_kg,
                 )
-                leg_fuel = calculate_leg_fuel(
-                    distance_m / 1000.0,
-                    payload_kg,
-                    effective_truck_capacity,
-                    traffic.fuel_multiplier,
-                    config,
-                )
-                yield env.timeout(travel_minutes)
-                record("distance_km", distance_m / 1000.0)
-                record("travel_time_hours", travel_minutes / 60.0)
-                record("base_driving_fuel_l", leg_fuel.base_driving_l)
-                record("traffic_fuel_penalty_l", leg_fuel.traffic_penalty_l)
-                record("payload_fuel_penalty_l", leg_fuel.payload_penalty_l)
 
                 if destination == -1:
                     timeline_event(
                         route_event,
                         "UNLOADING",
                         trip_number=trip_number,
+                        unload_destination=unload_destination_id,
                         payload_kg=round(payload_kg, 3),
                         duration_minutes=config.operations.depot_unload_minutes,
                     )
@@ -567,6 +695,19 @@ def run_policy(
             remaining_stream_trips = remaining_trips
             for stream in sorted(stream_groups):
                 stream_selected = stream_groups[stream]
+                stream_destinations = {
+                    bins[index].destination_id for index in stream_selected
+                }
+                if len(stream_destinations) != 1:
+                    raise ValueError("A fixed waste stream cannot mix unload destinations")
+                stream_destination = next(iter(stream_destinations))
+                if stream_destination not in active_destination_matrices:
+                    raise ValueError(
+                        f"No road matrix is configured for {stream_destination}"
+                    )
+                stream_distance_matrix, _ = active_destination_matrices[
+                    stream_destination
+                ]
                 if remaining_stream_trips <= 0:
                     fixed_unserved.update(stream_selected)
                     continue
@@ -582,10 +723,14 @@ def run_policy(
                 stream_plan = solve_routes(
                     capacity_selected,
                     route_weights,
-                    distance_matrix_m,
+                    stream_distance_matrix,
                     effective_truck_capacity,
                     remaining_stream_trips,
                     config.operations.route_solver_milliseconds,
+                )
+                stream_plan = replace(
+                    stream_plan,
+                    route_destinations=[stream_destination] * len(stream_plan.routes),
                 )
                 stream_plans.append(stream_plan)
                 served_in_stream = set(stream_plan.served_bin_indices)
@@ -602,6 +747,11 @@ def run_policy(
                 ),
                 dropped_bin_indices=sorted(fixed_unserved),
                 dispatch_reason="fixed_due_service",
+                route_destinations=[
+                    destination
+                    for item in stream_plans
+                    for destination in item.route_destinations
+                ],
             )
             capacity_selected = list(plan.served_bin_indices)
             required_set = set(capacity_selected)
@@ -736,6 +886,7 @@ def run_policy(
                 history,
                 duration_matrix_s,
                 optional_dispatch_allowed=optional_window_open,
+                destination_matrices=active_destination_matrices,
             )
             record("inspection_events", len(dispatch_plan.review_bin_indices))
             record(
@@ -782,9 +933,20 @@ def run_policy(
             "trip_count": len(plan.routes),
             "route_solver_method": plan.solver_method,
             "routes": [
-                ["DEPOT" if index == -1 else bins[index].bin_id for index in route]
-                for route in plan.routes
+                (
+                    ["DEPOT"]
+                    + [bins[index].bin_id for index in route if index != -1]
+                    + (
+                        [config.pilot.recycling_facility_id, "DEPOT"]
+                        if route_position < len(plan.route_destinations)
+                        and plan.route_destinations[route_position]
+                        == "recycling_facility"
+                        else ["DEPOT"]
+                    )
+                )
+                for route_position, route in enumerate(plan.routes)
             ],
+            "route_destinations": list(plan.route_destinations),
             "route_bin_indices": plan.routes,
             "served_bins": [bins[index].bin_id for index in plan.served_bin_indices],
             "required_bins": [bins[index].bin_id for index in required_set],

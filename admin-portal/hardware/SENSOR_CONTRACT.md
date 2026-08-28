@@ -32,7 +32,7 @@ The predictive-AI routing snapshot uses:
 timestamp,bin_id,fill_pct,weight_kg,time_to_overflow_hours,risk_level,confidence_flag
 ```
 
-There must be one row for each of the 33 bins with a shared timezone-aware timestamp. Snapshot freshness, future timestamps, duplicate IDs, sensor ranges, missing data, sensor disagreement, and risk/confidence values are validated before routing.
+The competition simulation requires one row for each of its 44 bins with a shared timezone-aware timestamp. The incomplete physical-pilot profile accepts only its three explicitly registered channels. Snapshot freshness, future timestamps, duplicate IDs, sensor ranges, missing data, sensor disagreement, and risk/confidence values are validated before routing.
 
 ## Calibration gate
 
