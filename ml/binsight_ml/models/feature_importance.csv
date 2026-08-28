@@ -1,0 +1,11 @@
+,importance
+fill_pct,0.28086683
+hist_avg_rate_same_slot,0.16993693
+time_since_reset_hours,0.13101378
+hour_sin,0.10602145
+dow_cos,0.09522181
+hour_cos,0.071003616
+fill_rate_6h,0.055760287
+dow_sin,0.045178723
+is_weekend,0.030540232
+fill_rate_1h,0.014456377

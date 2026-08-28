@@ -9,13 +9,13 @@ Includes verification for:
 - Irregular sampling intervals and Wi-Fi gap handling
 - Model artifact manifest and SHA-256 checksum agreement
 - Serving wrapper input validation and edge-case handling
-- Item 1: Unsupported threshold rejection, correct field naming
-- Item 2: Receipt-time filtering, model-training cutoff, staleness
+- Item 1: Unsupported threshold rejection, correct field naming, preserved bin_id
+- Item 2: Point-in-time correctness: receipt-time filtering, model-training cutoff, staleness, timezone offset equivalence
 - Item 3: Label-leakage purge verification
 - Item 4: Probabilities are null/unsupported
-- Item 5: Manifest required before load, hash before deserialization
-- Item 6: Installable package import (binsight_ml)
-- Item 7: Four-bin waste type support
+- Item 5: Manifest required before load, hash before deserialization, dependency version validation before load
+- Item 6: Installable package import (binsight_ml) & default bundle discovery
+- Item 7: Four-bin waste type support & quality states
 """
 import hashlib
 import json
@@ -83,7 +83,7 @@ def test_model_artifacts_and_manifest_exist_and_agree():
     model = joblib.load(MODELS_DIR / "overflow_model.joblib")
     assert type(model).__name__ == manifest["estimator_class"], "Manifest estimator class does not match loaded model"
 
-    # Item 3: training_data_cutoff must be present
+    # Item 3: training_data_cutoff and model_availability_after must be present
     assert "training_data_cutoff" in manifest, "training_data_cutoff missing from manifest"
     assert "model_availability_after" in manifest, "model_availability_after missing"
 
@@ -98,7 +98,6 @@ def test_model_beats_baselines():
     results = {r["model"]: r for r in eval_results["results"]}
     naive_mae = results["baseline_naive_extrapolation"]["MAE_hours"]
     linear_mae = results["baseline_linear_regression"]["MAE_hours"]
-    selected = eval_results["selected_model"]
     selected_mae = eval_results["test_metrics"]["MAE_hours"]
     assert selected_mae < linear_mae, "selected model does not beat the linear baseline on MAE"
     assert selected_mae < naive_mae, "selected model does not beat the naive baseline on MAE"
@@ -186,11 +185,11 @@ def test_serve_wrapper_handles_empty_and_invalid_inputs():
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  Item 1: Unsupported threshold rejection
+#  Item 1: Unsupported threshold rejection & preserved bin_id
 # ═══════════════════════════════════════════════════════════════════
 
 def test_reject_unsupported_threshold():
-    """Requesting 100% when model trained on 90% must return unsupported_threshold."""
+    """Requesting 100% when model trained on 90% must return unsupported_threshold while preserving bin_id."""
     provider = ForecastProvider()
     readings = pd.DataFrame([
         {"timestamp": "2026-08-19T10:00:00Z", "bin_id": "bin_01", "fill_pct": 50.0, "confidence_flag": 1},
@@ -198,7 +197,13 @@ def test_reject_unsupported_threshold():
     ])
     result = provider.predict_from_history(readings, target_threshold_pct=100.0)
     assert result["status"] == "unsupported_threshold", f"Expected unsupported_threshold, got {result['status']}"
+    assert result["bin_id"] == "bin_01", f"Expected bin_id 'bin_01', got {result['bin_id']}"
     assert result["time_to_service_threshold_hours"] is None
+
+    # Multi-bin snapshot should also preserve bin_id
+    snap = provider.predict_snapshot(readings, bins=["bin_01"], decision_at="2026-08-19T12:00:00Z", target_threshold_pct=100.0)
+    assert snap[0]["bin_id"] == "bin_01"
+    assert snap[0]["status"] == "unsupported_threshold"
 
 
 def test_output_uses_service_threshold_naming():
@@ -216,7 +221,7 @@ def test_output_uses_service_threshold_naming():
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  Item 2: Point-in-time correctness
+#  Item 2: Point-in-time correctness & UTC equivalence
 # ═══════════════════════════════════════════════════════════════════
 
 def test_future_observation_excluded_by_receipt_time():
@@ -229,23 +234,34 @@ def test_future_observation_excluded_by_receipt_time():
          "received_at": "2026-03-19T12:00:00Z", "confidence_flag": 1},  # late ingestion
     ])
     result = provider.predict_snapshot(readings, decision_at="2026-03-19T11:30:00Z")
-    # The second reading has received_at 12:00 > decision_at 11:30 → filtered out
     assert result["fill_pct"] == 20.0, f"Expected fill_pct 20.0 (late receipt filtered), got {result['fill_pct']}"
 
 
 def test_model_unavailable_before_training_cutoff():
-    """Decision before the model's training-data cutoff returns model_unavailable."""
+    """Decision before the model's availability cutoff returns model_unavailable."""
     provider = ForecastProvider()
     readings = pd.DataFrame([
         {"timestamp": "2026-01-02T10:00:00Z", "bin_id": "bin_01", "fill_pct": 20.0, "confidence_flag": 1},
         {"timestamp": "2026-01-02T11:00:00Z", "bin_id": "bin_01", "fill_pct": 30.0, "confidence_flag": 1},
     ])
-    # Decision is in January, model trained through end-of-Feb
+    # Decision is in January, model available after 2026-03-16
     result = provider.predict_snapshot(readings, decision_at="2026-01-02T12:00:00Z")
-    # May return a list with one entry if bins auto-discovered
     if isinstance(result, list):
         result = result[0]
     assert result["status"] == "model_unavailable", f"Expected model_unavailable, got {result['status']}"
+
+
+def test_timezone_offset_equivalence():
+    """Equivalent UTC and non-UTC timestamps must produce identical status."""
+    provider = ForecastProvider()
+    readings = pd.DataFrame([
+        {"timestamp": "2026-03-20T09:00:00Z", "bin_id": "bin_01", "fill_pct": 20.0, "confidence_flag": 1},
+        {"timestamp": "2026-03-20T10:00:00Z", "bin_id": "bin_01", "fill_pct": 30.0, "confidence_flag": 1},
+    ])
+    res_utc = provider.predict_snapshot(readings, bins=["bin_01"], decision_at="2026-03-20T10:00:00Z")[0]
+    res_myt = provider.predict_snapshot(readings, bins=["bin_01"], decision_at="2026-03-20T18:00:00+08:00")[0]
+    assert res_utc["status"] == res_myt["status"]
+    assert res_utc["fill_pct"] == res_myt["fill_pct"]
 
 
 def test_stale_history_returns_stale_status():
@@ -255,9 +271,18 @@ def test_stale_history_returns_stale_status():
         {"timestamp": "2026-03-19T10:00:00Z", "bin_id": "bin_01", "fill_pct": 20.0, "confidence_flag": 1},
         {"timestamp": "2026-03-19T11:00:00Z", "bin_id": "bin_01", "fill_pct": 30.0, "confidence_flag": 1},
     ])
-    # Decision is in August — data is 5 months old
     result = provider.predict_snapshot(readings, decision_at="2026-08-28T11:00:00Z")
     assert result["status"] == "stale", f"Expected stale, got {result['status']}"
+
+
+def test_stale_single_reading_returns_stale_not_cold_start():
+    """Months-old single reading must return stale, not cold_start."""
+    provider = ForecastProvider()
+    single = pd.DataFrame([
+        {"timestamp": "2026-03-19T10:00:00Z", "bin_id": "bin_01", "fill_pct": 20.0, "confidence_flag": 1}
+    ])
+    result = provider.predict_snapshot(single, decision_at="2026-08-28T11:00:00Z")
+    assert result["status"] == "stale", f"Expected stale for months-old reading, got {result['status']}"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -298,25 +323,19 @@ def test_probabilities_are_null_and_unsupported():
 def test_no_simulation_growth_methods():
     """Old predict(), predict_overflow_probability_48h/6h methods must not exist."""
     provider = ForecastProvider()
-    assert not hasattr(provider, "predict_overflow_probability_48h"), \
-        "predict_overflow_probability_48h should be removed"
-    assert not hasattr(provider, "predict_overflow_probability_6h"), \
-        "predict_overflow_probability_6h should be removed"
-    # predict() should not exist as a growth-returning method
-    # (ForecastProvider only has predict_from_history and predict_snapshot)
-    assert not hasattr(provider, "predict") or "predict" not in ForecastProvider.__dict__, \
-        "predict() simulation method should be removed from ForecastProvider"
+    assert not hasattr(provider, "predict_overflow_probability_48h")
+    assert not hasattr(provider, "predict_overflow_probability_6h")
+    assert "predict" not in ForecastProvider.__dict__
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  Item 5: Fail closed on artifact loading
+#  Item 5: Fail closed on artifact loading & dependency validation
 # ═══════════════════════════════════════════════════════════════════
 
 def test_manifest_required_before_load():
     """Missing manifest must raise FileNotFoundError; model must NOT be loaded."""
     with tempfile.TemporaryDirectory(prefix="binsight-test-") as tmpdir:
         model_dir = Path(tmpdir)
-        # Copy model and features but NOT manifest
         shutil.copy(MODELS_DIR / "overflow_model.joblib", model_dir / "overflow_model.joblib")
         shutil.copy(MODELS_DIR / "feature_columns.json", model_dir / "feature_columns.json")
 
@@ -345,7 +364,6 @@ def test_hash_verified_before_deserialization():
         shutil.copy(MODELS_DIR / "overflow_model.joblib", model_dir / "overflow_model.joblib")
         shutil.copy(MODELS_DIR / "feature_columns.json", model_dir / "feature_columns.json")
 
-        # Write manifest with wrong checksum
         with open(MODELS_DIR / "manifest.json") as f:
             manifest = json.load(f)
         manifest["sha256_checksum"] = "0" * 64
@@ -370,14 +388,45 @@ def test_hash_verified_before_deserialization():
         assert not load_called, "joblib.load was called BEFORE bad checksum was rejected"
 
 
+def test_incompatible_dependency_version_rejected_before_load():
+    """Impossible or incompatible dependency in manifest must reject BEFORE joblib.load()."""
+    with tempfile.TemporaryDirectory(prefix="binsight-test-") as tmpdir:
+        model_dir = Path(tmpdir)
+        data = b"test-double-data"
+        (model_dir / "overflow_model.joblib").write_bytes(data)
+        shutil.copy(MODELS_DIR / "feature_columns.json", model_dir / "feature_columns.json")
+
+        with open(MODELS_DIR / "manifest.json") as f:
+            manifest = json.load(f)
+        manifest["sha256_checksum"] = hashlib.sha256(data).hexdigest()
+        manifest["dependencies"]["numpy"] = "0.0.0-impossible"
+        with open(model_dir / "manifest.json", "w") as f:
+            json.dump(manifest, f)
+
+        load_called = False
+        original_load = joblib.load
+
+        def tracking_load(*args, **kwargs):
+            nonlocal load_called
+            load_called = True
+            return original_load(*args, **kwargs)
+
+        with patch.object(joblib, "load", side_effect=tracking_load):
+            try:
+                ForecastProvider(model_dir)
+                assert False, "Should have raised ValueError for incompatible dependency"
+            except ValueError:
+                pass
+
+        assert not load_called, "joblib.load was called despite impossible dependency version"
+
+
 def test_tampered_artifact_rejected():
     """Modified artifact bytes must be rejected."""
     with tempfile.TemporaryDirectory(prefix="binsight-test-") as tmpdir:
         model_dir = Path(tmpdir)
         shutil.copy(MODELS_DIR / "feature_columns.json", model_dir / "feature_columns.json")
         shutil.copy(MODELS_DIR / "manifest.json", model_dir / "manifest.json")
-
-        # Write tampered model file
         (model_dir / "overflow_model.joblib").write_bytes(b"tampered-artifact-bytes")
 
         try:
@@ -388,7 +437,7 @@ def test_tampered_artifact_rejected():
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  Item 6: Installable package import
+#  Item 6: Installable package import & default bundle
 # ═══════════════════════════════════════════════════════════════════
 
 def test_binsight_ml_package_importable():
@@ -397,7 +446,6 @@ def test_binsight_ml_package_importable():
     assert binsight_ml_dir.exists(), "binsight_ml/ package directory missing"
     assert (binsight_ml_dir / "__init__.py").exists(), "binsight_ml/__init__.py missing"
 
-    # Add ml/ to path and import
     if str(BASE_DIR) not in sys.path:
         sys.path.insert(0, str(BASE_DIR))
     import importlib
@@ -407,8 +455,15 @@ def test_binsight_ml_package_importable():
     assert hasattr(mod, "FEATURE_COLUMNS"), "binsight_ml must export FEATURE_COLUMNS"
 
 
+def test_default_model_bundle_loads_without_explicit_path():
+    """ForecastProvider() must initialize with packaged default models without error."""
+    provider = ForecastProvider()
+    assert provider.model is not None
+    assert provider.manifest is not None
+
+
 # ═══════════════════════════════════════════════════════════════════
-#  Item 7: Four-bin waste type support
+#  Item 7: Four-bin waste type support & quality states
 # ═══════════════════════════════════════════════════════════════════
 
 def test_four_waste_types_preserved():
@@ -425,6 +480,18 @@ def test_four_waste_types_preserved():
         result = provider.predict_from_history(readings)
         assert result["waste_type"] == wt, f"waste_type should be '{wt}', got {result['waste_type']}"
         assert result["waste_type_used_as_feature"] is False
+
+
+def test_all_low_confidence_history_returns_low_confidence_status():
+    """Readings with all confidence_flag==0 must return low_confidence status."""
+    provider = ForecastProvider()
+    readings = pd.DataFrame([
+        {"timestamp": "2026-08-19T10:00:00Z", "bin_id": "bin_01", "fill_pct": 40.0, "confidence_flag": 0},
+        {"timestamp": "2026-08-19T11:00:00Z", "bin_id": "bin_01", "fill_pct": 50.0, "confidence_flag": 0},
+    ])
+    result = provider.predict_from_history(readings)
+    assert result["status"] == "low_confidence", f"Expected low_confidence, got {result['status']}"
+    assert result["confidence_flag"] == 0
 
 
 def test_missing_waste_type_still_works():
@@ -496,26 +563,31 @@ if __name__ == "__main__":
         test_feature_builder_handles_irregular_sampling_and_gaps,
         test_serve_wrapper_returns_valid_prediction,
         test_serve_wrapper_handles_empty_and_invalid_inputs,
-        # Item 1: Threshold semantics
+        # Item 1: Threshold semantics & preserved bin_id
         test_reject_unsupported_threshold,
         test_output_uses_service_threshold_naming,
-        # Item 2: Point-in-time correctness
+        # Item 2: Point-in-time correctness & UTC equivalence
         test_future_observation_excluded_by_receipt_time,
         test_model_unavailable_before_training_cutoff,
+        test_timezone_offset_equivalence,
         test_stale_history_returns_stale_status,
+        test_stale_single_reading_returns_stale_not_cold_start,
         # Item 3: Label leakage purge
         test_label_crossing_purged_across_split,
         # Item 4: No fabricated probabilities
         test_probabilities_are_null_and_unsupported,
         test_no_simulation_growth_methods,
-        # Item 5: Fail closed on loading
+        # Item 5: Fail closed on loading & dependency validation
         test_manifest_required_before_load,
         test_hash_verified_before_deserialization,
+        test_incompatible_dependency_version_rejected_before_load,
         test_tampered_artifact_rejected,
-        # Item 6: Installable package
+        # Item 6: Installable package & default bundle
         test_binsight_ml_package_importable,
-        # Item 7: Waste type support
+        test_default_model_bundle_loads_without_explicit_path,
+        # Item 7: Waste type support & quality states
         test_four_waste_types_preserved,
+        test_all_low_confidence_history_returns_low_confidence_status,
         test_missing_waste_type_still_works,
         # Integration contract
         test_snapshot_pr1_contract,

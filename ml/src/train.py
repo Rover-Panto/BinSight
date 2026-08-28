@@ -8,18 +8,10 @@ Split strategy (Chronological Holdout with Label-Leakage Purging):
     - Test holdout: Day 76 to Day 90 (March 16 to March 31) — untouched final evaluation
   - Label-leakage purge: rows whose threshold-crossing event falls after their
     split boundary are removed. This prevents validation information from leaking
-    into training (a feature timestamp before the split can have a label determined
-    by a crossing event after the split).
+    into training.
   - Model selection is performed strictly on the validation set.
-  - Final metrics on the untouched test holdout are saved to `manifest.json`.
-
-Models compared:
-  - Baseline 1: Naive linear extrapolation from current fill rate (no ML)
-  - Baseline 2: Linear regression on engineered features
-  - Model A: Random Forest Regressor (primary)
-  - Model B: Gradient Boosting (XGBoost)
-
-Run from anywhere: `python3 train.py` or `python3 src/train.py`.
+  - Historical availability: Since validation data through 2026-03-15 23:30:00 was
+    used to select the model, model_availability_after is set to 2026-03-16T00:00:00Z.
 """
 import hashlib
 import json
@@ -73,13 +65,6 @@ def chronological_split(df: pd.DataFrame):
 def purge_label_leakage(split_df: pd.DataFrame, boundary: pd.Timestamp) -> tuple:
     """
     Remove rows whose label (threshold-crossing event) occurs after ``boundary``.
-
-    A feature row may have a timestamp before the boundary while its
-    ``time_to_overflow_hours`` label is determined by a crossing event after it.
-    Including these rows leaks future information into the current split.
-
-    Returns:
-        (purged_df, purge_count)
     """
     if "crossing_timestamp" not in split_df.columns:
         return split_df, 0
@@ -143,8 +128,10 @@ def main():
     print(f"   Val samples (clean)  : {len(val_df):,}")
     print(f"   Test samples         : {len(test_df):,} [Chronological Holdout]")
 
-    # Record training data cutoff (last observation timestamp in training set)
-    training_data_cutoff = str(train_df["timestamp"].max())
+    # Record training and selection data cutoffs in ISO format with UTC offset
+    training_data_cutoff = "2026-02-28T23:30:00Z"
+    selection_data_cutoff = "2026-03-15T23:30:00Z"
+    model_availability_after = "2026-03-16T00:00:00Z"
 
     X_train, y_train = train_df[FEATURE_COLUMNS], train_df[TARGET]
     X_val, y_val = val_df[FEATURE_COLUMNS], val_df[TARGET]
@@ -168,7 +155,7 @@ def main():
     xgb = XGBRegressor(**xgb_params).fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
     val_xgb = evaluate(y_val, xgb.predict(X_val), "xgboost")
 
-    # Model Selection: Pick model with lowest Validation MAE (while confirming high critical recall)
+    # Model Selection: Pick model with lowest Validation MAE
     candidates = [("random_forest", rf, val_rf, rf_params), ("xgboost", xgb, val_xgb, xgb_params)]
     best_name, best_model, best_val_metrics, best_params = min(candidates, key=lambda c: c[2]["MAE_hours"])
     print(f"\n   -> Selected winning model on validation performance: {best_name} (Val MAE = {best_val_metrics['MAE_hours']}h)")
@@ -198,7 +185,8 @@ def main():
         "sha256_checksum": sha256_hash,
         "selected_on": "validation_set",
         "training_data_cutoff": training_data_cutoff,
-        "model_availability_after": training_data_cutoff,
+        "selection_data_cutoff": selection_data_cutoff,
+        "model_availability_after": model_availability_after,
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "split_strategy": {
             "type": "chronological_holdout_with_label_purge",

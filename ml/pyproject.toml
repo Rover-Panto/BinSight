@@ -20,3 +20,6 @@ dependencies = [
 where = ["."]
 include = ["binsight_ml*", "src*"]
 exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+binsight_ml = ["models/*"]
