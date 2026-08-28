@@ -16,6 +16,7 @@ from .config import Config
 
 OSRM_BASE_URL = "https://router.project-osrm.org"
 USER_AGENT = "BinSight-Focus-C/0.2 (competition research prototype)"
+ROUTE_CACHE_WAYPOINT_TOLERANCE_M = 25.0
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,40 @@ def _requested_coordinates(config: Config, sites: list[dict]) -> tuple[tuple[flo
 
 def _coordinates_url(coordinates: Iterable[tuple[float, float]]) -> str:
     return ";".join(f"{longitude:.6f},{latitude:.6f}" for latitude, longitude in coordinates)
+
+
+def _cached_route_matches_network(
+    entry: dict,
+    service_network: ServiceNetwork,
+    service_indices: list[int],
+) -> bool:
+    """Reject route geometry cached against an older service-point ordering."""
+    try:
+        cached_indices = [int(value) for value in entry["service_indices"]]
+        geometry = [tuple(map(float, point)) for point in entry["coordinates_latlon"]]
+    except (KeyError, TypeError, ValueError):
+        return False
+    if cached_indices != service_indices or not geometry:
+        return False
+
+    # A previous cache used integer-only keys. Adding the recycling facility
+    # shifted all later service indices while leaving those keys unchanged.
+    # Verify every requested waypoint against the geometry before accepting an
+    # old or newly written cache entry, so an index shift cannot draw a route
+    # for the wrong pair of sites.
+    for index in service_indices:
+        expected = service_network.snapped_coordinates[index]
+        nearest = min(haversine_m(*expected, *point) for point in geometry)
+        if nearest > ROUTE_CACHE_WAYPOINT_TOLERANCE_M:
+            return False
+    return (
+        haversine_m(*service_network.snapped_coordinates[service_indices[0]], *geometry[0])
+        <= ROUTE_CACHE_WAYPOINT_TOLERANCE_M
+        and haversine_m(
+            *service_network.snapped_coordinates[service_indices[-1]], *geometry[-1]
+        )
+        <= ROUTE_CACHE_WAYPOINT_TOLERANCE_M
+    )
 
 
 def _request_json(url: str, timeout_seconds: int = 60) -> tuple[dict, bytes]:
@@ -284,7 +319,9 @@ def route_coordinates(
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache = json.loads(cache_file.read_text(encoding="utf-8")) if cache_file.exists() else {}
     key = "-".join(str(index) for index in deduplicated)
-    if key in cache:
+    if key in cache and _cached_route_matches_network(
+        cache[key], service_network, deduplicated
+    ):
         return [tuple(row) for row in cache[key]["coordinates_latlon"]]
 
     coordinates = [service_network.snapped_coordinates[index] for index in deduplicated]

@@ -397,25 +397,28 @@ def make_demo_snapshot(bins: pd.DataFrame, timestamp: datetime | None = None) ->
         # next six-hour planning cycle would leave too little time to reach the
         # first bin, service it, and then reach the second, so this pair makes
         # the early-departure constraint visible in the route preview.
-        "UGB-001": (80.0, 6.3, "high", True),
-        "UGB-004": (94.0, 6.0, "critical", True),
-        "UGB-005": (80.0, 6.3, "high", True),
-        "UGB-013": (82.0, 30.0, "high", True),
-        "UGB-025": (76.0, 40.0, "high", False),
-        "UGB-026": (52.0, 70.0, "medium", True),
+        "UGB-001": (80.0, 6.3, "high"),
+        "UGB-004": (94.0, 6.0, "critical"),
+        "UGB-005": (80.0, 6.3, "high"),
+        "UGB-013": (82.0, 30.0, "high"),
+        "UGB-025": (76.0, 40.0, "high"),
+        "UGB-026": (52.0, 70.0, "medium"),
     }
     for bin_id, values in examples.items():
         mask = frame["bin_id"] == bin_id
         if mask.any():
-            fill, tto, risk, confidence = values
+            fill, tto, risk = values
             capacity = float(bins.loc[mask, "capacity_kg"].iloc[0])
             frame.loc[mask, [
                 "fill_pct",
                 "weight_kg",
                 "time_to_overflow_hours",
                 "risk_level",
-                "confidence_flag",
-            ]] = (fill, round(capacity * fill / 100.0, 1), tto, risk, confidence)
+            ]] = (fill, round(capacity * fill / 100.0, 1), tto, risk)
+    # The built-in route is a clean demonstration of routing behavior. Sensor
+    # uncertainty is covered by separate validation tests and is not injected
+    # into this presentation-only snapshot.
+    frame["confidence_flag"] = True
     return frame
 
 

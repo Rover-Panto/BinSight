@@ -58,9 +58,9 @@ Ordinary reruns use the committed road matrices. Use `--refresh-map` only when d
 
 ## Routing demonstration and integration contracts
 
-The portal's **Routing demo** is deliberately demonstration-only: it loads the complete configured 44-bin scenario automatically, shows a 12-row preview, and evaluates all bins when the operator runs it. UGB-001 and UGB-005 share a 6.3-hour overflow deadline so the preview visibly demonstrates one truck leaving early and reaching both stops on time. Manual CSV/JSON upload and paste controls are not exposed in the presentation UI.
+The portal's **Routing demo** is deliberately demonstration-only: it loads the complete configured 44-bin scenario automatically, sets every demonstration confidence flag to true, shows a 12-row preview, and evaluates all bins when the operator runs it. UGB-001 and UGB-005 share a 6.3-hour overflow deadline so the preview visibly demonstrates one truck leaving early and reaching both stops on time. Manual CSV/JSON upload and paste controls are not exposed in the presentation UI.
 
-The **Mock live tracking** tab replays completed routes from the current 30-day artifact. The operator can select GENERAL-01 or RECYCLING-01. Each site marker is a forecast-fill gauge: grey is empty, its filled height is the fullest of the site's four bins, and its color approaches red at 100%; collection resets the serviced bin to zero in the playback.
+The **Mock live tracking** tab replays completed routes from the current 30-day artifact. The operator can select GENERAL-01 or RECYCLING-01. Each site marker is a forecast-fill gauge for the bin(s) served by that selected truck: grey is empty, its color approaches red at 100%, and the marker resets cleanly to 0% when collection completes.
 
 The integration and command-line adapters remain documented for engineering use. The competition snapshot has one row for each `UGB-001` through `UGB-044`. The preferred telemetry-routing 2.1 envelope still contains only the three registered physical-pilot fill channels and carries per-bin event kind, bin type/waste stream, timing, availability, quality and forecast provenance. That live profile therefore cannot claim complete four-bin coverage. Vision recognition/session events remain outside routing. See [TELEMETRY_ROUTING_CONTRACT.md](../docs/TELEMETRY_ROUTING_CONTRACT.md).
 

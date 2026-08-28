@@ -425,9 +425,9 @@ def add_static_route_layers(
 
 def _add_legend(route_map: folium.Map, include_tracking: bool = False) -> None:
     tracking = (
-        "<br><span class='legend-line'></span> Current leg · ✓ = service completed"
+        "<br><span class='legend-line'></span> Current leg · serviced gauge resets to 0%"
         "<br><span class='legend-shape' style='background:linear-gradient(to top,#f05a47 75%,#7f919b 75%)'></span>"
-        " Site fill: grey → red; height = fullest bin"
+        " Route-serviced fill: grey → red"
         if include_tracking
         else ""
     )
@@ -599,8 +599,14 @@ def build_tracking_map(
     return 'D' + day + ' ' + String(Math.floor(within/60)).padStart(2,'0') + ':' + String(within%60).padStart(2,'0');
   }}
   function segmentAt(minute) {{
-    return manifest.segments.find(row => minute >= row.start_minute && minute < row.end_minute)
-      || manifest.segments[manifest.segments.length - 1];
+    const active=manifest.segments.find(row => minute >= row.start_minute && minute < row.end_minute);
+    if (active) return active;
+    let latest=manifest.segments[0];
+    for (const row of manifest.segments) {{
+      if (row.start_minute > minute) break;
+      latest=row;
+    }}
+    return latest;
   }}
   function pointAt(row, minute) {{
     if (row.geometry.length === 1 || !row.cumulative_m || row.cumulative_m[row.cumulative_m.length-1] <= 0) return row.geometry[row.geometry.length-1];
@@ -642,17 +648,21 @@ def build_tracking_map(
   }}
   function updateSites(minute) {{
     Object.entries(siteFillProfiles).forEach(([siteId, profiles]) => {{
-      const siteFill=profiles.reduce((maximum,profile)=>Math.max(maximum,binFillAt(profile,minute)),0);
+      const routeProfiles=profiles.filter(profile=>profile.tracked_on_route);
+      const displayedProfiles=routeProfiles.length ? routeProfiles : profiles;
+      const siteFill=displayedProfiles.reduce((maximum,profile)=>Math.max(maximum,binFillAt(profile,minute)),0);
       const doneAt=(manifest.site_completion_minutes || {{}})[siteId];
       document.querySelectorAll('.binsight-site-marker[data-site-id="'+siteId+'"]').forEach(element => {{
         const isComplete = Number.isFinite(Number(doneAt)) && minute >= Number(doneAt);
-        element.classList.toggle('tracking-completed', isComplete);
-        element.querySelector('.site-symbol').textContent=isComplete?'✓':element.dataset.originalSymbol;
-        element.querySelector('.site-badge').textContent=Math.round(siteFill)+'%';
-        element.style.setProperty('--fill-level',siteFill.toFixed(1)+'%');
-        element.style.setProperty('--fill-color',fillColor(siteFill));
-        element.setAttribute('data-state',isComplete?'completed':element.dataset.originalState);
-        element.setAttribute('title',siteId+' · fullest bin '+Math.round(siteFill)+'%');
+        const displayedFill=isComplete ? 0 : siteFill;
+        element.classList.remove('tracking-completed');
+        element.querySelector('.site-symbol').textContent=element.dataset.originalSymbol;
+        element.querySelector('.site-badge').textContent=Math.round(displayedFill)+'%';
+        element.style.setProperty('--fill-level',displayedFill.toFixed(1)+'%');
+        element.style.setProperty('--fill-color',fillColor(displayedFill));
+        element.setAttribute('data-state',element.dataset.originalState);
+        element.setAttribute('data-serviced',isComplete?'true':'false');
+        element.setAttribute('title',siteId+' · route-serviced fill '+Math.round(displayedFill)+'%');
       }});
     }});
   }}
@@ -660,7 +670,7 @@ def build_tracking_map(
     const row=segmentAt(simMinute), point=pointAt(row,simMinute);
     truck.setLatLng(point);
     const arrow=truck.getElement()?.querySelector('.truck-arrow');
-    if (arrow && row.kind==='travel') arrow.style.transform='rotate('+bearing(row,simMinute)+'deg)';
+    if (arrow && row.kind==='travel' && simMinute < row.end_minute) arrow.style.transform='rotate('+bearing(row,simMinute)+'deg)';
     const completed=Object.values(manifest.completion_minutes||{{}}).filter(value=>value<=simMinute).length;
     const done=simMinute>=manifest.end_minute;
     field('time',clock(simMinute)); field('status',done?'TRIP_COMPLETE':row.status.replaceAll('_',' '));

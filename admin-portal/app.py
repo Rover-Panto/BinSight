@@ -801,7 +801,8 @@ with input_tab:
         how="left",
     )
     st.info(
-        "The scenario includes critical, high-risk, optional, deferred, and low-confidence bins. "
+        "The scenario includes critical, high-risk, optional, and deferred bins; all demonstration "
+        "confidence flags are true. "
         "UGB-001 and UGB-005 are the early-departure example: both have 6.3 hours until overflow, "
         "so GENERAL-01 must leave before the next six-hour planning cycle and reach both in time."
     )
@@ -1228,8 +1229,8 @@ with tracking_tab:
     )
     st.info(
         "Use Resume, Pause, Reset, and the speed selector inside the map. Each site marker is a "
-        "fill gauge: grey is empty, its colored height is the fullest of the site's four bins, "
-        "and the color moves toward red as that fill approaches 100%. A check appears after service."
+        "fill gauge for the bin(s) served by the selected truck: grey is empty, the color moves "
+        "toward red as fill approaches 100%, and the marker resets to 0% when collection completes."
     )
     _render_map(
         build_tracking_map(

@@ -2,12 +2,18 @@ import json
 from pathlib import Path
 import shutil
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from binsight.config import load_config
 from binsight.maps import build_tracking_map
-from binsight.network import load_cached_service_network
+from binsight.network import (
+    ServiceNetwork,
+    _cached_route_matches_network,
+    load_cached_service_network,
+    route_coordinates,
+)
 from binsight.tracking import (
     build_site_fill_profiles,
     build_tracking_manifest,
@@ -92,6 +98,105 @@ def test_tracking_interpolates_travel_and_pauses_during_collection():
     assert completed.status == "RETURNING_TO_DEPOT"
 
 
+def test_tracking_holds_at_previous_stop_during_timeline_gap():
+    manifest = _manifest()
+    manifest["end_minute"] = 30.0
+    manifest["duration_minutes"] = 30.0
+    manifest["segments"][2]["start_minute"] = 19.0
+    manifest["segments"][2]["end_minute"] = 20.0
+    manifest["segments"].append(
+        {
+            "kind": "travel",
+            "status": "EN_ROUTE",
+            "trip_number": 2,
+            "start_minute": 25.0,
+            "end_minute": 30.0,
+            "next_stop": "UGB-001",
+            "payload_kg": 0.0,
+            "payload_capacity_kg": 9_000.0,
+            "bins_completed": 1,
+            "geometry": [[3.06192, 101.55272], [3.07528, 101.575341]],
+            "cumulative_m": [0.0, 3_000.0],
+        }
+    )
+
+    holding = tracking_frame_at(manifest, 18.5)
+
+    assert holding.status == "COLLECTING"
+    assert (holding.latitude, holding.longitude) == pytest.approx(
+        (3.07528, 101.575341)
+    )
+
+
+def test_route_geometry_cache_refreshes_when_service_indices_shift(tmp_path, monkeypatch):
+    network = ServiceNetwork(
+        provider="https://router.example",
+        requested_coordinates=((3.0, 101.0), (3.1, 101.1), (3.2, 101.2)),
+        snapped_coordinates=((3.0, 101.0), (3.1, 101.1), (3.2, 101.2)),
+        snap_distances_m=(0.0, 0.0, 0.0),
+        road_names=("Depot", "SJ9", "SJ8"),
+        distance_matrix_m=np.zeros((3, 3)),
+        duration_matrix_s=np.zeros((3, 3)),
+        response_sha256="test",
+        retrieved_at_utc="2026-08-29T00:00:00+00:00",
+        data_version=None,
+    )
+    cache_path = tmp_path / "routes.json"
+    cache_path.write_text(
+        json.dumps(
+            {
+                "1-2": {
+                    "service_indices": [1, 2],
+                    "coordinates_latlon": [[2.8, 100.8], [2.9, 100.9]],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_request(url):
+        assert "101.100000,3.100000;101.200000,3.200000" in url
+        return (
+            {
+                "routes": [
+                    {
+                        "geometry": {
+                            "coordinates": [[101.1, 3.1], [101.15, 3.15], [101.2, 3.2]]
+                        },
+                        "distance": 15_000.0,
+                        "duration": 1_200.0,
+                    }
+                ]
+            },
+            b"fresh-route",
+        )
+
+    monkeypatch.setattr("binsight.network._request_json", fake_request)
+
+    geometry = route_coordinates(network, [1, 2], cache_path)
+
+    assert geometry == [(3.1, 101.1), (3.15, 101.15), (3.2, 101.2)]
+    refreshed = json.loads(cache_path.read_text(encoding="utf-8"))["1-2"]
+    assert refreshed["coordinates_latlon"][0] == [3.1, 101.1]
+    assert refreshed["coordinates_latlon"][-1] == [3.2, 101.2]
+
+
+def test_committed_sj9_to_sj8_geometry_matches_current_service_points():
+    network = load_cached_service_network(ROOT / "data" / "subang_jaya_osrm_network.json")
+    cache = json.loads(
+        (ROOT / "data" / "osrm_route_geometry_cache.json").read_text(encoding="utf-8")
+    )
+    leg = cache["10-9"]
+
+    assert _cached_route_matches_network(leg, network, [10, 9])
+    assert leg["coordinates_latlon"][0] == pytest.approx(
+        network.snapped_coordinates[10]
+    )
+    assert leg["coordinates_latlon"][-1] == pytest.approx(
+        network.snapped_coordinates[9]
+    )
+
+
 def test_tracking_map_has_controls_layers_reduced_motion_and_11_sites():
     config = load_config(ROOT / "config.json")
     bins = pd.read_csv(ROOT / "artifacts" / "district_bins.csv")
@@ -123,6 +228,12 @@ def test_tracking_map_has_controls_layers_reduced_motion_and_11_sites():
     assert "siteFillProfiles" in rendered
     assert "--fill-level" in rendered
     assert "fillColor" in rendered
+    assert "profiles.filter(profile=>profile.tracked_on_route)" in rendered
+    assert "const displayedFill=isComplete ? 0 : siteFill" in rendered
+    assert "element.classList.remove('tracking-completed')" in rendered
+    assert "data-serviced" in rendered
+    assert "if (active) return active" in rendered
+    assert "latest=manifest.segments[0]" in rendered
 
 
 def test_site_fill_profiles_reset_collected_bins_and_keep_forecast_inputs():
@@ -136,7 +247,7 @@ def test_site_fill_profiles_reset_collected_bins_and_keep_forecast_inputs():
         {"bin_id": "A", "fill_pct": 80.0, "time_to_overflow_hours": 4.0},
         {"bin_id": "B", "fill_pct": 30.0, "time_to_overflow_hours": None},
     ]
-    manifest = {"completion_minutes": {"A": 18.0}}
+    manifest = {"served_bins": ["A"], "completion_minutes": {"A": 18.0}}
 
     profiles = build_site_fill_profiles(bins, rows, manifest)["SITE-1"]
 
@@ -145,10 +256,12 @@ def test_site_fill_profiles_reset_collected_bins_and_keep_forecast_inputs():
         "initial_fill_pct": 80.0,
         "time_to_overflow_hours": 4.0,
         "completion_minute": 18.0,
+        "tracked_on_route": True,
     }
     assert profiles[1]["initial_fill_pct"] == 30.0
     assert profiles[1]["time_to_overflow_hours"] is None
     assert profiles[1]["completion_minute"] is None
+    assert profiles[1]["tracked_on_route"] is False
 
 
 def test_recycling_facility_is_a_trackable_stop_and_unload_location(tmp_path):

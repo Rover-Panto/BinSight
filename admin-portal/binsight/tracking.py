@@ -263,7 +263,7 @@ def build_site_fill_profiles(
     bins: pd.DataFrame,
     snapshot_rows: list[dict[str, Any]],
     manifest: dict[str, Any],
-) -> dict[str, list[dict[str, float | str | None]]]:
+) -> dict[str, list[dict[str, float | str | bool | None]]]:
     """Build forecast-fill playback inputs for every bin at every site.
 
     Fill grows linearly from the dispatch snapshot to the supplied
@@ -276,7 +276,8 @@ def build_site_fill_profiles(
         str(bin_id): float(minute)
         for bin_id, minute in manifest.get("completion_minutes", {}).items()
     }
-    profiles: dict[str, list[dict[str, float | str | None]]] = {}
+    served_bins = {str(bin_id) for bin_id in manifest.get("served_bins", [])}
+    profiles: dict[str, list[dict[str, float | str | bool | None]]] = {}
     for item in bins.itertuples():
         bin_id = str(item.bin_id)
         row = audit.get(bin_id, {})
@@ -300,6 +301,7 @@ def build_site_fill_profiles(
                     tto if np.isfinite(tto) and tto > 0 else None
                 ),
                 "completion_minute": completions.get(bin_id),
+                "tracked_on_route": bin_id in served_bins,
             }
         )
     return profiles
@@ -316,8 +318,15 @@ def tracking_frame_at(manifest: dict[str, Any], simulation_minute: float) -> Tra
             for row in segments
             if float(row["start_minute"]) <= minute < float(row["end_minute"])
         ),
-        segments[-1],
+        None,
     )
+    if segment is None:
+        # Timeline events can have a small gap between service completion and
+        # the next dispatched leg. Hold the truck at the end of the latest
+        # started segment instead of jumping to the first point of the final
+        # route segment.
+        started = [row for row in segments if float(row["start_minute"]) <= minute]
+        segment = started[-1] if started else segments[0]
     segment_start = float(segment["start_minute"])
     segment_end = float(segment["end_minute"])
     fraction = 1.0 if segment_end <= segment_start else (

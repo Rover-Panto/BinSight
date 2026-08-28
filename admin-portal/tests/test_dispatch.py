@@ -63,11 +63,11 @@ def test_demo_snapshot_builds_capacity_feasible_collection_route():
     )
     plan = build_dispatch_plan(snapshot, bins, matrix, config)
 
+    assert snapshot["confidence_flag"].all()
     selected_ids = {row["bin_id"] for row in plan.selection_rows}
     assert plan.collection_required is True
     assert "UGB-004" in selected_ids
     assert 12 not in plan.required_bin_indices  # high risk remains value-tested, not mandatory
-    assert "UGB-025" not in selected_ids  # low-confidence evidence stays an inspection
     assert "UGB-005" in selected_ids  # same-deadline early-departure demonstration
     equal_deadline_indices = [
         int(bins.index[bins["bin_id"] == bin_id][0])
@@ -94,7 +94,8 @@ def test_demo_snapshot_builds_capacity_feasible_collection_route():
     for route in plan.route_plan.routes:
         route_load = sum(weights[index] for index in route if index != -1)
         assert route_load <= config.operations.truck_capacity_kg
-    assert any("UGB-025" in warning for warning in plan.warnings)
+    ugb_025 = next(row for row in plan.audit_rows if row["bin_id"] == "UGB-025")
+    assert ugb_025["confidence_flag"] is True
 
 
 def test_complete_low_risk_snapshot_requires_no_collection():

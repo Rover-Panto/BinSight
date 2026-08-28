@@ -109,6 +109,7 @@ async function main() {
     await page.screenshot({
       path: path.join(outputDir, "bounded-consolidated-operations.png"),
       fullPage: true,
+      timeout: 180000,
     });
 
     await page.getByRole("tab", { name: "Mock live tracking" }).click();
@@ -133,19 +134,28 @@ async function main() {
     const completionState = await trackingFrame.evaluate(() => {
       const entries = Object.entries(window.binsightTracking.manifest.site_completion_minutes);
       const [siteId, completeAt] = entries[0];
+      const marker = document.querySelector(`.binsight-site-marker[data-site-id="${siteId}"]`);
+      const originalSymbol = marker.dataset.originalSymbol;
       window.binsightTracking.setSimulationMinute(completeAt - 0.001);
-      const beforeComplete = document.querySelector(
-        `.binsight-site-marker[data-site-id="${siteId}"]`
-      ).dataset.state;
+      const beforeComplete = {
+        serviced: marker.dataset.serviced,
+        fillLevel: marker.style.getPropertyValue("--fill-level"),
+        badge: marker.querySelector(".site-badge").textContent,
+        symbol: marker.querySelector(".site-symbol").textContent,
+      };
       window.binsightTracking.setSimulationMinute(completeAt + 0.001);
-      const afterComplete = document.querySelector(
-        `.binsight-site-marker[data-site-id="${siteId}"]`
-      ).dataset.state;
+      const afterComplete = {
+        serviced: marker.dataset.serviced,
+        fillLevel: marker.style.getPropertyValue("--fill-level"),
+        badge: marker.querySelector(".site-badge").textContent,
+        symbol: marker.querySelector(".site-symbol").textContent,
+      };
       window.binsightTracking.setSimulationMinute(window.binsightTracking.manifest.start_minute);
-      const afterReset = document.querySelector(
-        `.binsight-site-marker[data-site-id="${siteId}"]`
-      ).dataset.state;
-      return { siteId, beforeComplete, afterComplete, afterReset };
+      const afterReset = {
+        serviced: marker.dataset.serviced,
+        symbol: marker.querySelector(".site-symbol").textContent,
+      };
+      return { siteId, originalSymbol, beforeComplete, afterComplete, afterReset };
     });
     const fillGauge = await trackingFrame.evaluate(() => {
       const markers = [...document.querySelectorAll(".binsight-site-marker.tracking-fill")];
@@ -155,9 +165,36 @@ async function main() {
         colors: markers.map((marker) => marker.style.getPropertyValue("--fill-color")),
       };
     });
+    const routeContinuity = await trackingFrame.evaluate(() => {
+      const segments = window.binsightTracking.manifest.segments;
+      const distanceM = (first, second) => {
+        const radius = 6371008.8;
+        const radians = (value) => value * Math.PI / 180;
+        const lat1 = radians(first[0]);
+        const lat2 = radians(second[0]);
+        const dLat = radians(second[0] - first[0]);
+        const dLon = radians(second[1] - first[1]);
+        const a = Math.sin(dLat / 2) ** 2 +
+          Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+        return 2 * radius * Math.asin(Math.sqrt(a));
+      };
+      const transitions = segments.slice(1).map((segment, index) => {
+        const previous = segments[index];
+        return distanceM(previous.geometry[previous.geometry.length - 1], segment.geometry[0]);
+      });
+      const sj9ToSj8 = segments.find(
+        (segment) => segment.kind === "travel" && segment.next_stop === "UGB-029"
+      );
+      return {
+        maxTransitionGapM: Math.max(0, ...transitions),
+        sj9ToSj8Start: sj9ToSj8?.geometry[0],
+        sj9ToSj8End: sj9ToSj8?.geometry[sj9ToSj8.geometry.length - 1],
+      };
+    });
     await page.screenshot({
       path: path.join(outputDir, "mock-live-tracking-desktop.png"),
       fullPage: true,
+      timeout: 180000,
     });
 
     const responsive = {};
@@ -186,6 +223,7 @@ async function main() {
       await target.screenshot({
         path: path.join(outputDir, `mock-live-tracking-${name}.png`),
         fullPage: true,
+        timeout: 180000,
       });
       await target.close();
     }
@@ -227,6 +265,7 @@ async function main() {
       pauseStatus,
       completionState,
       fillGauge,
+      routeContinuity,
       responsive,
       reducedMotion,
       pageErrors,
@@ -249,12 +288,19 @@ async function main() {
       popupRows !== 4 ||
       !result.popupHasFourBinIds ||
       !result.truckMovedAfterResume ||
-      completionState.beforeComplete === "completed" ||
-      completionState.afterComplete !== "completed" ||
-      completionState.afterReset === "completed" ||
+      completionState.beforeComplete.serviced !== "false" ||
+      completionState.afterComplete.serviced !== "true" ||
+      completionState.afterComplete.fillLevel !== "0.0%" ||
+      completionState.afterComplete.badge !== "0%" ||
+      completionState.afterComplete.symbol !== completionState.originalSymbol ||
+      completionState.afterReset.serviced !== "false" ||
+      completionState.afterReset.symbol !== completionState.originalSymbol ||
       fillGauge.markerCount !== 11 ||
       fillGauge.levels.some((value) => !value.endsWith("%")) ||
       fillGauge.colors.some((value) => !value.startsWith("rgb(")) ||
+      routeContinuity.maxTransitionGapM > 25 ||
+      !routeContinuity.sj9ToSj8Start ||
+      !routeContinuity.sj9ToSj8End ||
       Object.values(responsive).some(
         (item) => !item.pageNoHorizontalOverflow || !item.mapNoHorizontalOverflow || item.siteMarkerCount !== 11
       ) ||

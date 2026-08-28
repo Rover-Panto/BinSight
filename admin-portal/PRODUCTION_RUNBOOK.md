@@ -100,11 +100,16 @@ an API key. Internet access is needed for those background tiles. Site,
 facility, and route overlays still render against a light fallback background
 if public tiles are unavailable.
 
+Cached OSRM route geometry is accepted only when its service-index sequence and
+all waypoint coordinates match the current service network. This prevents an
+older cache from drawing the wrong leg after a depot, facility, or site changes
+the service-point ordering.
+
 The live-tracking tab uses completed routes from the current paired 30-day
 simulation. Select either specialized truck. Marker fill is forecast
-interpolation for playback: grey is empty; the gauge height is the fullest bin
-at that four-bin site; and the color approaches red as fill approaches 100%.
-It is not a live sensor feed.
+interpolation for the bin(s) served by that truck: grey is empty, the color
+approaches red as fill approaches 100%, and completed service resets the marker
+to 0%. It is not a live sensor feed.
 
 ## Gates before real operations
 
