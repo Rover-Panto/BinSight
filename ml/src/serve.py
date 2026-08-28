@@ -136,6 +136,7 @@ class OverflowRiskModel:
 
         status = "cold_start" if is_cold_start else "ok"
         return {
+            "schema_version": "1.0",
             "bin_id": target_bin,
             "timestamp": str(latest["timestamp"].iloc[0]),
             "status": status,
@@ -145,12 +146,45 @@ class OverflowRiskModel:
             "confidence_flag": int(latest.get("confidence_flag", pd.Series([1])).iloc[0]),
             "target_threshold_pct": OVERFLOW_THRESHOLD_PCT,
             "model_version": self.manifest.get("model_version", "1.1.0"),
+            "model_sha256": self.manifest.get("sha256_checksum", ""),
         }
+
+    def predict_snapshot(
+        self,
+        history: pd.DataFrame,
+        bins: Optional[Dict[str, Any]] = None,
+        decision_at: Optional[Any] = None,
+        input_snapshot_id: Optional[str] = None,
+        events: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """
+        PR1-to-PR4 integration entry point: Generate forecast for a mapped snapshot.
+        
+        Args:
+            history: DataFrame of sensor readings at or before decision_at.
+            bins: Optional metadata mapping for registered bins.
+            decision_at: Optional cutoff timestamp; filters out future observations if present.
+            input_snapshot_id: Optional snapshot identifier from PR1 telemetry client.
+            events: Optional known historical events.
+            
+        Returns:
+            Dict or List of forecast dictionaries matching the PR1/PR4 contract.
+        """
+        if history is not None and len(history) > 0 and decision_at is not None:
+            cutoff = pd.to_datetime(decision_at)
+            history = history.copy()
+            history["timestamp"] = pd.to_datetime(history["timestamp"])
+            history = history[history["timestamp"] <= cutoff]
+
+        result = self.predict_from_history(history)
+        result["decision_at"] = str(decision_at) if decision_at else result.get("timestamp")
+        result["input_snapshot_id"] = input_snapshot_id
+        return result
 
 
 if __name__ == "__main__":
     raw = pd.read_csv(DATA_DIR / "raw_sensor_log.csv")
     one_bin = raw[raw["bin_id"] == "bin_005"].head(60)
     model = OverflowRiskModel()
-    print(json.dumps(model.predict_from_history(one_bin), indent=2))
+    print(json.dumps(model.predict_snapshot(one_bin, input_snapshot_id="SNAP-001"), indent=2))
 

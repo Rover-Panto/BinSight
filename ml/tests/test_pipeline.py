@@ -158,6 +158,23 @@ def test_serve_wrapper_handles_empty_and_invalid_inputs():
     assert single_res["risk_level"] in ["Critical", "High", "Medium", "Low"]
 
 
+def test_serve_wrapper_supports_pr1_snapshot_contract():
+    """Verify PR1 snapshot prediction interface and future observation cutoff filtering."""
+    model = OverflowRiskModel()
+    readings = pd.DataFrame([
+        {"timestamp": "2026-08-19T10:00:00Z", "bin_id": "bin_01", "fill_pct": 20.0, "confidence_flag": 1},
+        {"timestamp": "2026-08-19T11:00:00Z", "bin_id": "bin_01", "fill_pct": 30.0, "confidence_flag": 1},
+        {"timestamp": "2026-08-19T12:00:00Z", "bin_id": "bin_01", "fill_pct": 40.0, "confidence_flag": 1},
+    ])
+    # Pass decision_at cutoff at 11:00:00Z -> should exclude 12:00 reading
+    result = model.predict_snapshot(readings, decision_at="2026-08-19T11:00:00Z", input_snapshot_id="SNAP-TEST-01")
+    assert result["input_snapshot_id"] == "SNAP-TEST-01"
+    assert result["decision_at"] == "2026-08-19T11:00:00Z"
+    assert result["fill_pct"] == 30.0
+    assert result["status"] == "ok"
+    assert result["schema_version"] == "1.0"
+
+
 if __name__ == "__main__":
     tests = [
         test_raw_log_exists_and_well_formed,
@@ -171,6 +188,7 @@ if __name__ == "__main__":
         test_feature_builder_handles_irregular_sampling_and_gaps,
         test_serve_wrapper_returns_valid_prediction,
         test_serve_wrapper_handles_empty_and_invalid_inputs,
+        test_serve_wrapper_supports_pr1_snapshot_contract,
     ]
     failures = 0
     for t in tests:
