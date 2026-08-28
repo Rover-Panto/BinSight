@@ -131,9 +131,18 @@ void Task2_FilterAndPackage(void *pvParameters) {
     RawReading raw;
     // Drain everything currently queued this cycle (bounded by queue length).
     while (xQueueReceive(g_rawDataQueue, &raw, 0) == pdTRUE) {
+      // [Fixed 2026-08-28] The invalid-reading branch used to call
+      // fillFilter.process(0.0f, ...) — despite the old comment claiming
+      // to "hold last good value", that actually fed a fabricated 0.0f
+      // sample into the filter's internal state (lastAccepted_, and the
+      // circular buffer), which could corrupt the running average and,
+      // combined with the freeze bug in filters.h, permanently lock the
+      // filter at zero after a run of invalid readings. lastOutput() below
+      // returns the previous smoothed value without touching filter state
+      // at all, so an invalid reading now has no side effect on the filter.
       float smoothedFill = (raw.fill_pct_raw >= 0.0f)
           ? fillFilter.process(raw.fill_pct_raw, MAX_FILL_PCT_JUMP_PER_SAMPLE)
-          : fillFilter.process(0.0f, MAX_FILL_PCT_JUMP_PER_SAMPLE);  // hold last good value
+          : fillFilter.lastOutput();  // hold last good value (no fabricated sample)
       float smoothedDensity = densityFilter.process(raw.estimated_density, 5.0f);
 
       // Wall-clock timestamp: TimeLib's now() must be synced at boot

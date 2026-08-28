@@ -7,3 +7,8 @@ __pycache__/
 *.db
 *.sqlite3
 bin_telemetry_for_ml.csv
+
+# serial_bridge.py's on-disk retry queue for readings that failed to send
+# (added 2026-08-28 as part of the HTTP-failure fix) — runtime state, not
+# something to check in.
+pending_readings.jsonl
