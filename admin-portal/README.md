@@ -39,7 +39,7 @@ The four-bin change affects the local demonstration and simulator only. It does 
 
 ## Evidence status
 
-Evidence artifacts are accepted by the website only when their recorded configuration hash matches the active four-bin configuration. The current `artifacts/dynamic_v2/` set contains two paired 30-day replications for each of eleven scenarios and supplies the GENERAL-01 and RECYCLING-01 live-tracking replays. It is integration verification only: the smart policy improved several overflow/selectivity outcomes but increased trips and distance, so it is **not** a performance or production-deployment claim. The older 33-bin studies remain historical references and are no longer presented as current evidence.
+Evidence artifacts are accepted by the website only when their recorded configuration hash matches the active four-bin configuration. The current `artifacts/dynamic_v2/` set contains two paired 30-day replications for each of eleven scenarios and supplies the GENERAL-01 and RECYCLING-01 live-tracking replays. The sidebar's **Run 30-day experiment** control opens a compact saved month instead of recomputing the simulation in the web request: choose Day 1–30, then pause, scrub, reset, or change the shared speed while both specialized trucks remain visible. Days without dispatches show each truck idle at its own base. It is integration verification only: the smart policy improved several overflow/selectivity outcomes but increased trips and distance, so it is **not** a performance or production-deployment claim. The older 33-bin studies remain historical references and are no longer presented as current evidence.
 
 ## Run on Windows
 
@@ -61,6 +61,8 @@ Ordinary reruns use the committed road matrices. Use `--refresh-map` only when d
 The portal's **Routing demo** is deliberately demonstration-only: it loads the complete configured 44-bin scenario automatically, sets every demonstration confidence flag to true, shows a 12-row preview, and evaluates all bins when the operator runs it. UGB-001 and UGB-005 share a 6.3-hour overflow deadline so the preview visibly demonstrates one truck leaving early and reaching both stops on time. Manual CSV/JSON upload and paste controls are not exposed in the presentation UI.
 
 The **Mock live tracking** tab replays completed routes from the current 30-day artifact. The operator can select GENERAL-01 or RECYCLING-01. Each site marker is a forecast-fill gauge for the bin(s) served by that selected truck: grey is empty, its color approaches red at 100%, and the marker resets cleanly to 0% when collection completes.
+
+The **Operations** map shows all four bins at a service site in one circular marker. General, plastic, metal, and glass each occupy a fixed quarter. A proportional red quarter-circle wedge and its numeric label show that bin's unchanged snapshot fill; the outer ring shows the route-selection state.
 
 The integration and command-line adapters remain documented for engineering use. The competition snapshot has one row for each `UGB-001` through `UGB-044`. The preferred telemetry-routing 2.1 envelope still contains only the three registered physical-pilot fill channels and carries per-bin event kind, bin type/waste stream, timing, availability, quality and forecast provenance. That live profile therefore cannot claim complete four-bin coverage. Vision recognition/session events remain outside routing. See [TELEMETRY_ROUTING_CONTRACT.md](../docs/TELEMETRY_ROUTING_CONTRACT.md).
 

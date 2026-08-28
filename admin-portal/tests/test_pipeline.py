@@ -1,3 +1,4 @@
+import json
 import shutil
 from pathlib import Path
 
@@ -8,10 +9,44 @@ from binsight.pipeline import (
     build_fixed_baseline_route_audit,
     experiment_scenarios,
     prepare_project,
+    write_monthly_fleet_events,
 )
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_monthly_fleet_export_has_all_30_days_without_snapshot_bulk(tmp_path):
+    completed = {
+        "day": 4,
+        "hour": 72,
+        "dispatch_minute": 4320.0,
+        "policy": "smart",
+        "scenario": "normal_patterned",
+        "routes": [["DEPOT", "UGB-001", "DEPOT"]],
+        "route_vehicle_ids": ["GENERAL-01"],
+        "route_vehicle_types": ["general_waste"],
+        "route_bin_indices": [[-1, 0, -1]],
+        "timeline": [{"status": "TRIP_COMPLETE", "trip_number": 1}],
+        "snapshot_rows": [{"bin_id": "UGB-001", "fill_pct": 90.0}],
+        "completed": True,
+    }
+    ignored = {**completed, "day": 5, "completed": False}
+
+    write_monthly_fleet_events(
+        {"normal_patterned": {"smart": [completed, ignored], "fixed": []}},
+        tmp_path,
+    )
+
+    payload = json.loads(
+        (tmp_path / "monthly_fleet_events.json").read_text(encoding="utf-8")
+    )
+    assert list(payload["days"]) == [str(day) for day in range(1, 31)]
+    assert payload["active_days"] == [4]
+    assert len(payload["days"]["4"]) == 1
+    assert payload["days"]["5"] == []
+    assert "snapshot_rows" not in payload["days"]["4"][0]
+    assert payload["vehicle_ids"] == ["GENERAL-01", "RECYCLING-01"]
 
 
 def test_prepare_project_persists_matching_osrm_distance_and_duration_matrices(tmp_path):

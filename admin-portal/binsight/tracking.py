@@ -307,6 +307,101 @@ def build_site_fill_profiles(
     return profiles
 
 
+def build_daily_fleet_manifest(
+    day: int,
+    route_events: list[dict[str, Any]],
+    bins: pd.DataFrame,
+    service_network: ServiceNetwork,
+    cache_path: str | Path,
+    recycling_facility_id: str,
+) -> dict[str, Any]:
+    """Combine all dispatches on one simulation day into two vehicle tracks."""
+    if not 1 <= int(day) <= 30:
+        raise ValueError("Fleet playback day must be in 1..30")
+    day = int(day)
+    start_minute = float((day - 1) * 1440)
+    end_minute = float(day * 1440)
+    specs = (
+        ("GENERAL-01", "general_waste", "DEPOT", 0, "#47d7ff"),
+        (
+            "RECYCLING-01",
+            "recycling",
+            recycling_facility_id,
+            1,
+            "#55a879",
+        ),
+    )
+    vehicles: dict[str, dict[str, Any]] = {
+        vehicle_id: {
+            "vehicle_id": vehicle_id,
+            "vehicle_type": vehicle_type,
+            "base_id": base_id,
+            "base_coordinate": [
+                float(service_network.snapped_coordinates[base_index][0]),
+                float(service_network.snapped_coordinates[base_index][1]),
+            ],
+            "color": color,
+            "segments": [],
+            "served_bins": [],
+            "distance_km": 0.0,
+            "trip_count": 0,
+        }
+        for vehicle_id, vehicle_type, base_id, base_index, color in specs
+    }
+    for event in sorted(
+        route_events, key=lambda item: float(item.get("dispatch_minute", 0.0))
+    ):
+        vehicle_ids = [str(value) for value in event.get("route_vehicle_ids", [])]
+        for route_position, vehicle_id in enumerate(vehicle_ids):
+            if vehicle_id not in vehicles:
+                continue
+            trip_number = route_position + 1
+            manifest = build_tracking_manifest(
+                event,
+                bins,
+                service_network,
+                cache_path,
+                {recycling_facility_id: 1},
+                trip_number=trip_number,
+            )
+            track = vehicles[vehicle_id]
+            track["segments"].extend(manifest["segments"])
+            track["served_bins"].extend(manifest["served_bins"])
+            track["distance_km"] += sum(
+                float(row.get("distance_km", 0.0))
+                for row in event.get("timeline", [])
+                if int(row.get("trip_number", -1)) == trip_number
+            )
+            track["trip_count"] += 1
+    for track in vehicles.values():
+        track["segments"].sort(key=lambda row: float(row["start_minute"]))
+        for previous, following in zip(track["segments"], track["segments"][1:]):
+            overlap = float(previous["end_minute"]) - float(
+                following["start_minute"]
+            )
+            if 0.0 < overlap <= 0.01:
+                # Event timestamps are stored to millisecond precision.  Join
+                # adjacent legs at one exact instant so the browser never sees
+                # two valid positions for the same truck or jumps backwards.
+                following["start_minute"] = float(previous["end_minute"])
+            elif overlap > 0.01:
+                raise ValueError(
+                    f"Monthly playback has overlapping routes for {track['vehicle_id']}"
+                )
+        track["distance_km"] = round(float(track["distance_km"]), 3)
+    ordered = [vehicles[vehicle_id] for vehicle_id, *_ in specs]
+    return {
+        "mode": "SIMULATED_MONTHLY_FLEET_PLAYBACK",
+        "disclaimer": "Precomputed local playback only; no real vehicles are connected.",
+        "day": day,
+        "start_minute": start_minute,
+        "end_minute": end_minute,
+        "duration_minutes": 1440.0,
+        "has_dispatch": any(track["trip_count"] for track in ordered),
+        "vehicles": ordered,
+    }
+
+
 def tracking_frame_at(manifest: dict[str, Any], simulation_minute: float) -> TrackingFrame:
     start = float(manifest["start_minute"])
     end = float(manifest["end_minute"])

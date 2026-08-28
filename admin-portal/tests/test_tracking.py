@@ -15,6 +15,7 @@ from binsight.network import (
     route_coordinates,
 )
 from binsight.tracking import (
+    build_daily_fleet_manifest,
     build_site_fill_profiles,
     build_tracking_manifest,
     tracking_frame_at,
@@ -195,6 +196,45 @@ def test_committed_sj9_to_sj8_geometry_matches_current_service_points():
     assert leg["coordinates_latlon"][-1] == pytest.approx(
         network.snapped_coordinates[9]
     )
+
+
+def test_monthly_fleet_manifest_has_two_trucks_and_idle_days():
+    config = load_config(ROOT / "config.json")
+    bins = pd.read_csv(ROOT / "artifacts" / "district_bins.csv")
+    network = load_cached_service_network(ROOT / "data" / "subang_jaya_osrm_network.json")
+    monthly = json.loads(
+        (ROOT / "artifacts" / "dynamic_v2" / "monthly_fleet_events.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    active = build_daily_fleet_manifest(
+        4,
+        monthly["days"]["4"],
+        bins,
+        network,
+        ROOT / "data" / "osrm_route_geometry_cache.json",
+        config.pilot.recycling_facility_id,
+    )
+    idle = build_daily_fleet_manifest(
+        1,
+        monthly["days"]["1"],
+        bins,
+        network,
+        ROOT / "data" / "osrm_route_geometry_cache.json",
+        config.pilot.recycling_facility_id,
+    )
+
+    assert active["has_dispatch"] is True
+    assert [track["vehicle_id"] for track in active["vehicles"]] == [
+        "GENERAL-01",
+        "RECYCLING-01",
+    ]
+    assert all(track["trip_count"] == 1 for track in active["vehicles"])
+    assert all(track["segments"] for track in active["vehicles"])
+    assert idle["has_dispatch"] is False
+    assert all(track["trip_count"] == 0 for track in idle["vehicles"])
+    assert all(track["segments"] == [] for track in idle["vehicles"])
 
 
 def test_tracking_map_has_controls_layers_reduced_motion_and_11_sites():

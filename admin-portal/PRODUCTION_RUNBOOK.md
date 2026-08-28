@@ -105,6 +105,21 @@ all waypoint coordinates match the current service network. This prevents an
 older cache from drawing the wrong leg after a depot, facility, or site changes
 the service-point ordering.
 
+The Operations snapshot renders every four-bin site as a circle with fixed
+general, plastic, metal, and glass quadrants. Each quadrant independently fills
+as a proportional red quarter-circle wedge using the bin's unchanged snapshot
+percentage; the outer ring carries the site routing state. Exact values remain
+available in the site popup.
+
+The sidebar's **Run 30-day experiment** control does not run forecasting or
+simulation inside the Streamlit request. It opens the compact committed
+`monthly_fleet_events.json` playback. An operator can choose any day from 1 to
+30 and use a shared clock, scrubber, pause/reset controls, and four playback
+speeds while both GENERAL-01 and RECYCLING-01 remain visible. An idle day keeps
+the trucks at the waste depot and recycling facility respectively. Required
+road legs are preloaded in the validated local OSRM geometry cache so changing
+days does not wait on a public routing request.
+
 The live-tracking tab uses completed routes from the current paired 30-day
 simulation. Select either specialized truck. Marker fill is forecast
 interpolation for the bin(s) served by that truck: grey is empty, the color

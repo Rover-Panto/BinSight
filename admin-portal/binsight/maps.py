@@ -25,6 +25,12 @@ SITE_STATE_META = {
     "completed": {"label": "Service completed", "symbol": "✓", "color": "#55a879"},
     "waiting": {"label": "No collection required", "symbol": "·", "color": "#7f919b"},
 }
+MATERIAL_QUARTERS = (
+    ("mixed_general_waste", "G", "General waste"),
+    ("plastic_cups", "P", "Plastic"),
+    ("metal_cans", "M", "Metal"),
+    ("glass_bottles", "Gl", "Glass"),
+)
 
 
 def pilot_bounds(config: Config) -> list[list[float]]:
@@ -118,6 +124,10 @@ def build_site_records(
             key=lambda value: SITE_STATE_PRIORITY[value],
         )
         attention = sum(detail["state"] in {"required", "inspection"} for detail in details)
+        selected = sum(
+            detail["state"] in {"required", "optional", "completed"}
+            for detail in details
+        )
         first = group.iloc[0]
         records.append(
             {
@@ -128,6 +138,7 @@ def build_site_records(
                 "longitude": float(first["longitude"]),
                 "state": state,
                 "attention_count": int(attention),
+                "selected_count": int(selected),
                 "bin_count": len(details),
                 "bins": details,
             }
@@ -143,6 +154,47 @@ def _format_value(value: Any, suffix: str = "") -> str:
     if isinstance(value, (int, float)):
         return f"{float(value):.1f}{suffix}"
     return html.escape(str(value))
+
+
+def _quarter_fill_marker(record: dict[str, Any], meta: dict[str, str]) -> tuple[str, str]:
+    """Render four independent material-fill quadrants for an operations site."""
+    by_material = {detail["material_type"]: detail for detail in record["bins"]}
+    quarters = []
+    descriptions = []
+    for position, (material, code, label) in enumerate(MATERIAL_QUARTERS):
+        detail = by_material.get(material, {})
+        raw_fill = detail.get("fill_pct")
+        missing = raw_fill is None or pd.isna(raw_fill)
+        fill = 0.0 if missing else min(100.0, max(0.0, float(raw_fill)))
+        displayed = "?" if missing else f"{fill:.0f}%"
+        exact = "missing" if missing else f"{fill:.1f}%"
+        descriptions.append(f"{label} {exact}")
+        quarters.append(
+            f"<span class='site-quarter quarter-{position}' "
+            f"style='--bin-fill:{fill:.3f}%;--fill-angle:{fill * 0.9:.3f}deg' "
+            f"title='{html.escape(label)}: {exact}' "
+            f"data-material='{html.escape(material)}' data-fill-pct='{fill:.3f}'>"
+            f"<span class='quarter-code'>{html.escape(code)}</span>"
+            f"<span class='quarter-value'>{displayed}</span>"
+            "</span>"
+        )
+    site_id = html.escape(record["site_id"])
+    aria = html.escape(
+        f"{record['site_id']}: {meta['label']}; "
+        + ", ".join(descriptions)
+    )
+    marker = (
+        f"<div class='binsight-site-marker site-quarter-marker state-{record['state']}' "
+        f"data-site-id='{site_id}' data-state='{record['state']}' "
+        f"title='{aria}' aria-label='{aria}'>"
+        + "".join(quarters)
+        + "</div>"
+    )
+    tooltip = (
+        f"{record['site_id']} · {record['selected_count']}/{record['bin_count']} selected · "
+        + " · ".join(descriptions)
+    )
+    return marker, tooltip
 
 
 def _site_popup(record: dict[str, Any]) -> str:
@@ -273,11 +325,21 @@ def _add_map_css(route_map: folium.Map) -> None:
 .binsight-site-marker.state-waiting{--site-color:#7f919b;border-radius:4px;}
 .binsight-site-marker.state-completed,.binsight-site-marker.tracking-completed{--site-color:#55a879;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);}
 .binsight-site-marker.tracking-fill{background:linear-gradient(to top,var(--fill-color,#7f919b) 0 var(--fill-level,0%),#7f919b var(--fill-level,0%) 100%);transition:background .18s linear;}
+.binsight-site-marker.site-quarter-marker{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;width:56px;height:56px;overflow:hidden;clip-path:none;transform:none;border:3px solid var(--site-color,#7f919b);border-radius:50%;border-style:solid;background:#7f919b;box-shadow:0 0 0 3px rgba(4,12,18,.78);font-family:Inter,Segoe UI,sans-serif;}
+.site-quarter{position:relative;display:grid;grid-template-rows:1fr 1fr;place-items:center;overflow:hidden;min-width:0;min-height:0;background:#7f919b;color:#fff;text-shadow:0 1px 2px #071015;}
+.site-quarter::before{content:'';position:absolute;z-index:0;width:200%;height:200%;border-radius:50%;transition:background .18s linear;}
+.quarter-0::before{left:0;top:0;background:conic-gradient(transparent 0 270deg,#f05a47 270deg calc(270deg + var(--fill-angle,0deg)),transparent calc(270deg + var(--fill-angle,0deg)) 360deg)}
+.quarter-1::before{left:-100%;top:0;background:conic-gradient(#f05a47 0 var(--fill-angle,0deg),transparent var(--fill-angle,0deg) 360deg)}
+.quarter-2::before{left:0;top:-100%;background:conic-gradient(transparent 0 180deg,#f05a47 180deg calc(180deg + var(--fill-angle,0deg)),transparent calc(180deg + var(--fill-angle,0deg)) 360deg)}
+.quarter-3::before{left:-100%;top:-100%;background:conic-gradient(transparent 0 90deg,#f05a47 90deg calc(90deg + var(--fill-angle,0deg)),transparent calc(90deg + var(--fill-angle,0deg)) 360deg)}
+.site-quarter>*{position:relative;z-index:1}.quarter-code{align-self:end;font:800 7px/1 monospace;letter-spacing:-.2px}.quarter-value{align-self:start;font:800 7px/1 monospace;}
+.quarter-0{border-right:1px solid #e9f5f7;border-bottom:1px solid #e9f5f7}.quarter-1{border-bottom:1px solid #e9f5f7}.quarter-2{border-right:1px solid #e9f5f7}
 .site-badge{position:absolute;right:-10px;top:-10px;min-width:24px;padding:3px 4px;border-radius:10px;background:#071015;color:#fff;border:1px solid #6f8794;font:700 9px/1 monospace;text-align:center;}
 .site-popup{max-width:min(720px,80vw);font-size:12px}.site-popup h4{margin:0 0 4px;color:#8be7ff}.site-popup p{margin:0 0 8px;color:#a9bbc3}.site-popup-scroll{overflow:auto;max-width:100%}.site-popup table{border-collapse:collapse;min-width:680px}.site-popup th,.site-popup td{padding:5px 7px;border:1px solid #304654;text-align:left;vertical-align:top}.site-popup thead{background:#1d303d;color:#c9f3ff}
-.ops-legend{position:absolute;z-index:999;right:10px;bottom:24px;max-width:min(310px,calc(100% - 20px));padding:9px 11px;border:1px solid #304654;border-radius:5px;background:rgba(10,19,26,.94);color:#dbe9ed;font:11px/1.45 monospace;box-sizing:border-box}.ops-legend b{color:#8be7ff}.legend-shape{display:inline-block;width:10px;height:10px;margin-right:5px;border:1px solid #eef8fa}.legend-line{display:inline-block;width:25px;height:3px;margin:0 6px 3px 0;background:#47d7ff;box-shadow:0 0 0 2px #08141b}
+.ops-legend{position:absolute;z-index:999;right:10px;bottom:24px;max-width:min(340px,calc(100% - 20px));padding:9px 11px;border:1px solid #304654;border-radius:5px;background:rgba(10,19,26,.94);color:#dbe9ed;font:11px/1.45 monospace;box-sizing:border-box}.ops-legend b{color:#8be7ff}.legend-shape{display:inline-block;width:10px;height:10px;margin-right:5px;border:1px solid #eef8fa}.legend-line{display:inline-block;width:25px;height:3px;margin:0 6px 3px 0;background:#47d7ff;box-shadow:0 0 0 2px #08141b}.legend-ring{display:inline-block;width:9px;height:9px;margin:0 4px -2px 0;border:2px solid;border-radius:50%;background:#7f919b}.legend-quarters{display:inline-grid;grid-template-columns:repeat(2,8px);grid-template-rows:repeat(2,8px);overflow:hidden;margin:0 5px -4px 0;border:2px solid #23a6a0;border-radius:50%;background:#7f919b}.legend-quarters i{display:block;border-right:1px solid #e9f5f7;border-bottom:1px solid #e9f5f7}.legend-quarters i:nth-child(2),.legend-quarters i:nth-child(4){border-right:0}.legend-quarters i:nth-child(3),.legend-quarters i:nth-child(4){border-bottom:0}.legend-quarters i:nth-child(1),.legend-quarters i:nth-child(4){background:#f05a47}
 .dispatch-panel{position:absolute;z-index:1001;left:52px;top:10px;width:min(390px,calc(100% - 64px));padding:10px 12px;border:1px solid #355160;border-left:4px solid #47d7ff;border-radius:4px;background:rgba(7,15,21,.95);color:#e8f2f5;box-sizing:border-box;font:11px/1.35 monospace}.dispatch-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:8px}.dispatch-grid span{display:block;color:#78909b;font-size:9px;text-transform:uppercase}.dispatch-grid b{display:block;overflow:hidden;text-overflow:ellipsis;color:#e8f2f5;white-space:nowrap}.dispatch-controls{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.dispatch-controls button,.dispatch-controls select{min-height:30px;border:1px solid #446171;border-radius:3px;background:#152733;color:#dff7ff;font:700 10px monospace}.dispatch-controls button{padding:0 10px;cursor:pointer}.mock-label{color:#f2ad3f;font-weight:800}.truck-icon{position:relative;width:32px;height:32px;border-radius:50%;background:#07141b;border:2px solid #8be7ff;box-shadow:0 0 0 5px rgba(71,215,255,.19)}.truck-arrow{display:grid;place-items:center;width:100%;height:100%;color:#8be7ff;font:900 19px/1 monospace;transform-origin:50% 50%}.truck-icon::before{content:'';position:absolute;inset:-8px;border:1px solid #47d7ff;border-radius:50%;animation:truckPulse 1.7s ease-out infinite}@keyframes truckPulse{0%{transform:scale(.65);opacity:.75}100%{transform:scale(1.35);opacity:0}}@media (prefers-reduced-motion:reduce){.truck-icon::before{animation:none;display:none}.leaflet-zoom-animated{transition:none!important}}
-@media(max-width:520px){.dispatch-panel{left:42px;top:8px;width:calc(100% - 50px);padding:8px}.dispatch-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ops-legend{font-size:9px;bottom:18px}.leaflet-control-layers{font-size:10px}}
+.fleet-panel{position:absolute;z-index:1002;left:52px;top:10px;width:min(500px,calc(100% - 64px));padding:10px 12px;border:1px solid #355160;border-left:4px solid #47d7ff;border-radius:4px;background:rgba(7,15,21,.96);color:#e8f2f5;box-sizing:border-box;font:11px/1.35 monospace}.fleet-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.fleet-panel-head b{color:#8be7ff;font-size:12px;letter-spacing:.4px}.fleet-panel-head span{color:#f2ad3f;font-weight:800}.fleet-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.fleet-card{padding:7px 8px;border:1px solid #304654;border-top:3px solid var(--vehicle-color);background:#101e27}.fleet-card strong{display:block;color:var(--vehicle-color);font-size:10px}.fleet-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:5px}.fleet-card small{display:block;color:#78909b;font-size:8px;text-transform:uppercase}.fleet-card b{display:block;overflow:hidden;text-overflow:ellipsis;color:#f1f7f8;font-size:9px;white-space:nowrap}.fleet-controls{display:grid;grid-template-columns:auto auto auto minmax(120px,1fr) auto;gap:6px;align-items:center;margin-top:9px}.fleet-controls button,.fleet-controls select{min-height:30px;border:1px solid #446171;border-radius:3px;background:#152733;color:#dff7ff;font:700 9px monospace}.fleet-controls button{padding:0 9px;cursor:pointer}.fleet-controls input[type=range]{width:100%;accent-color:#47d7ff}.fleet-empty{margin-top:7px;padding:5px 7px;border-left:3px solid #f2ad3f;background:#17242b;color:#f4ca7a}.fleet-truck-marker{display:grid;place-items:center;width:34px;height:34px;border:3px solid var(--vehicle-color);border-radius:50%;background:#07141b;color:var(--vehicle-color);box-shadow:0 0 0 5px color-mix(in srgb,var(--vehicle-color) 22%,transparent);font:900 12px/1 monospace}.fleet-site-dot{width:10px;height:10px;border:2px solid #e9f5f7;border-radius:50%;background:#7f919b;box-shadow:0 0 0 2px rgba(4,12,18,.65)}
+@media(max-width:520px){.dispatch-panel,.fleet-panel{left:42px;top:8px;width:calc(100% - 50px);padding:8px}.dispatch-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fleet-cards{grid-template-columns:1fr}.fleet-controls{grid-template-columns:repeat(3,auto);}.fleet-controls input[type=range]{grid-column:1/-1;grid-row:2}.fleet-controls select{grid-column:1/-1}.ops-legend{font-size:9px;bottom:18px}.leaflet-control-layers{font-size:10px}}
 </style>
 """
         )
@@ -289,7 +351,10 @@ def add_controller_sites(
     site_records: list[dict[str, Any]],
     *,
     tracking_fill: bool = False,
+    quarter_fill: bool = False,
 ) -> dict[str, folium.FeatureGroup]:
+    if tracking_fill and quarter_fill:
+        raise ValueError("A site marker cannot use tracking and four-bin fill modes together")
     layers = {
         "sites": folium.FeatureGroup(name="Controller sites", show=True),
         "required": folium.FeatureGroup(name="Collection-required sites", show=True),
@@ -298,37 +363,45 @@ def add_controller_sites(
     }
     for record in site_records:
         meta = SITE_STATE_META[record["state"]]
-        tracking_class = " tracking-fill" if tracking_fill else ""
-        marker_html = (
-            f"<div class='binsight-site-marker state-{record['state']}{tracking_class}' "
-            f"data-site-id='{html.escape(record['site_id'])}' "
-            f"data-state='{record['state']}' title='{html.escape(meta['label'])}' "
-            f"data-original-state='{record['state']}' data-original-symbol='{meta['symbol']}' "
-            f"data-original-badge='{record['attention_count']}/{record['bin_count']}' "
-            f"aria-label='{html.escape(record['site_id'])}: {html.escape(meta['label'])}; "
-            f"{record['attention_count']} of {record['bin_count']} bins need attention'>"
-            f"<span class='site-symbol'>{meta['symbol']}</span>"
-            f"<span class='site-badge'>{record['attention_count']}/{record['bin_count']}</span>"
-            "</div>"
-        )
+        if quarter_fill:
+            marker_html, tooltip = _quarter_fill_marker(record, meta)
+            icon_size = (56, 56)
+            icon_anchor = (28, 28)
+        else:
+            tracking_class = " tracking-fill" if tracking_fill else ""
+            marker_html = (
+                f"<div class='binsight-site-marker state-{record['state']}{tracking_class}' "
+                f"data-site-id='{html.escape(record['site_id'])}' "
+                f"data-state='{record['state']}' title='{html.escape(meta['label'])}' "
+                f"data-original-state='{record['state']}' data-original-symbol='{meta['symbol']}' "
+                f"data-original-badge='{record['attention_count']}/{record['bin_count']}' "
+                f"aria-label='{html.escape(record['site_id'])}: {html.escape(meta['label'])}; "
+                f"{record['attention_count']} of {record['bin_count']} bins need attention'>"
+                f"<span class='site-symbol'>{meta['symbol']}</span>"
+                f"<span class='site-badge'>{record['attention_count']}/{record['bin_count']}</span>"
+                "</div>"
+            )
+            tooltip = (
+                f"{record['site_id']} · {meta['label']} · "
+                f"{record['attention_count']}/{record['bin_count']}"
+            )
+            icon_size = (34, 34)
+            icon_anchor = (17, 17)
         folium.Marker(
             [record["latitude"], record["longitude"]],
             icon=folium.DivIcon(
                 html=marker_html,
                 class_name="binsight-site-wrap",
-                icon_size=(34, 34),
-                icon_anchor=(17, 17),
+                icon_size=icon_size,
+                icon_anchor=icon_anchor,
             ),
-            tooltip=(
-                f"{record['site_id']} · {meta['label']} · "
-                f"{record['attention_count']}/{record['bin_count']}"
-            ),
+            tooltip=tooltip,
             popup=folium.Popup(_site_popup(record), max_width=760),
         ).add_to(layers["sites"])
         if record["state"] in {"required", "inspection", "optional"}:
             folium.CircleMarker(
                 [record["latitude"], record["longitude"]],
-                radius=20,
+                radius=31 if quarter_fill else 20,
                 color=meta["color"],
                 weight=2,
                 dash_array="2,5" if record["state"] != "required" else None,
@@ -428,7 +501,40 @@ def add_static_route_layers(
     traffic.add_to(route_map)
 
 
-def _add_legend(route_map: folium.Map, include_tracking: bool = False) -> None:
+def _add_legend(
+    route_map: folium.Map,
+    include_tracking: bool = False,
+    include_quarter_fill: bool = False,
+    include_fleet: bool = False,
+) -> None:
+    if include_fleet:
+        legend = """
+<div class="ops-legend" role="note" aria-label="Fleet playback legend">
+  <b>30-DAY FLEET PLAYBACK · SIMULATED</b><br>
+  <span class="legend-line" style="background:#47d7ff"></span>GENERAL-01 · waste depot<br>
+  <span class="legend-line" style="background:#55a879"></span>RECYCLING-01 · recycling facility<br>
+  Bright line = active leg · muted line = earlier/later leg<br>
+  <b>D</b> Waste depot &nbsp; <b>R</b> Recycling facility
+</div>
+"""
+        route_map.get_root().html.add_child(folium.Element(legend))
+        return
+    if include_quarter_fill:
+        legend = """
+<div class="ops-legend" role="note" aria-label="Operations map legend">
+  <b>OPERATIONS SNAPSHOT · SIMULATED</b><br>
+  <span class="legend-quarters"><i></i><i></i><i></i><i></i></span>
+  Four bins: <b>G</b> general · <b>P</b> plastic · <b>M</b> metal · <b>Gl</b> glass<br>
+  Red quarter-circle wedge + number = each bin's unchanged fill percentage<br>
+  Outer ring: <span class="legend-ring" style="border-color:#f05a47"></span>required
+  <span class="legend-ring" style="border-color:#f2ad3f"></span>inspection
+  <span class="legend-ring" style="border-color:#23a6a0"></span>efficient
+  <span class="legend-ring" style="border-color:#7f919b"></span>wait<br>
+  <b>D</b> Waste depot &nbsp; <b>R</b> Recycling facility
+</div>
+"""
+        route_map.get_root().html.add_child(folium.Element(legend))
+        return
     heading = "LIVE ROUTE REPLAY · SIMULATED" if include_tracking else "DISPATCH MAP · SIMULATED"
     completed = (
         "<br><span class='legend-shape' style='background:#7f919b'></span>0% Serviced · gauge empty"
@@ -457,9 +563,16 @@ def _add_legend(route_map: folium.Map, include_tracking: bool = False) -> None:
     route_map.get_root().html.add_child(folium.Element(legend))
 
 
-def finalize_map(route_map: folium.Map, config: Config, *, tracking: bool = False) -> folium.Map:
+def finalize_map(
+    route_map: folium.Map,
+    config: Config,
+    *,
+    tracking: bool = False,
+    quarter_fill: bool = False,
+    fleet: bool = False,
+) -> folium.Map:
     _add_map_css(route_map)
-    _add_legend(route_map, tracking)
+    _add_legend(route_map, tracking, quarter_fill, fleet)
     folium.LayerControl(collapsed=True, position="topright").add_to(route_map)
     return route_map
 
@@ -483,10 +596,14 @@ def build_overview_map(
     validate_pilot_extent(config, bins, route_points)
     route_map = create_restricted_map(config)
     add_static_route_layers(route_map, smart, fixed)
-    add_controller_sites(route_map, build_site_records(bins, snapshot_rows))
+    add_controller_sites(
+        route_map,
+        build_site_records(bins, snapshot_rows),
+        quarter_fill=True,
+    )
     add_depot(route_map, config)
     add_recycling_facility(route_map, config)
-    return finalize_map(route_map, config)
+    return finalize_map(route_map, config, quarter_fill=True)
 
 
 def build_dispatch_map(
@@ -503,6 +620,192 @@ def build_dispatch_map(
     add_depot(route_map, config)
     add_recycling_facility(route_map, config)
     return finalize_map(route_map, config)
+
+
+def build_fleet_playback_map(
+    config: Config,
+    bins: pd.DataFrame,
+    fleet_manifest: dict[str, Any],
+) -> folium.Map:
+    """Build a synchronized one-day playback for both specialized trucks."""
+    route_points = [
+        (float(point[0]), float(point[1]))
+        for vehicle in fleet_manifest["vehicles"]
+        for segment in vehicle["segments"]
+        for point in segment["geometry"]
+    ]
+    validate_pilot_extent(config, bins, route_points)
+    route_map = create_restricted_map(config)
+    sites_layer = folium.FeatureGroup(name="Four-bin service sites", show=True)
+    for site_id, group in bins.groupby("site_id", sort=True):
+        first = group.iloc[0]
+        folium.Marker(
+            [float(first["latitude"]), float(first["longitude"])],
+            tooltip=f"{site_id} · four-bin service site",
+            icon=folium.DivIcon(
+                html=(
+                    f"<div class='fleet-site-dot' aria-label='{html.escape(str(site_id))}: "
+                    "four-bin service site'></div>"
+                ),
+                class_name="binsight-site-wrap",
+                icon_size=(10, 10),
+                icon_anchor=(5, 5),
+            ),
+        ).add_to(sites_layer)
+    sites_layer.add_to(route_map)
+    add_depot(route_map, config)
+    add_recycling_facility(route_map, config)
+
+    vehicle_layers: dict[str, str] = {}
+    for vehicle in fleet_manifest["vehicles"]:
+        layer = folium.FeatureGroup(
+            name=f"{vehicle['vehicle_id']} daily route",
+            show=True,
+        )
+        layer.add_to(route_map)
+        vehicle_layers[str(vehicle["vehicle_id"])] = layer.get_name()
+
+    map_name = route_map.get_name()
+    panel_id = f"fleet-panel-{map_name}"
+    manifest_json = json.dumps(fleet_manifest, separators=(",", ":")).replace(
+        "</", "<\\/"
+    )
+    layers_json = json.dumps(vehicle_layers, separators=(",", ":"))
+    cards = "".join(
+        (
+            f"<div class='fleet-card' data-vehicle='{html.escape(vehicle['vehicle_id'])}' "
+            f"style='--vehicle-color:{vehicle['color']}'>"
+            f"<strong>{html.escape(vehicle['vehicle_id'])}</strong>"
+            "<div class='fleet-card-grid'>"
+            "<div><small>Status</small><b data-field='status'>IDLE</b></div>"
+            "<div><small>Next</small><b data-field='next'>BASE</b></div>"
+            f"<div><small>Trips</small><b>{int(vehicle['trip_count'])}</b></div>"
+            f"<div><small>Distance</small><b>{float(vehicle['distance_km']):.1f} km</b></div>"
+            "<div><small>Completed</small><b data-field='completed'>0 bins</b></div>"
+            f"<div><small>Base</small><b>{html.escape(vehicle['base_id'])}</b></div>"
+            "</div></div>"
+        )
+        for vehicle in fleet_manifest["vehicles"]
+    )
+    empty_note = (
+        ""
+        if fleet_manifest["has_dispatch"]
+        else "<div class='fleet-empty'>No dispatches on this day. Both trucks remain at their bases.</div>"
+    )
+    panel = f"""
+<div id="{panel_id}" class="fleet-panel" role="region" aria-label="Two-truck fleet playback controls">
+  <div class="fleet-panel-head"><b>DAY {int(fleet_manifest['day']):02d} / 30 · TWO-TRUCK PLAYBACK</b><span data-field="clock">00:00</span></div>
+  <div class="fleet-cards">{cards}</div>
+  {empty_note}
+  <div class="fleet-controls">
+    <button type="button" data-action="resume">Resume</button>
+    <button type="button" data-action="pause">Pause</button>
+    <button type="button" data-action="reset">Reset</button>
+    <input type="range" data-action="scrub" min="0" max="1440" step="1" value="0" aria-label="Minute within selected day">
+    <select data-action="speed" aria-label="Playback speed">
+      <option value="24">1× · 60 sec/day</option>
+      <option value="48" selected>2× · 30 sec/day</option>
+      <option value="96">4× · 15 sec/day</option>
+      <option value="240">10× · 6 sec/day</option>
+    </select>
+  </div>
+</div>
+"""
+    route_map.get_root().html.add_child(folium.Element(panel))
+    playback_js = f"""
+window.addEventListener('load',()=>requestAnimationFrame(()=>{{
+  const map=window['{map_name}'];
+  const manifest={manifest_json};
+  const layerNames={layers_json};
+  const panel=document.getElementById('{panel_id}');
+  const start=Number(manifest.start_minute), end=Number(manifest.end_minute);
+  let simMinute=start, speed=48, running=false, lastReal=null, lastDraw=0;
+  const layerByVehicle={{}};
+  Object.entries(layerNames).forEach(([vehicleId,name])=>{{layerByVehicle[vehicleId]=window[name];}});
+  function pointAt(row,minute){{
+    const geometry=row.geometry;
+    if(geometry.length===1||!row.cumulative_m||row.cumulative_m[row.cumulative_m.length-1]<=0)return geometry[geometry.length-1];
+    const duration=Math.max(0.0001,row.end_minute-row.start_minute);
+    const fraction=Math.max(0,Math.min(1,(minute-row.start_minute)/duration));
+    const target=fraction*row.cumulative_m[row.cumulative_m.length-1];
+    let index=0;
+    while(index<row.cumulative_m.length-2&&row.cumulative_m[index+1]<target)index++;
+    const a=row.cumulative_m[index],b=row.cumulative_m[index+1];
+    const local=b<=a?0:(target-a)/(b-a),p=geometry[index],q=geometry[index+1];
+    return[p[0]+(q[0]-p[0])*local,p[1]+(q[1]-p[1])*local];
+  }}
+  function stateAt(vehicle,minute){{
+    const active=vehicle.segments.find(row=>minute>=row.start_minute&&minute<row.end_minute);
+    if(active)return{{row:active,point:pointAt(active,minute)}};
+    let latest=null;
+    for(const row of vehicle.segments){{if(row.start_minute>minute)break;latest=row;}}
+    return{{row:null,point:latest?latest.geometry[latest.geometry.length-1]:vehicle.base_coordinate}};
+  }}
+  const routeLines=[];
+  const markers={{}};
+  manifest.vehicles.forEach(vehicle=>{{
+    const layer=layerByVehicle[vehicle.vehicle_id];
+    vehicle.segments.filter(row=>row.kind==='travel').forEach(row=>{{
+      const underlay=L.polyline(row.geometry,{{color:'#071015',weight:9,opacity:.72}}).addTo(layer);
+      const line=L.polyline(row.geometry,{{color:vehicle.color,weight:4,opacity:.2}}).addTo(layer);
+      routeLines.push({{vehicle:vehicle,row:row,underlay:underlay,line:line}});
+    }});
+    const shortLabel=vehicle.vehicle_id.startsWith('GENERAL')?'G':'R';
+    const icon=L.divIcon({{className:'',iconSize:[34,34],iconAnchor:[17,17],html:
+      '<div class="fleet-truck-marker" style="--vehicle-color:'+vehicle.color+'" aria-label="'+vehicle.vehicle_id+' simulated truck">'+shortLabel+'</div>'}});
+    markers[vehicle.vehicle_id]=L.marker(vehicle.base_coordinate,{{icon:icon,zIndexOffset:1100}}).addTo(layer);
+  }});
+  function clock(minute){{
+    const within=Math.max(0,Math.min(1440,Math.round(minute-start)));
+    if(within>=1440)return'24:00';
+    return String(Math.floor(within/60)).padStart(2,'0')+':'+String(within%60).padStart(2,'0');
+  }}
+  function card(vehicleId){{return panel.querySelector('[data-vehicle="'+vehicleId+'"]');}}
+  function cardField(vehicleId,name,value){{card(vehicleId).querySelector('[data-field="'+name+'"]').textContent=value;}}
+  function draw(){{
+    panel.querySelector('[data-field="clock"]').textContent=clock(simMinute);
+    panel.querySelector('[data-action="scrub"]').value=String(Math.round(simMinute-start));
+    manifest.vehicles.forEach(vehicle=>{{
+      const state=stateAt(vehicle,simMinute);
+      markers[vehicle.vehicle_id].setLatLng(state.point);
+      const completed=vehicle.segments.filter(row=>row.kind==='service'&&row.end_minute<=simMinute).length;
+      cardField(vehicle.vehicle_id,'status',state.row?state.row.status.replaceAll('_',' '):'IDLE AT BASE');
+      cardField(vehicle.vehicle_id,'next',state.row?state.row.next_stop:vehicle.base_id);
+      cardField(vehicle.vehicle_id,'completed',completed+' bins');
+    }});
+    routeLines.forEach(item=>{{
+      const active=simMinute>=item.row.start_minute&&simMinute<item.row.end_minute;
+      const completed=simMinute>=item.row.end_minute;
+      item.line.setStyle({{weight:active?7:4,opacity:active?1:(completed?.58:.2)}});
+      item.underlay.setStyle({{weight:active?11:9,opacity:active?.9:.55}});
+    }});
+  }}
+  panel.querySelector('[data-action="resume"]').addEventListener('click',()=>{{if(simMinute>=end)simMinute=start;running=true;lastReal=null;}});
+  panel.querySelector('[data-action="pause"]').addEventListener('click',()=>{{running=false;}});
+  panel.querySelector('[data-action="reset"]').addEventListener('click',()=>{{running=false;simMinute=start;lastReal=null;draw();}});
+  panel.querySelector('[data-action="speed"]').addEventListener('change',event=>{{speed=Number(event.target.value);}});
+  panel.querySelector('[data-action="scrub"]').addEventListener('input',event=>{{running=false;simMinute=start+Number(event.target.value);draw();}});
+  window.binsightFleetPlayback={{
+    manifest:manifest,
+    setSimulationMinute:value=>{{running=false;simMinute=Math.max(start,Math.min(end,Number(value)));draw();}},
+    getSimulationMinute:()=>simMinute,
+    getTruckPositions:()=>Object.fromEntries(Object.entries(markers).map(([id,marker])=>[id,marker.getLatLng()])),
+    isRunning:()=>running
+  }};
+  function tick(timestamp){{
+    if(running){{
+      if(lastReal!==null)simMinute+=(timestamp-lastReal)/1000*speed;
+      lastReal=timestamp;
+      if(simMinute>=end){{simMinute=end;running=false;}}
+      if(timestamp-lastDraw>100){{draw();lastDraw=timestamp;}}
+    }}else lastReal=null;
+    requestAnimationFrame(tick);
+  }}
+  draw();requestAnimationFrame(tick);
+}}));
+"""
+    route_map.get_root().script.add_child(folium.Element(playback_js))
+    return finalize_map(route_map, config, fleet=True)
 
 
 def build_tracking_map(

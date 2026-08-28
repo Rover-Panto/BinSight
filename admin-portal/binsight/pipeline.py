@@ -343,6 +343,7 @@ def run_experiment(
         json.dumps(representative, indent=2), encoding="utf-8"
     )
     write_dashboard_replays(representative, artifacts)
+    write_monthly_fleet_events(representative, artifacts)
     (artifacts / "seed_manifest.json").write_text(
         json.dumps(seed_manifest, indent=2), encoding="utf-8"
     )
@@ -441,6 +442,58 @@ def write_dashboard_replays(
         "tracking_candidates": list(candidates_by_vehicle.values()),
     }
     (output_dir / "dashboard_replays.json").write_text(
+        json.dumps(payload, indent=2), encoding="utf-8"
+    )
+
+
+def write_monthly_fleet_events(
+    representative: dict[str, dict[str, list[dict]]],
+    output_dir: Path,
+) -> None:
+    """Write the completed smart dispatches needed for 30-day fleet playback."""
+    scenario_name = (
+        "normal_patterned"
+        if "normal_patterned" in representative
+        else next(iter(representative))
+    )
+    keys = (
+        "hour",
+        "dispatch_minute",
+        "day",
+        "policy",
+        "scenario",
+        "distance_km",
+        "trip_count",
+        "routes",
+        "route_destinations",
+        "route_vehicle_types",
+        "route_vehicle_ids",
+        "route_bin_indices",
+        "served_bins",
+        "timeline",
+        "completed",
+        "completed_minute",
+    )
+    days: dict[str, list[dict]] = {str(day): [] for day in range(1, 31)}
+    for event in representative[scenario_name].get("smart", []):
+        if not event.get("completed", False):
+            continue
+        day = int(event.get("day", 0))
+        if not 1 <= day <= 30:
+            continue
+        days[str(day)].append({key: event[key] for key in keys if key in event})
+    for events in days.values():
+        events.sort(key=lambda event: float(event.get("dispatch_minute", 0.0)))
+    payload = {
+        "schema_version": "1.0",
+        "source": "completed smart dispatches from the representative 30-day replication",
+        "scenario": scenario_name,
+        "day_count": 30,
+        "vehicle_ids": ["GENERAL-01", "RECYCLING-01"],
+        "active_days": [int(day) for day, events in days.items() if events],
+        "days": days,
+    }
+    (output_dir / "monthly_fleet_events.json").write_text(
         json.dumps(payload, indent=2), encoding="utf-8"
     )
 

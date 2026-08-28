@@ -20,13 +20,17 @@ from binsight.dispatch import (
     save_mock_dispatch,
     update_last_valid_readings_file,
 )
-from binsight.maps import build_dispatch_map, build_overview_map, build_tracking_map
+from binsight.maps import (
+    build_dispatch_map,
+    build_fleet_playback_map,
+    build_overview_map,
+    build_tracking_map,
+)
 from binsight.network import load_cached_service_network, route_coordinates
-from binsight.pipeline import run_experiment
 from binsight.planner import PlanningService
 from binsight.planning_store import PlanningStore
 from binsight.runtime import configure_logging, error_reference
-from binsight.tracking import build_tracking_manifest
+from binsight.tracking import build_daily_fleet_manifest, build_tracking_manifest
 
 
 ROOT = Path(__file__).resolve().parent
@@ -55,6 +59,7 @@ for candidate in (
         EVIDENCE_ARTIFACTS = candidate
         EVIDENCE_PROVENANCE = candidate_provenance
         break
+MONTHLY_FLEET_PATH = EVIDENCE_ARTIFACTS / "monthly_fleet_events.json"
 
 
 st.set_page_config(
@@ -418,6 +423,10 @@ def _overview_map(
     return build_overview_map(CONFIG, bins, routes, snapshot_rows)
 
 
+def _fleet_playback_map(bins: pd.DataFrame, fleet_manifest: dict):
+    return build_fleet_playback_map(CONFIG, bins, fleet_manifest)
+
+
 def _dispatch_geometries(plan, bins: pd.DataFrame) -> tuple[list[list[tuple[float, float]]], str | None]:
     network = load_cached_service_network(DATA / "subang_jaya_osrm_network.json")
     geometries: list[list[tuple[float, float]]] = []
@@ -484,6 +493,7 @@ required_files = [
     ARTIFACTS / "district_bins.csv",
     EVIDENCE_ARTIFACTS / "representative_routes.geojson",
     EVIDENCE_ARTIFACTS / "representative_route_events.json",
+    MONTHLY_FLEET_PATH,
     ARTIFACTS / "road_distance_matrix_m.npy",
     ARTIFACTS / "road_duration_matrix_s.npy",
     ARTIFACTS / "recycling_road_distance_matrix_m.npy",
@@ -491,6 +501,8 @@ required_files = [
     DATA / "subang_jaya_osrm_network.json",
     EVIDENCE_ARTIFACTS / "run_provenance.json",
 ]
+
+fleet_playback_active = st.query_params.get("view") == "fleet-playback"
 
 with st.sidebar:
     st.markdown(
@@ -510,19 +522,23 @@ with st.sidebar:
             f"{EVIDENCE_PROVENANCE.get('scenario_count', 0)} scenario(s)"
         ),
     )
-    if st.button("Run 30-day experiment", type="primary", width="stretch"):
-        with st.spinner("Running paired 30-day simulations…"):
-            run_experiment(ROOT, artifact_set="dynamic_v2")
-        st.success("Experiment complete")
+    if fleet_playback_active:
+        if st.button("Back to operations", type="primary", width="stretch"):
+            st.query_params.clear()
+            st.rerun()
+    elif st.button("Run 30-day experiment", type="primary", width="stretch"):
+        st.query_params["view"] = "fleet-playback"
         st.rerun()
+    st.caption("The 30-day control opens the saved two-truck playback; it does not recompute the experiment.")
     st.markdown(
         '<div class="environment-note"><strong>Prototype environment</strong><br>'
         'Localhost-only server · mock dispatches only. No municipal fleet is connected.</div>',
         unsafe_allow_html=True,
     )
 
-st.markdown(
-    """
+if not fleet_playback_active:
+    st.markdown(
+        """
     <div class="hero">
       <div>
         <span class="hero-kicker">Focus Area C · Subang Jaya</span>
@@ -536,9 +552,9 @@ st.markdown(
         <div class="hero-context-row"><b>03</b><span>Review simulation evidence</span></div>
       </div>
     </div>
-    """,
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
 
 if not all(path.exists() for path in required_files):
     st.info("Generate the project artifacts with `python -m binsight.cli run`, or use Run full experiment.")
@@ -591,6 +607,65 @@ else:
     dashboard_tracking_candidates = []
 sites = _site_frame(bins)
 service_network = load_cached_service_network(DATA / "subang_jaya_osrm_network.json")
+monthly_fleet = json.loads(MONTHLY_FLEET_PATH.read_text(encoding="utf-8"))
+
+if fleet_playback_active:
+    active_days = [int(value) for value in monthly_fleet.get("active_days", [])]
+    active_day_set = set(active_days)
+    st.markdown(
+        '<p class="micro-label">Saved 30-day simulation · synchronized fleet playback</p>',
+        unsafe_allow_html=True,
+    )
+    st.title("Two trucks. One month. Any day.")
+    st.caption(
+        "Choose a simulation day, then use the map controls to pause, scrub, reset, or change "
+        "the shared playback speed. GENERAL-01 starts at the waste depot; RECYCLING-01 starts "
+        "at the recycling facility. Days without a dispatch keep both trucks visibly at base."
+    )
+    selected_day = st.selectbox(
+        "Simulation day",
+        options=list(range(1, 31)),
+        index=(active_days[0] - 1) if active_days else 0,
+        format_func=lambda value: (
+            f"Day {value:02d} · dispatch recorded"
+            if value in active_day_set
+            else f"Day {value:02d} · trucks idle"
+        ),
+    )
+    daily_events = monthly_fleet["days"][str(selected_day)]
+    fleet_manifest = build_daily_fleet_manifest(
+        selected_day,
+        daily_events,
+        bins,
+        service_network,
+        DATA / "osrm_route_geometry_cache.json",
+        CONFIG.pilot.recycling_facility_id,
+    )
+    tracks = fleet_manifest["vehicles"]
+    playback_metrics = st.columns(4)
+    playback_metrics[0].metric("Dispatch events", len(daily_events))
+    playback_metrics[1].metric(
+        "Truck trips", sum(int(track["trip_count"]) for track in tracks)
+    )
+    playback_metrics[2].metric(
+        "Bins collected", sum(len(track["served_bins"]) for track in tracks)
+    )
+    playback_metrics[3].metric(
+        "Route distance",
+        f"{sum(float(track['distance_km']) for track in tracks):.1f} km",
+    )
+    if not fleet_manifest["has_dispatch"]:
+        st.info(
+            f"Day {selected_day:02d} has no collection route. Playback still covers the full "
+            "day so you can verify that both specialized trucks remain at their correct bases."
+        )
+    _render_map(_fleet_playback_map(bins, fleet_manifest), height=760)
+    st.caption(
+        "Simulated local evidence only. Changing the day loads a compact saved route; it does "
+        "not rerun forecasting or route optimization."
+    )
+    st.stop()
+
 tracking_candidates: dict[str, dict] = {}
 for compact_candidate in dashboard_tracking_candidates:
     tracking_candidates[str(compact_candidate["vehicle_id"])] = compact_candidate
@@ -689,7 +764,9 @@ with overview_tab:
         st.subheader("Representative road routes")
         st.caption(
             f"Smart dispatch from simulation day {representative_smart_event['day']}, "
-            f"{representative_smart_event['hour'] % 24:02d}:00. Each marker is one simulated service site with four co-located bins."
+            f"{representative_smart_event['hour'] % 24:02d}:00. Each circular marker has one "
+            "quarter for general, plastic, metal, and glass; each red wedge uses that bin's "
+            "unchanged snapshot fill percentage. The outer ring shows the site's routing state."
         )
         _render_map(
             _overview_map(
