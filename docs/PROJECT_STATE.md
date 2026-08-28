@@ -42,7 +42,7 @@ BinSight has two and only two bin types. Keep this distinction in firmware, APIs
 | Bin type | Physical role | Processing boundary |
 | --- | --- | --- |
 | General waste | One model bin measures fill and, where fitted, weight | The shared Teensy 4.1 schedules sensing; the single ESP32-C3 relays telemetry for overflow prediction and routing. No camera or vision model is used for this bin. |
-| Recycling return | Two model bins measure fill and support the return flow | The same Teensy and ESP carry two independently identified fill channels. OV5647/Grove Vision AI V2 performs local classification; the same ESP relays compact recognition results and controls feedback after the server decision. |
+| Recycling return | One physical bin demonstrates fill sensing and the return flow | The same Teensy and ESP carry its identified fill channel. One OV5647/Grove Vision AI V2 performs local classification; the same ESP relays compact recognition results and controls feedback after the server decision. |
 
 Recycling fill readings and recycling inference events are logically independent. Firmware must contain a classifier/peripheral fault so fill reporting can continue; a shared C3 reset or power loss interrupts both streams. Fill level must not influence item acceptance. The route adapter may consume fill observations from either bin type, but must reject every classification event. See [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md).
 
@@ -58,13 +58,15 @@ The initial integration keeps PR1's Streamlit website under `admin-portal/` and 
 
 The owner confirmed D1: a physical demo using the existing Teensy, shared ESP and Grove with the laptop as server. Hardware gates H01/H02 are now required by default in the readiness ledger. D2 confirms minimal admin ticket closing; main owns its report/photo/status backend and PR1 owns the operator view. Neither the shared report workflow nor the return HTTP integration is implemented yet.
 
-D3 remains open: the owner expects one Grove per recycling bin in a future installation and is considering a split-bin demo. [The station options](RECYCLING_STATION_OPTIONS.md) compare the costs and physical/session consequences. Keep the current one-Grove budget; do not assume a second camera or a material-to-compartment mapping. Contributors keep their PR branches and report exact tested SHAs; Codex stages reviewed changes for combined testing before any owner-approved merge into `main`.
+D3 is confirmed: one recycling bin as a technology demonstration, using one Grove/camera and one QR station with one active session at a time. No split compartments, sorting diverter or second physical recycling station are required. Accepted plastic, metal and glass go into the same collection bin; the ledger retains their material labels. [The station decision](RECYCLING_STATION_OPTIONS.md) supersedes the earlier split-bin recommendation. Contributors keep their PR branches and report exact tested SHAs; Codex stages reviewed changes for combined testing before any owner-approved merge into `main`.
+
+New PR1, PR2 and PR4 heads were observed during the D3 update and remain unreviewed. [The baseline record](INTEGRATION_BASELINE_2026-08-28.md#final-d3-direction-single-recycling-technology-demo) records those SHAs separately from the existing candidate; older component findings/results must not be presented as a fresh review of them.
 
 ## Integration ownership
 
 | Track | Components | Integration target |
 | --- | --- | --- |
-| Fill sensing for all three bins | PR #2 Teensy sensing plus the fill module in the shared ESP32-C3 firmware | PR #4 forecasting and PR #1 routing/operations through the agreed telemetry contract |
+| Fill sensing for configured bins | PR #2 Teensy sensing plus the fill module in the shared ESP32-C3 firmware; retain three-channel test capability | PR #4 forecasting and PR #1 routing/operations through the agreed telemetry contract |
 | Recycling recognition | PR #3 Grove model plus the SSCMA module in the shared ESP32-C3 firmware | `main` server, QR-bound return sessions, citizen portal and simulated payout |
 | Fill/overflow forecasting | PR #4 model features, training, calibration, inference and forecast evaluation | PR #1's single prediction-consumer interface; no independent dispatcher or citizen integration |
 
@@ -74,9 +76,9 @@ The owner confirmed PR #4 as the forecasting owner, not merely a fallback. PR #1
 
 ## Hardware sourcing baseline
 
-The USD150 demonstrator uses one Teensy 4.1 for three fill channels, one OV5647/Grove Vision AI V2 stack for recycling inference, and one ESP32-C3 for both Wi-Fi relay functions and station feedback. The C3 receives Teensy data over hardware UART and Grove metadata over I2C. It does not run the model or make server decisions. The owned Teensy is counted at full local replacement value inside the competition ceiling.
+The USD150 demonstrator uses one Teensy 4.1 with configurable fill channels, one OV5647/Grove Vision AI V2 stack for the single recycling bin, and one ESP32-C3 for both Wi-Fi relay functions and station feedback. The C3 receives Teensy data over hardware UART and Grove metadata over I2C. It does not run the model or make server decisions. The owned Teensy is counted at full local replacement value inside the competition ceiling.
 
-The number of Grove modules and the split-station mechanism remain a D3 design question, not a purchase authorisation. A shared housing can contain two removable, independently measured recycling bins; it must not reduce three fill channels to two or imply three separately sorted material streams.
+Retain three-channel sensing capability and the existing three-bin routing fixtures as engineering tests. Mark additional channels as simulated or unavailable; never copy a physical reading to invent another bin. The dated budget still reserves a third sensing channel as spare/bench equipment, not another physical recycling station. This smaller demo does not establish three-physical-bin submission compliance. No proposal, saved citizen record or simulation history was changed by D3.
 
 See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for the dated Malaysian listings, Selangor delivery assumptions, budget totals and purchase gates.
 

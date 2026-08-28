@@ -30,7 +30,7 @@ Check the working tree before editing. Keep unrelated edits, stored data and gen
 
 ## 2. Target Architecture and Ownership
 
-The owner wants all three demonstrator bins to measure fill and send readings over Wi-Fi to a central server. The central server makes collection decisions and calculates truck routes.
+The owner wants the configured demonstrator bins to measure fill and send readings over Wi-Fi to a central server. D3 now limits the physical return demonstration to one recycling bin, alongside general-waste sensing. The central server makes collection decisions and calculates truck routes. Retain three-bin fixtures and larger district simulations as labelled test scenarios.
 
 ### Non-negotiable two-bin boundary
 
@@ -39,11 +39,11 @@ BinSight has exactly two bin types:
 | Bin type | Routing-system treatment |
 | --- | --- |
 | General waste | One Teensy-controlled fill channel relayed by the shared ESP32-C3. It has no vision model. |
-| Recycling return | Two Teensy-controlled fill channels use the same gateway and are valid routing inputs. OV5647/Grove Vision AI V2 also sends recognition metadata through that C3, but recognition and return-session events are never fill observations. |
+| Recycling return | One physical demo-bin fill channel uses the same gateway and is a valid routing input. OV5647/Grove Vision AI V2 also sends recognition metadata through that C3, but recognition and return-session events are never fill observations. |
 
 Accept validated fill observations from both bin types, but reject every recognition or return-session event at the route adapter. Preserve physical bin IDs, bin type, waste stream, schemas and provenance so the dashboard cannot display a classification as route telemetry or imply that the general-waste bin identifies materials.
 
-Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The demonstrator uses one Teensy for one general-waste and two recycling fill channels, then one ESP32-C3 for both fill and Grove-result delivery. Routing must preserve the three bin identities and reject recognition events even though both event types share the gateway identity and network link.
+Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The physical demo uses one Teensy for the general-waste and single recycling fill channels, then one ESP32-C3 for both fill and Grove-result delivery. Routing must preserve each configured bin identity and reject recognition events even though both event types share the gateway identity and network link. Keep three-channel capability/tests without inventing a second live recycling asset; accepted material labels do not create separate physical service stops.
 
 ```text
 Bin sensors -> Teensy 4.1 -> Wi-Fi communications module
@@ -92,7 +92,7 @@ The routing code already includes tests for stale snapshots, missing sensors, co
 | All rows share one timestamp; the validator derives one age for the entire snapshot. | Live bins have different observation times. A fresh decision time cannot refresh old observations. |
 | Time-to-overflow must be finite; risk must be low/medium/high/critical. | Cold-start or unavailable predictions need an explicit supported state. |
 | `update_last_valid_readings()` requires both valid fill and weight. | The current ultrasonic-only hardware never qualifies for retained fill history if weight stays null. |
-| Configuration requires three bins per controller and a capacity-sized competition district. | The reviewed hardware PR models one bin per firmware instance, while the budgeted target is one Teensy with three channels representing one general-waste and two recycling bins. Support that topology without weakening the full-district simulation checks. |
+| Configuration requires three bins per controller and a capacity-sized competition district. | The reviewed hardware PR models one bin per firmware instance. Support configurable demo channels and retain three-channel tests; the owner now wants one physical recycling demo bin alongside general waste. Do not weaken full-district simulation checks or populate absent live bins with synthetic readings. |
 | The model uses weight, recent growth and site characteristics. | A current fill reading alone cannot satisfy the existing feature contract. |
 | The UI calculates a route after an operator action and stores session state. | Automatic server routing must not depend on a browser tab or rerun. |
 | Last-valid history uses a JSON file; dispatches use JSONL. | Adding a worker introduces concurrent-write and crash-recovery requirements. |
@@ -131,7 +131,7 @@ Support existing CSV/JSON imports through an explicit legacy adapter. For an old
 
 Map `bin_01` and other hardware IDs to canonical bins, locations, service points, capacity assumptions and calibration metadata. The earlier citizen documentation uses `BIN-###`, while the route district uses `UGB-...`. Agree the mapping; do not infer physical equivalence from similar numbers.
 
-Separate the three-bin physical prototype profile from the existing 33-bin synthetic district. Preserve the competition simulation configuration and its evidence. Do not relax its sizing checks globally just to run a one-bin transport test. A one-bin fixture can test the adapter; a configured three-bin pilot can test routing with a matching depot and road matrix.
+Separate the one-general-waste/one-recycling physical prototype profile from the existing three-bin fixtures and 33-bin synthetic district. Preserve simulation configuration and evidence. Do not relax district sizing checks globally just to run a one-bin transport test. A one-bin fixture can test the adapter; a synthetic three-bin pilot can test routing with a matching depot and road matrix. The live demo registry must match fitted sensors and actual service locations.
 
 Inspect `PilotConfig`, `validate_config()`, `required_controller_sites()`, district generation and UI labels before changing controller count. Distinguish physical controller topology from co-located service grouping; changing one must not silently change the other or alter collection capacities.
 
@@ -234,7 +234,7 @@ Also agree event identity across reboots, intentional sampling/upload cadence, d
 2. **Routing preparation:** add operating profiles, registry, typed client boundary, fixture/replay adapter, per-channel history and policy tests. Keep live integration off. No hardware is required for this step.
 3. **Route workflow:** add source selection, preview, immutable plan records, approval state and a controlled server runner. Preserve existing manual/demo workflows.
 4. **Producer handshake:** run the same fixtures against the repaired ingestion API and routing consumer. Confirm persistence acknowledgements, identity, replay, timestamps and failure responses before a live reading drives a plan.
-5. **Pilot and evidence:** run a mapped three-bin pilot, record the distinction between replay and physical measurements, then validate the Wi-Fi path with the hardware contributor. Reevaluate simulations only where the policy/model changed.
+5. **Pilot and evidence:** run the mapped three-bin replay/synthetic pilot and the smaller physical-demo profile separately, then validate the Wi-Fi path with the hardware contributor. Do not fabricate a third physical reading. Reevaluate simulations only where the policy/model changed.
 
 Do not block the first three steps on missing Wi-Fi hardware. Do not call the last two complete while using mocks alone. Record interface disagreements for the hardware contributor rather than applying unilateral schema changes.
 

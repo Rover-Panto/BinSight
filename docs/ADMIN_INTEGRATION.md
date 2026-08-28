@@ -2,9 +2,9 @@
 
 ## Scope
 
-The admin area will let an authorised operator inspect fill status across the three-bin demonstrator, compare a fixed collection baseline with a priority route, review route stops, and track simulation KPIs. Keep resident tasks in the existing citizen shell.
+The admin area will let an authorised operator inspect the configured demo-bin fill status, compare a fixed collection baseline with a priority route, review route stops, and track simulation KPIs. Keep resident tasks in the existing citizen shell.
 
-BinSight has two bin types across three physical bins. A single ESP32-C3 sends PR #2 fill telemetry for all three bins and PR #3 recycling-recognition events. Keep these as separate server contracts even though they share one gateway and may refer to the same recycling bin.
+BinSight has two bin types. The physical return demonstration now uses one recycling bin alongside general-waste sensing. A single ESP32-C3 sends PR #2 fill telemetry and PR #3 recycling-recognition events. Keep these as separate server contracts even though they share one gateway and may refer to the same recycling bin. Preserve the existing three-bin scenario as labelled simulation/test coverage, not three live physical assets.
 
 The initial integration keeps PR1's existing Streamlit application in `admin-portal/` separate from the React citizen site in `web/`. Do not rewrite it as React to satisfy older route guidance. A shared-origin `/admin` prefix is a future deployment option, not an implemented React route. The owner confirmed a physical local demo with the laptop as server under D1 in [the integration plan](INTEGRATION_TEST_PLAN.md); LAN access still requires authenticated APIs and restricted listeners.
 
@@ -166,7 +166,7 @@ Do not present proposal targets as measured results. The admin UI may show targe
 
 ## Route comparison
 
-The fixed baseline represents the same three bins, depot, vehicle assumptions, and time window as the priority route. A comparison is invalid when either route uses a different service area or input window. Preserve each bin's waste stream and do not assign incompatible waste streams to one vehicle unless the simulation explicitly defines that capability.
+The fixed baseline represents the same configured bins, depot, vehicle assumptions, and time window as the priority route. Preserve the three-bin synthetic scenario separately from the smaller physical-demo profile. A comparison is invalid when either route uses a different service area or input window. Preserve each bin's waste stream and do not assign incompatible waste streams to one vehicle unless the simulation explicitly defines that capability. The one physical recycling bin collects accepted demonstration materials together; it is not two material-specific service stops.
 
 The priority score should expose its input fields. At minimum, record fill level, time-to-overflow or risk, confidence, report urgency, and data freshness. Do not label a route as optimal unless the implementation proves optimality for the stated objective and constraints. `Priority route` is the safe default label.
 

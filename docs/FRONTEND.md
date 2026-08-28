@@ -17,7 +17,7 @@ The frontend lives under `web/`. It is a local demonstration with simulated iden
 
 ## Product boundary
 
-The interface represents one general-waste and two recycling bins. All three report fill and health through the PR #2 contract for automatic collection routing. The same ESP32-C3 also relays PR #3 Grove recognition events, but only the server's recognition decision determines item acceptance; fill status never does.
+The physical return demonstration has one recycling bin and one QR station, alongside general-waste sensing. Fill and health use the PR #2 contract for automatic collection routing. The same ESP32-C3 relays PR #3 Grove recognition events, but only the server's recognition decision determines item acceptance; fill status never does. Retain existing extra locations and three-bin fixtures as mock/synthetic data, not a claim of additional physical stations.
 
 Keep the distinction visible without asking the citizen to categorise the item manually. Return pages describe a station inspection. Routing and fill status belong to the operations side. Do not display recycling classification as general-waste telemetry or suggest that general-waste bins identify their contents.
 
@@ -69,6 +69,8 @@ Do not write admin fixtures or route simulation output to the citizen key. Follo
 The resident starts a session and inserts one container at a time. The station determines the simulated item type and accepted or rejected result. Accepted items add RM0.20. The resident then chooses Bank Transfer or E-Wallet and receives a simulated receipt.
 
 The planned hardware integration receives decision metadata from the laptop server after Grove Vision AI V2 classifies the item, the shared ESP32-C3 relays the result and the server applies the confidence gate. The browser must not access or display the station camera. Keep mock behavior behind a return-station client until the server contract is available, then place the API implementation behind the same interface. See [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md).
+
+The confirmed demo uses one collection bin with one active session/inspection at a time. Plastic, metal and glass remain separate result labels but share the physical collection bin. Do not add compartment selection, sorting destinations or a second live recycling station. This demonstrates acceptance, not automated material separation.
 
 ### Waste report
 

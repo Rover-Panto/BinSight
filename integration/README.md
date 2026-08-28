@@ -10,6 +10,8 @@ This branch contains the existing citizen prototype and server policy, a candida
 - `probes/review_pr4.py`: reproducible diagnostics against a reviewed PR4 source tree using a test-double model; no artifact is deserialised. Requires that source tree's Python data libraries and is not part of foundation CI.
 - `check_readiness.py`: displays outstanding gates and verifies candidate commits are ancestors of the checked-out branch.
 
+D3 confirms one physical recycling technology-demonstration bin. The existing `three_bins.json` fixture remains a three-bin synthetic scenario for producer/consumer coverage, not a physical inventory. Do not delete its IDs/history or duplicate live readings to make the physical demo look like three measured bins.
+
 ```powershell
 python -m unittest discover -s integration/tests -v
 python -m integration.check_readiness

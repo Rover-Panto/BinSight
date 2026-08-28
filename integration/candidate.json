@@ -14,7 +14,7 @@
   "decisions": [
     {"id": "D1", "status": "confirmed", "question": "Demo location and audience", "evidence": ["Owner direction 2026-08-28: physical ESP, Teensy and Grove with laptop server; docs/INTEGRATION_TEST_PLAN.md#physical-demo-access"]},
     {"id": "D2", "status": "confirmed", "question": "Admin report workflow scope", "evidence": ["Owner direction 2026-08-28: minimal ticket-closing controls; docs/ADMIN_INTEGRATION.md#minimal-ticket-closing; implementation pending"]},
-    {"id": "D3", "status": "pending", "question": "Separate or split recycling demo, material-to-compartment map and QR session topology", "evidence": ["Owner expects one Grove per recycling bin in a future installation; demo layout not chosen; docs/RECYCLING_STATION_OPTIONS.md"]}
+    {"id": "D3", "status": "confirmed", "question": "Recycling technology-demo layout and QR session topology", "evidence": ["Owner direction 2026-08-28: one recycling bin as a technological demonstration; one Grove/camera and one QR station, no split compartments or sorting diverter; docs/RECYCLING_STATION_OPTIONS.md"]}
   ],
   "gates": [
     {"id": "G01", "level": "software", "status": "partial", "evidence": ["https://github.com/Rover-Panto/BinSight/actions/runs/33165774817", "https://github.com/Rover-Panto/BinSight/actions/runs/33167295593", "docs/INTEGRATION_BASELINE_2026-08-28.md: local and CI foundation passed at f682bef and 6fbf133; rerun on combined candidate"]},

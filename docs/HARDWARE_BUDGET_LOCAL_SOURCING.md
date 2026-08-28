@@ -4,7 +4,7 @@ Prices checked: 27 August 2026. Quantities revised: 28 August 2026.
 
 This is the working purchase baseline for the competition prototype. Prices and stock can change, so save the checkout pages and receipts when ordering.
 
-**Architecture rule:** The USD150 demonstrator has three physical bins: one general-waste and two recycling bins. One Teensy measures all three fill levels. One shared ESP32-C3 carries both Teensy fill telemetry and Grove recognition metadata, with separate queues and server contracts. See [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md). This revision changes quantities, not the dated supplier quotes.
+**Architecture rule:** The owner selected one physical recycling bin as a technology demonstration, alongside the general-waste sensing demonstrator. One Teensy measures the enabled fill channels. One shared ESP32-C3 carries both Teensy fill telemetry and Grove recognition metadata, with separate queues and server contracts. See [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md). The dated three-channel parts allowance below is retained conservatively, with the third sensing kit as spare/bench equipment, not a second physical recycling bin. No supplier quotes were refreshed for this scope change.
 
 ## Budget basis
 
@@ -18,26 +18,26 @@ Exchange reference: [Bernama, 27 August 2026](https://www.bernama.com/en/market/
 ## Agreed prototype topology
 
 ```text
-One general-waste model bin + two recycling model bins
-  -> three independent fill channels
+One general-waste model bin + one recycling technology-demo bin
+  -> enabled physical fill channels; third channel reserved for bench tests
   -> one Teensy 4.1 running scheduled sensing and health tasks
   -> shared ESP32-C3 UART input and fill queue
   -> laptop ingestion, prediction and route optimisation
 
-Shared recycling-return demonstration path
+Single-bin recycling-return demonstration path
   -> OV5647 CSI camera
   -> Grove Vision AI V2 image processing and local classification
   -> same ESP32-C3, using I2C input and a recognition queue
   -> main server decision -> accept/reject indication and servo feedback
 ```
 
-One Teensy may control the three 1:20 bins because the brief requires three instrumented bins, not three separate controllers. Firmware must still produce a distinct `bin_id`, `bin_type`, calibration and health state for each channel. The current hardware PR represents one bin per firmware instance, so three-channel multiplexing is implementation work and must be tested before demonstration.
+Retain one Teensy with configurable channels and three-channel test support. Firmware must produce a distinct `bin_id`, `bin_type`, calibration and health state for each enabled channel. The current hardware PR represents one bin per firmware instance, so configurable multi-channel sensing remains implementation work. The smaller technology demo does not itself satisfy a separate three-physical-bin requirement in the brief; do not describe spare sensors or synthetic bins as live physical bins.
 
-The Grove V2 owns recycling image preprocessing and model inference. The single C3 is the Wi-Fi gateway for all three Teensy fill channels and the compact Grove class/confidence results. It controls return-station feedback only after a matching server decision. The recycling model has not yet been supplied, so selection of Grove V2 does not prove model compatibility or accuracy. The model must pass the deployment gates below before the hardware path is called complete.
+The Grove V2 owns recycling image preprocessing and model inference. The single C3 is the Wi-Fi gateway for enabled Teensy fill channels and the compact Grove class/confidence results. It controls return-station feedback only after a matching server decision. The recycling model has not yet been supplied, so selection of Grove V2 does not prove model compatibility or accuracy. The model must pass the deployment gates below before the hardware path is called complete.
 
-The budget includes one shared Grove/camera return point for the two recycling-bin demonstrators. If each recycling bin needs its own simultaneous insertion point, a second Grove/camera and its gateway connectivity require a new budget check. Do not present the one-module demonstrator as two independently operating vision stations.
+The budget includes one Grove/camera return point for one recycling bin. All accepted demo materials use that collection bin; no split compartments, sorting diverter, second camera or second Grove are required.
 
-On 28 August the owner confirmed a physical laptop-hosted demo and asked to compare one Grove per recycling bin with a split station. D3 remains open; [the layout comparison](RECYCLING_STATION_OPTIONS.md) does not change this bill of materials. Keeping the other dated lines fixed, a second RM125.50 vision stack would bring the total to RM655.44 including contingency, before extra bus hardware or actuation. A one-Grove split station instead needs its diverter, close-focus optics and deposit-confirmation costs checked before approval. Neither option has a completed mechanical or power test.
+On 28 August the owner settled D3 as [one recycling technology-demonstration bin](RECYCLING_STATION_OPTIONS.md). Keep the existing BOM as a conservative allowance rather than claim savings before final quantities are checked. The SG90 remains a candidate for acceptance feedback, not a material-sorting diverter. A drop-confirmation sensor is still a proposal; no additional purchase or credit-policy change is approved.
 
 ## Recommended local bill of materials
 
@@ -46,8 +46,8 @@ On 28 August the owner confirmed a physical laptop-hosted demo and asked to comp
 | Teensy 4.1 | [Cytron](https://my.cytron.io/p-teensy-4p1-controller-board) | 1 | 159.00 | 159.00 | General-waste sensing and task scheduling; counted even though owned |
 | 1x40 male header | [Cytron](https://my.cytron.io/p-straight-pin-header-male-1x40-ways) | 2 | 0.65 | 1.30 | Teensy and loose-header board assembly |
 | USB Micro-B data cable | [Cytron Teensy accessory](https://my.cytron.io/p-teensy-4p1-controller-board) | 1 | 4.00 | 4.00 | Teensy programming |
-| SR04P 3V-5.5V ultrasonic sensor | [Cytron](https://my.cytron.io/c-sensor/p-3v-5.5v-ultrasonic-ranging-module) | 3 | 4.90 | 14.70 | One independent fill channel for each physical bin; no 5V echo divider required |
-| 1 kg load cell with HX711 | [Cytron](https://my.cytron.io/ampp-1kg-load-cell-with-hx711-amplifier) | 3 | 14.90 | 44.70 | Retains the demonstrator's weight-monitoring scope; remove only if that scope is revised |
+| SR04P 3V-5.5V ultrasonic sensor | [Cytron](https://my.cytron.io/c-sensor/p-3v-5.5v-ultrasonic-ranging-module) | 3 | 4.90 | 14.70 | Two physical fill channels plus one spare/bench channel; no 5V echo divider required |
+| 1 kg load cell with HX711 | [Cytron](https://my.cytron.io/ampp-1kg-load-cell-with-hx711-amplifier) | 3 | 14.90 | 44.70 | Two physical weight channels plus one spare/bench channel; verify final quantities before purchase |
 | SG90 180-degree servo | [Cytron](https://my.cytron.io/p-sg90-micro-servo) | 1 | 6.50 | 6.50 | Recycling accept/reject chute feedback |
 | 830-hole breadboard | [Cytron](https://my.cytron.io/ampp-breadboard-16.5x5.5cm-830-holes) | 1 | 3.90 | 3.90 | Low-voltage prototype distribution and testing |
 | 40-way 20 cm jumper set | [Cytron](https://my.cytron.io/c-jumper-wire/p-40-way-20cm-dupont-jumper-wire) | 2 | 2.50 | 5.00 | Select one male-male and one male-female set |
@@ -58,7 +58,7 @@ On 28 August the owner confirmed a physical laptop-hosted demo and asked to comp
 | 5V 3A DC adapter | [MakerHub](https://makerhub.my/shop/electrical/power-supply-adapter-dc-universal-ac-to-dc-converter-psu-5v2a-5v3a-9v2a-12v2a/) | 1 | 12.95 | 12.95 | Select the 5V3A variant; keeps exposed prototype voltage below 12V DC |
 | 5.5x2.1 mm female connector | [MakerHub](https://makerhub.my/shop/electrical/5-5x2-1mm-dc-power-male-connector-plug-jack-adapter-for-arduino-diy-electronics-projects/) | 1 | 1.20 | 1.20 | Select the female variant for the 5V distribution input |
 | USB-A to USB-C data cable, 0.5 m | [MakerHub](https://makerhub.my/shop/) | 1 | 4.90 | 4.90 | Programs the shared C3 and Grove V2 sequentially |
-| 5 mm status LEDs | [MakerHub shop](https://makerhub.my/shop/) | 9 | 0.10 | 0.90 | Three visible fill/health states for each of the three bins |
+| 5 mm status LEDs | [MakerHub shop](https://makerhub.my/shop/) | 9 | 0.10 | 0.90 | Three states per physical sensing channel plus one spare/bench set |
 | 400-piece resistor pack | [MakerHub](https://makerhub.my/shop/electrical/400-pcs-1-4w-resistor-pack-resistor-kit-20-common-value-with-20-each/) | 1 | 7.95 | 7.95 | LED current limiting and spare prototype values |
 | Momentary test/control button | [MakerHub shop](https://makerhub.my/shop/) | 1 | 4.90 | 4.90 | Demonstration and calibration input |
 | **Electronics subtotal** |  |  |  | **415.35** |  |
@@ -117,7 +117,7 @@ Power the vision module from the verified 5V rail and use 3.3V signalling with t
 - Buy only **one** Teensy and **one shared ESP32-C3** for the USD150 demonstrator. Do not count a second C3 for recognition.
 - Build one gateway firmware target containing independent fill and recognition modules. Test simultaneous UART, I2C, Wi-Fi and servo operation; a shared power failure or C3 reset interrupts both streams.
 - Do not buy an ESP32-S3 camera in addition to the selected Grove stack. Retain that architecture only as a documented fallback if the Grove model gates fail.
-- Keep submission wording aligned with the budgeted demonstrator: one Teensy services one general-waste and two recycling bins as independently identified channels.
+- Keep hardware claims aligned with D3: one general-waste and one recycling technology-demonstration bin, with three-channel capability tested separately. Do not rewrite the proposal or claim three physical bins from this scope change.
 - Confirm the Grove V2 model conversion, close-range image and result relay before describing the recycling classifier as implemented.
 - Load-test the 5V rail during Wi-Fi transmission and servo movement. The 5V3A label is a supply rating, not proof that the assembled prototype is stable or below the competition's 10W continuous target.
 - Keep receipts, checkout screenshots, reused-material declarations and the final measured-power record with the submission evidence.

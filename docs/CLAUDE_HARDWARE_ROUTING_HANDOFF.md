@@ -47,15 +47,18 @@ BinSight has exactly two bin types. Do not use “smart bin” as though one dev
 | Bin type | Hardware and responsibility |
 | --- | --- |
 | General waste | One demonstrator bin has a fill channel on the shared Teensy 4.1. The single ESP32-C3 relays fill, optional measured weight, health and confidence for server-side prediction and routing. It uses no vision result. |
-| Recycling return | Two demonstrator bins have independent fill channels on the same Teensy. OV5647/Grove Vision AI V2 classifies submitted items, and the same ESP32-C3 relays compact recognition results without running inference. |
+| Recycling return | One physical technology-demonstration bin has its own fill channel on the same Teensy. OV5647/Grove Vision AI V2 classifies submitted items, and the same ESP32-C3 relays compact recognition results without running inference. |
 
 The demonstrator has one physical ESP32-C3 and one buildable gateway firmware target. PR #2 owns the gateway shell, Teensy UART transport, fill queue, Wi-Fi delivery and recovery behavior. PR #3 contributes the Grove/SSCMA I2C adapter, recognition queue and station-feedback module. Integrate them through explicit module interfaces; a recycling classification event must never enter the route adapter as fill, and no fill reading may be used to infer material class.
+
+D3 now confirms one recycling collection bin, not a split station. Keep three-channel firmware capability and host/bench coverage, but configure only fitted channels as live. An absent third channel is disabled/unavailable; never copy a live reading into it. Existing three-bin routing fixtures remain synthetic tests. See [the station decision](RECYCLING_STATION_OPTIONS.md).
 
 Use [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md) before selecting boards or claiming budget feasibility. It counts one owned Teensy, one ESP32-C3 and one Grove/camera stack.
 
 ```text
-Three-bin fill path
-  1 general-waste + 2 recycling sensors -> one Teensy 4.1 with RTOS
+Physical-demo fill path
+  1 general-waste + 1 recycling sensor channel -> one Teensy 4.1 with RTOS
+  third-channel support retained for labelled host/bench tests
       -> hardware UART -> one shared ESP32-C3
 
 Recycling recognition path
@@ -71,9 +74,9 @@ Central BinSight server
       -> Operator dashboard and mock truck dispatch
 ```
 
-Keep fill prediction and routing on the server. Keep all three channels' acquisition, bounded filtering, health reporting and transmission buffering on the shared sensing path. Recycling vision inference runs on Grove Vision AI V2; its accept/reject decision tree runs on the central server. A laptop can host the server for the prototype; the design should allow a separate host later. Do not buy hosting, expose services to the public internet, or connect real municipal systems as part of this task.
+Keep fill prediction and routing on the server. Keep configured channels' acquisition, bounded filtering, health reporting and transmission buffering on the shared sensing path. Recycling vision inference runs on Grove Vision AI V2; its accept/reject decision tree runs on the central server. A laptop can host the server for the prototype; the design should allow a separate host later. Do not buy hosting, expose services to the public internet, or connect real municipal systems as part of this task.
 
-Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for all three scaled bins and connect it to the C3 over hardware UART. Connect Grove Vision AI V2 to the same C3 over I2C so the interfaces do not compete for one peripheral. The C3 does not replace Teensy sensing or Grove inference. Give every fill channel and recognition inspection its own identity and sequence space.
+Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for the enabled sensing channels and connect it to the C3 over hardware UART. Connect Grove Vision AI V2 to the same C3 over I2C so the interfaces do not compete for one peripheral. The C3 does not replace Teensy sensing or Grove inference. Give every fill channel and recognition inspection its own identity and sequence space.
 
 Confirm the selected module, firmware/toolchain, serial pins and shared 5V power arrangement before implementing board-specific Wi-Fi firmware. The budget baseline selects an ESP32-C3 but does not prove its wiring, power stability or firmware. Proceed with the protocol, server adapter, mocks and USB development path while those tests are pending. An HTTP upload test or laptop Wi-Fi connection does not prove standalone wireless operation at the bin.
 
@@ -374,7 +377,7 @@ Add these as committed tests or recorded hardware procedures. Report each as pas
 | T20 | Populated old databases migrate/restore without changing original IDs or losing records; citizen data and images remain intact. |
 | T21 | Physical Wi-Fi test uses the actual bin/module and central server, exercises reconnection and validates TLS; a mock does not satisfy this test. |
 | T22 | Clean checkout builds both the Teensy target and the pinned ESP32-C3 target using the documented commands and board settings. |
-| T23 | Teensy and C3 exchange at least 1,000 mixed frames for one general-waste and two recycling bins without interleaving, parser corruption, lost bin identity/type or blocked sensing tasks. |
+| T23 | Teensy and C3 exchange at least 1,000 mixed frames across three logical test channels without interleaving, parser corruption, lost bin identity/type or blocked sensing tasks. Distinguish synthetic/bench frames from the actual one-general-waste/one-recycling demo profile; absent channels must not invent readings. |
 | T24 | Wi-Fi loss, HTTP 503, server restart and lost backend acknowledgement replay stable event IDs; each event is stored once and in documented order. |
 | T25 | C3 reset and full power interruption preserve every event promised as `QUEUED`; if persistence is not implemented, no such acknowledgement is emitted. |
 | T26 | Queue capacity exhaustion, malformed UART input, authentication failure and unsupported schema each produce a visible machine-readable fault without leaking credentials. |

@@ -1,6 +1,6 @@
 # BinSight
 
-BinSight is MON BLUE's smart waste-sensing system and citizen recycling hub. The demonstrator has three physical bins: one general-waste bin and two recycling bins. All three report fill for collection routing, while computer vision belongs only to the recycling-return flow.
+BinSight is MON BLUE's smart waste-sensing system and citizen recycling hub. The physical technology demo uses one recycling-return bin alongside the general-waste sensing demonstrator. Computer vision belongs only to recycling returns. Three-channel sensing support and the existing three-bin routing fixtures remain engineering test coverage, not evidence of a second physical recycling bin.
 
 ## Current status
 
@@ -11,9 +11,11 @@ The repository contains the responsive citizen hub, hardware and server integrat
 | Bin type | Prototype hardware | Server use |
 | --- | --- | --- |
 | General waste | One fill-sensing channel on the shared Teensy 4.1 and ESP32-C3 gateway | PR #2 supplies telemetry; PR #4 owns forecasting; PR #1 owns collection priority, routing and KPIs |
-| Recycling return | Two independent fill channels on the same Teensy, plus OV5647/Grove Vision AI V2 recognition through the same ESP32-C3 | Fill follows the PR #2/PR #1 route contract; recognition follows the PR #3/`main` session and decision contract |
+| Recycling return | One physical bin with a Teensy fill channel and OV5647/Grove Vision AI V2 recognition through the same ESP32-C3 | Fill follows the PR #2/PR #1 route contract; recognition follows the PR #3/`main` session and decision contract |
 
 The target design uses one Teensy to poll a fill sensor per physical bin with separate identity, calibration and health state. One ESP32-C3 receives those readings over UART, reads compact Grove recognition results over I2C, and sends both event types through independent queues. Grove runs the model; the laptop server handles routing and accept/reject decisions. Firmware must contain peripheral faults, but a shared C3 reset interrupts both paths. Fill level must not affect item acceptance or payout. This hardware integration remains under development.
+
+The recycling demo has one collection bin, one QR station and one active return session at a time. It demonstrates recognition and accept/reject feedback, not automatic material separation. No split compartments, sorting diverter or second Grove are required. See [the confirmed station decision](docs/RECYCLING_STATION_OPTIONS.md).
 
 PR1 should retire its duplicate forecasting after PR4's replacement passes the shared interface and integration tests. Keep routing, required telemetry validation/cache code, the non-ML operational fallback and historical records. See [the owner-confirmed split](docs/PR_REVIEW_2026-08-28.md#owner-confirmed-split).
 

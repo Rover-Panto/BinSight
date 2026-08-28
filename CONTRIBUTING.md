@@ -29,9 +29,9 @@ BinSight has exactly two bin types:
 | Bin type | Required behavior |
 | --- | --- |
 | General-waste bin | One demonstrator bin reports fill, weight when available, sensor health and confidence through the shared Teensy/ESP32-C3 gateway. It uses no camera and no vision model. |
-| Recycling-return bin | Two demonstrator bins report fill through that same gateway. OV5647/Grove Vision AI V2 classifies submitted items, and the same ESP32-C3 relays compact recognition results without running the model. |
+| Recycling-return bin | One physical technology-demonstration bin reports fill through that same gateway. OV5647/Grove Vision AI V2 classifies submitted items, and the same ESP32-C3 relays compact recognition results without running the model. |
 
-All three fill observations enter overflow prediction and truck-route planning through the PR #2 contract, retaining their bin type and physical `bin_id`. Recycling classification events follow the PR #3 contract into accept/reject decisions, return sessions, simulated refunds and contamination KPIs. One ESP carries both contracts, but they require separate tasks, queues, sequence spaces and server handlers.
+Fill observations enter overflow prediction and truck-route planning through the PR #2 contract, retaining their bin type and `bin_id`. Keep three-channel capability and existing three-bin fixtures for tests; label replay/synthetic channels and never duplicate a live reading to invent another physical bin. Recycling classification events follow the PR #3 contract into accept/reject decisions, return sessions and simulated refunds. They support rejection-rate diagnostics, not measured contamination without ground truth. One ESP carries both contracts, but they require separate tasks, queues, sequence spaces and server handlers.
 
 ## Change boundaries
 

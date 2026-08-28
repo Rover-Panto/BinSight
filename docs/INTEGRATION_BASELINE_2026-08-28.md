@@ -37,7 +37,7 @@ The probe imports reviewed source and substitutes a constant model; it never des
 
 The new commit adds material-aware capacities/demand, stream-aware display/routing changes, registry metadata, tests and regenerated synthetic artifacts. Do not discard these changes while integrating PR4. The earlier service-state freshness, future-trained state and lookalike-loopback URL findings live in unchanged files and still need fixes.
 
-The physical profile now names `plastic_cups` and `glass_bottles`; the return policy also accepts `metal`. Treat these as simulation assumptions until the owner confirms D3 and the team publishes the physical station/bin mapping. Do not narrow citizen acceptance to match a routing scenario or claim the simulator's 4,500-litre capacities are measured demo-bin capacities. Preserve separate bin type, collection stream, material assumptions and physical calibration.
+The reviewed physical profile names `plastic_cups` and `glass_bottles`; the return policy also accepts `metal`. These remain simulation assumptions, not the final physical station/bin mapping; the later D3 decision below uses one recycling collection bin. Do not narrow citizen acceptance to match a routing scenario or claim the simulator's 4,500-litre capacities are measured demo-bin capacities. Preserve separate bin type, collection stream, material assumptions and physical calibration.
 
 PR1 and PR4 should integrate both live-telemetry and simulation consumers before PR1 deletes superseded forecast code. Keep PR1's read/validation/cache logic, route lifecycle and a deterministic fill/health fallback. Freeze a reviewed provider version for the combined test; do not import a moving branch during a run.
 
@@ -76,7 +76,7 @@ Contributors should reply with their updated commit SHA and test evidence. The c
 
 ## Owner Follow-up and Main Work
 
-After the foundation handoff, the owner confirmed D1: a physical Teensy/ESP/Grove demo with the laptop as server, using the existing local setup. D2 now includes minimal ticket-closing controls in PR1, with report/photo/status APIs and durable history owned by main. D3 remains pending: the owner expects one Grove per recycling bin in a future installation and asked for split-bin ideas. See [the layout comparison](RECYCLING_STATION_OPTIONS.md). No material-to-compartment map or second vision stack has been approved.
+After the foundation handoff, the owner confirmed D1: a physical Teensy/ESP/Grove demo with the laptop as server, using the existing local setup. D2 includes minimal ticket-closing controls in PR1, with report/photo/status APIs and durable history owned by main. At that point D3 remained pending: the owner expected one Grove per recycling bin in a future installation and asked for split-bin ideas. The later decision below supersedes that open layout question. No split-bin implementation or second vision stack was approved.
 
 The candidate now declares `demo_mode: physical`. The readiness command requires H01/H02 by default; `--software-only` is a labelled preflight, not physical demo approval. Follow-up verification on this decision-update tree: integration tests **17 passed**, server-policy tests **16 passed**, and `git diff --check` passed. Both default and software-only `--require-ready` checks correctly returned exit 1 for the outstanding candidate work; the default included H01/H02. These results supplement, not replace, the earlier foundation evidence. Frontend files and stored records were not changed in this follow-up.
 
@@ -90,3 +90,21 @@ The owner-decision update was posted to all four PRs with their responsibilities
 - [PR4: physical-data integration evidence with forecast ownership unchanged](https://github.com/Rover-Panto/BinSight/pull/4#issuecomment-5451980454).
 
 Remote PR1-4 heads still matched the captured revisions when publishing this decision update. No PR was merged or marked ready. Main integration still owns the return API, durable decision/credit storage, station/session authentication, shared report/attachment/status API, citizen client and migrations, safe runtime controls and combined gateway assembly. No camera stream, real payment service or public deployment was added.
+
+## Final D3 Direction: Single Recycling Technology Demo
+
+The owner subsequently chose one recycling bin as a technology demonstration. D3 is now confirmed in the candidate ledger: one Grove/camera, one collection bin and one QR station with one active session at a time. The split-bin/material-diverter recommendation is no longer an implementation task. Plastic, metal and glass keep their result labels but share the physical collection bin; do not claim automatic material separation.
+
+The general-waste sensing track remains in scope. Keep configurable three-channel support and the existing three-bin synthetic fixture for engineering tests, without presenting an extra simulated bin as a live physical asset. The dated budget retains the third sensing kit as a conservative spare/bench allowance pending final purchasing quantities. Historical fixtures, citizen data, proposal files and contributor code were not changed. The shared ESP, PR ownership, confidence policy and physical-test requirements remain unchanged.
+
+Verification for the D3 documentation/ledger update: integration tests **17 passed**, server-policy tests **16 passed**, and `git diff --check` passed. Readiness still returns exit 1 for unreviewed/unstaged components and outstanding software/hardware gates; D3 is no longer an outstanding owner decision. No application or firmware implementation changed in this update.
+
+New remote heads observed while publishing D3, not reviewed in this scope update:
+
+| PR | Observed head | Status |
+| --- | --- | --- |
+| PR1 | `670ab68c3015f3b010537185c8eeeeedb0ef75b9` | Awaiting review; earlier results do not establish this revision |
+| PR2 | `c26bdd88cbdc5f78923a5d4833f2e3a7f8e6dba2` | Awaiting review; recheck older findings before assigning them again |
+| PR4 | `1143545010d89b94abfa9655a5c27a318a7145b0` | Awaiting review; provider corrections and evidence need inspection |
+
+PR3 still matched `819ff37b41a78208ba1624ad0060f8bec0358346`. The candidate ledger retains its captured revisions until review selects replacements. These observations do not approve or stage any contributor code.

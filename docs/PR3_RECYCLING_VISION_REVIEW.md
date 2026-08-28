@@ -16,7 +16,9 @@ The branch still supplies no trained weights, dataset evidence, tested Grove exp
 
 ## Required Outcome
 
-Only the two recycling bins participate in the computer-vision return flow. Their fill sensors remain on the Teensy path. The OV5647 camera connects to Grove Vision AI V2, and Grove runs the deployed model locally. One shared ESP32-C3 receives Teensy fill frames over UART and compact Grove results over I2C. The server makes the accept/reject decision and returns it to that C3 for chute feedback and to the website for session updates.
+The owner confirmed one physical recycling bin as a technology demonstration under D3. Its fill sensor remains on the Teensy path. One OV5647 camera connects to one Grove Vision AI V2, and Grove runs the deployed model locally. One shared ESP32-C3 receives Teensy fill frames over UART and compact Grove results over I2C. The server makes the accept/reject decision and returns it to that C3 for feedback and to the website for session updates.
+
+Use one QR station and one active session/inspection at a time. Accepted plastic, metal and glass share the same collection bin, with distinct material labels in the ledger. No split compartments, sorting diverter, second Grove or concurrent-station implementation is required for this demo. Keep any acceptance gate separate from material sorting. See [the confirmed station decision](RECYCLING_STATION_OPTIONS.md).
 
 The citizen website must not open, stream or store camera images. During an active return session it waits for one terminal station event, then shows the detected container and whether the station accepted it. The eligible classes are:
 
@@ -131,7 +133,7 @@ The backend must enforce:
 
 ### Shared-gateway boundary
 
-The physical C3 carries both streams, but the PR #3 recognition module must not parse, validate or depend on fill levels. The PR #2 module receives all three fill channels from Teensy and sends them through the routing contract. The recognition module may use a stable recycling `bin_id` only to bind an inference to the correct return location. Use independent queues, sequence spaces, health counters and endpoints; never require a current fill reading before inference, acceptance or payout.
+The physical C3 carries both streams, but the PR #3 recognition module must not parse, validate or depend on fill levels. The PR #2 module receives configured fill channels from Teensy and sends them through the routing contract. The recognition module may use a stable recycling `bin_id` only to bind an inference to the correct return location. Use independent queues, sequence spaces, health counters and endpoints; never require a current fill reading before inference, acceptance or payout.
 
 ## Implemented Server Decision Policy
 

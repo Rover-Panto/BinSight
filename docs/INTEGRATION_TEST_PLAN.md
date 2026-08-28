@@ -11,7 +11,7 @@ Keep two applications: the React citizen website in `web/` and the Streamlit ope
 
 Confirmed requirements:
 
-- Three fill channels: one general-waste bin and two recycling bins; one Teensy 4.1 and one shared ESP32-C3.
+- One physical recycling-return bin for the technology demo, alongside the general-waste sensing demonstrator; one Teensy 4.1 and one shared ESP32-C3. Retain three-channel capability and three-bin routing fixtures for engineering tests, with additional channels explicitly simulated or unavailable.
 - Grove Vision AI V2 runs recognition. The shared C3 receives Teensy UART and Grove I2C traffic through independent modules and queues.
 - PR4 owns forecasting. PR1 owns collection decisions, routing, approvals and operational KPIs.
 - Main-owned server code owns return sessions, recognition decisions and simulated RM0.20 credits. The citizen does not choose an item category. No camera stream goes to either website.
@@ -26,7 +26,9 @@ Owner decisions, updated after the 28 August discussion:
 | --- | --- | --- |
 | D1 | Confirmed | Physical Teensy, shared ESP and Grove; laptop server, using the existing local demonstration arrangement. No public deployment. |
 | D2 | Confirmed scope | Minimal admin ticket closing. Main owns report/photo/status storage and API; PR1 owns the operator view. See the detailed scope below. |
-| D3 | Layout pending | The owner expects one Grove per recycling bin in a future installation and is considering a split-bin demo. Keep the current one-Grove budget until the owner selects the arrangement and material-to-compartment map. See [station options](RECYCLING_STATION_OPTIONS.md). |
+| D3 | Confirmed | One physical recycling bin as a technology demonstration. One Grove/camera, one collection bin, one QR station and one active session at a time. No split compartments or sorting diverter. See [the station decision](RECYCLING_STATION_OPTIONS.md). |
+
+The recycling demo accepts supported plastic, metal and glass samples into the same collection bin. Keep their recognised material labels in the ledger; do not claim material separation. Its fill sensor remains independent of recognition. Retain existing three-bin simulation history and IDs, but do not present the extra recycling fixture as a physical station or copy live readings into it. This smaller technology demo does not establish compliance with any separate three-physical-bin submission requirement.
 
 ### Physical demo access
 
@@ -46,7 +48,7 @@ Main owns authenticated report creation/read/status APIs, attachment storage, ow
 flowchart LR
     accTitle: BinSight integration boundaries
     accDescr: One ESP relays independent fill and vision streams. PR4 forecasts for PR1, while the return server owns citizen decisions and credit.
-    teensy[Teensy: three fill channels] --> esp[One ESP32-C3]
+    teensy[Teensy: configured fill channels] --> esp[One ESP32-C3]
     grove[Grove: recognition] --> esp
     esp -->|Fill events| ingest[PR2 ingestion and history]
     ingest -->|Validated snapshot| forecast[PR4 forecast provider]
@@ -60,7 +62,7 @@ flowchart LR
 | Owner | Deliverable | Do not duplicate |
 | --- | --- | --- |
 | PR1 | Telemetry consumer, route policy/solver, approval/audit, admin UI, route/KPI simulation, minimal ticket-closing view | PR4 training/features; PR2 gateway/ingestion; citizen sessions, credits or report backend |
-| PR2 | Three-channel Teensy target, shared C3 shell/network/fill module, telemetry API/storage, diagnostic tools | A second operations dashboard as the product; a separate PR3 firmware image |
+| PR2 | Configurable Teensy target retaining three-channel test support, shared C3 shell/network/fill module, telemetry API/storage, diagnostic tools | A second operations dashboard as the product; a separate PR3 firmware image |
 | PR3 | Grove model/export evidence, SSCMA recognition adapter, recognition queue and station feedback module | QR/login/session API, acceptance policy, credit ledger or routing |
 | PR4 | Installable forecast provider, feature preparation, trained bundle, evaluation and capability declarations | Dispatch decisions, another telemetry store, another operations website |
 | Main integration / Codex | Shared contract review, combined C3 build, return and report APIs/storage, citizen client/migrations, integration evidence | Reimplementing contributors' owned algorithms |
@@ -106,8 +108,8 @@ Each gate starts `not_run`. Record pass/fail against exact code and fixture revi
 | Gate | Owners | Required result before calling it passed |
 | --- | --- | --- |
 | G01 Foundation regression | Main | Server policy and integration fixture tests pass; citizen lint, unit, browser and build checks pass. Login, reports, saved photos, returns and mock payouts survive reload. |
-| G02 Fill producer | PR2 | Three stable channel IDs/types; fill-only payload accepted; invalid input stays unavailable; sustained deposit/collection steps recover within a documented bound. Fix the existing wiring, RTOS, config, serial, retry, time, calibration and stale-display findings. |
-| G03 Fill to route | PR2/PR4/PR1 | A recorded three-bin history passes real ingestion/read, registry mapping and installed provider into a route preview. Preserve acquisition time/quality and missing-bin states; no vision event enters this path. |
+| G02 Fill producer | PR2 | Configurable enabled channels with stable IDs/types; retain three-channel host/bench coverage without claiming three physical bins. Fill-only payload accepted; absent/invalid input stays unavailable; sustained deposit/collection steps recover within a documented bound. Fix the existing wiring, RTOS, config, serial, retry, time, calibration and stale-display findings. |
+| G03 Fill to route | PR2/PR4/PR1 | A labelled recorded/synthetic three-bin history passes real ingestion/read, registry mapping and installed provider into a route preview. Separately verify actual demo-bin telemetry. Preserve source mode, acquisition time/quality and missing-bin states; no vision event enters this path and no extra live bin is fabricated. |
 | G04 Forecast semantics | PR4/PR1 | Threshold, percentage-point growth, hours, horizon and probability meanings match. Reject incompatible bundles; no future-observed, late-ingested or future-trained evidence enters historical decisions. Cold start/gaps/invalid values select an explicit supported state. |
 | G05 Route lifecycle and KPIs | PR1 | Refresh/restart cannot double-dispatch or overwrite an approved route. Service state ages out. Matched fixed/priority simulations record seeds, input/model revisions and complete outcomes, including regressions. Missing data/zero baselines stay explicit. |
 | G06 Session to credit | Main/PR3 | QR login handoff creates a station-bound session; three matching samples at exactly 0.70 produce one stored decision and one 20-sen credit. Duplicate/reordered retries, concurrent requests, restart and lost acknowledgement cannot credit twice. Policy-only tests do not satisfy this gate. |
@@ -119,7 +121,7 @@ Each gate starts `not_run`. Record pass/fail against exact code and fixture revi
 | G12 Runtime and operations | Main/all | Document commands/config/ports/health for both websites and required services; start/stop only owned processes, preserve records, no import-time training. Citizen Account cannot become an unauthorised whole-stack shutdown endpoint. Resource usage is measured on the demo laptop. |
 | G13 Shared report workflow | Main/PR1 | Citizen photo report reaches authorised admin; close with a resolution note and reopen persist across reload/restart, retain photos/history and return one status notification to its citizen. Unrelated users cannot read it. Retry/concurrent updates cannot lose changes. Closing does not alter fill or route service state. |
 | H01 Concurrent hardware | PR2/PR3/Main | On the actual board, fill reporting continues during Grove inference and servo/network activity; each peripheral fault is bounded; shared power/reset affects both streams and recovers without stale acceptance. Record pins, current, queue limits and firmware hashes. |
-| H02 Physical item handling | PR3/Main | Deployed Grove artifact/class map matches evidence. Test plastic/metal/glass and rejects under demo lighting; one held item cannot re-credit; removal/re-arm and loss of power/network leave the chute non-accepting. |
+| H02 Physical item handling | PR3/Main | One recycling bin and deployed Grove artifact/class map match evidence. Test plastic/metal/glass and rejects under demo lighting; one held item cannot re-credit; removal/re-arm and loss of power/network leave any acceptance gate non-accepting. Test accept/reject handling, not material-diverter destinations. |
 
 Rejected-item fraction is a **rejection-rate proxy**, not a measured recycling-contamination rate. Do not claim cleaner material streams without ground truth. Similarly, modelled fuel/CO2 and sensing-energy estimates need stated assumptions and are not measurements.
 
@@ -152,4 +154,4 @@ Contributors add real component and cross-service test commands as implementatio
 
 Use [the baseline record](INTEGRATION_BASELINE_2026-08-28.md). For each new result include: gate ID, candidate/component SHAs, command/environment, fixture/model hash, expected/observed outcome, log or CI link, data-impact check and remaining limitations. Store sanitised evidence under `integration/evidence/` or attach it to the PR; keep generated reports, databases and photos out of Git.
 
-Current main-owned backlog: session/inspection API and durable decision/credit storage; station authentication and polling/commands; report/photo/status API and audit; citizen mock/API client separation and migrations; shared gateway assembly; a safe runtime launcher. D1/D2 now have owner direction. D3 still needs a physical layout, material-to-compartment map and session-concurrency decision. Contributors can repair existing defects and prepare adapters while that choice remains open.
+Current main-owned backlog: session/inspection API and durable decision/credit storage; station authentication and polling/commands; report/photo/status API and audit; citizen mock/API client separation and migrations; shared gateway assembly; a safe runtime launcher. D1-D3 now have owner direction. Publish the single-station session/inspection/command schemas and keep exact wiring, optics and acceptance-gate design subject to bench verification. Owner decisions do not mark implementation or hardware gates passed.

@@ -106,7 +106,7 @@ PR4 can reuse sound PR1 horizon models or calibration logic. Move ownership and 
 Required checks:
 
 - A PR2-shaped fill-only fixture reaches PR4, returns a versioned result, and produces a PR1 route preview with unchanged bin identity and observation time.
-- A three-bin snapshot preserves one general-waste and two recycling fill channels. Recognition events never enter forecasting/routing.
+- A synthetic three-bin snapshot preserves one general-waste and two recycling fill channels for regression coverage. D3's physical profile has one recycling technology-demonstration bin alongside general waste; do not invent an extra live bin to fill the fixture. Recognition events never enter forecasting/routing.
 - First reading, irregular cadence, duplicate/replayed events, collection/reset, missing weight and partial coverage produce explicit supported states.
 - Future observations, late ingestion and future-trained model state cannot affect an earlier decision. Model errors and malformed/non-finite outputs cannot become healthy low risk.
 - Threshold, estimate meaning, horizon units and probability availability match between the provider and the consumer; mismatches reject or use the declared non-ML mode.
