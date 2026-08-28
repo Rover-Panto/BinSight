@@ -119,17 +119,28 @@ def test_fixed_policy_never_mixes_general_and_recycling_streams():
     config = _config(horizon_days=2, truck_capacity_kg=200.0, max_daily_trips=2)
     bins = [
         replace(_bin(0), waste_stream="mixed_general_waste"),
-        replace(
-            _bin(1),
-            bin_type="recycling_return",
-            waste_stream="beverage_recycling",
-            material_type="plastic_cups",
-        ),
+            replace(
+                _bin(1),
+                bin_type="recycling_return",
+                waste_stream="dry_recycling",
+                material_type="plastic_cups",
+                destination_id="recycling_facility",
+            ),
     ]
     distance, duration = _matrices(2, 60.0)
     arrivals = np.zeros((48, 2), dtype=float)
     arrivals[0] = 60.0
-    result = run_policy("fixed", 0, bins, config, distance, duration, arrivals, 110)
+    result = run_policy(
+        "fixed",
+        0,
+        bins,
+        config,
+        distance,
+        duration,
+        arrivals,
+        110,
+        destination_matrices={"recycling_facility": (distance, duration)},
+    )
 
     assert result.route_events[0]["trip_count"] == 2
     for route in result.route_events[0]["route_bin_indices"]:
@@ -137,7 +148,7 @@ def test_fixed_policy_never_mixes_general_and_recycling_streams():
         assert len(streams) == 1
 
 
-def test_recycling_trip_unloads_at_facility_before_empty_return_to_depot():
+def test_recycling_truck_starts_and_ends_at_its_facility():
     config = _config(horizon_days=2)
     bins = [
         replace(
@@ -168,18 +179,20 @@ def test_recycling_trip_unloads_at_facility_before_empty_return_to_depot():
         destination_matrices={
             "recycling_facility": (recycling_distance, recycling_duration)
         },
-        destination_return_legs={"recycling_facility": (800.0, 120.0)},
     )
 
     timeline = _statuses(result)
-    to_facility = next(row for row in timeline if row["status"] == "EN_ROUTE_TO_UNLOAD")
+    departure = next(row for row in timeline if row["status"] == "EN_ROUTE")
+    facility_return = next(
+        row
+        for row in timeline
+        if row["status"] == "RETURNING_TO_RECYCLING_FACILITY"
+    )
     unload = next(row for row in timeline if row["status"] == "UNLOADING")
-    depot_return = next(row for row in timeline if row["status"] == "RETURNING_TO_DEPOT")
-    assert to_facility["destination"] == config.pilot.recycling_facility_id
+    assert departure["origin"] == config.pilot.recycling_facility_id
+    assert facility_return["destination"] == config.pilot.recycling_facility_id
     assert unload["unload_destination"] == "recycling_facility"
-    assert unload["simulation_minute"] < depot_return["simulation_minute"]
-    assert depot_return["origin"] == config.pilot.recycling_facility_id
-    assert depot_return["payload_kg"] == 0.0
+    assert not any(row["status"] == "RETURNING_TO_DEPOT" for row in timeline)
     assert result.metrics["distance_km"] == pytest.approx(4.0)
 
 
@@ -261,6 +274,48 @@ def test_daily_trip_limit_is_shared_by_morning_and_evening_decisions():
     assert result.metrics["collection_trips"] == 1
     assert len(result.route_events) == 1
     assert result.final_fill_kg[0] == pytest.approx(20.0)
+
+
+def test_recycling_truck_can_dispatch_while_general_truck_is_still_active():
+    config = _config(horizon_days=1, max_daily_trips=1)
+    bins = [
+        _bin(0),
+        replace(
+            _bin(1),
+            bin_type="recycling_plastic",
+            waste_stream="dry_recycling",
+            material_type="plastic_cups",
+            destination_id="recycling_facility",
+        ),
+    ]
+    # Seven-plus hours round-trip keeps GENERAL-01 active across the 06:00
+    # observation while remaining inside the configured route-duration bound.
+    distance, duration = _matrices(2, 12_600.0)
+    arrivals = np.zeros((24, 2), dtype=float)
+    arrivals[0, 0] = 95.0
+    arrivals[6, 1] = 95.0
+
+    result = run_policy(
+        "smart",
+        0,
+        bins,
+        config,
+        distance,
+        duration,
+        arrivals,
+        151,
+        forecaster=ZeroGrowthForecaster(),
+        destination_matrices={"recycling_facility": (distance, duration)},
+    )
+
+    assert len(result.route_events) == 2
+    general_event, recycling_event = result.route_events
+    assert general_event["route_vehicle_ids"] == ["GENERAL-01"]
+    assert recycling_event["route_vehicle_ids"] == ["RECYCLING-01"]
+    assert recycling_event["dispatch_minute"] == pytest.approx(6 * 60)
+    assert not general_event["completed"] or (
+        recycling_event["dispatch_minute"] < general_event["completed_minute"]
+    )
 
 
 def test_two_missing_sensors_request_inspection_without_fabricating_full_bin():

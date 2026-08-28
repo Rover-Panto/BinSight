@@ -8,6 +8,7 @@ import folium
 import pandas as pd
 
 from .config import Config
+from .tracking import build_site_fill_profiles
 
 
 SITE_STATE_PRIORITY = {
@@ -266,6 +267,7 @@ def _add_map_css(route_map: folium.Map) -> None:
 .binsight-site-marker.state-optional{--site-color:#23a6a0;border-radius:50%;border-style:dashed;}
 .binsight-site-marker.state-waiting{--site-color:#7f919b;border-radius:4px;}
 .binsight-site-marker.state-completed,.binsight-site-marker.tracking-completed{--site-color:#55a879;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);}
+.binsight-site-marker.tracking-fill{background:linear-gradient(to top,var(--fill-color,#7f919b) 0 var(--fill-level,0%),#7f919b var(--fill-level,0%) 100%);transition:background .18s linear;}
 .site-badge{position:absolute;right:-10px;top:-10px;min-width:24px;padding:3px 4px;border-radius:10px;background:#071015;color:#fff;border:1px solid #6f8794;font:700 9px/1 monospace;text-align:center;}
 .site-popup{max-width:min(720px,80vw);font-size:12px}.site-popup h4{margin:0 0 4px;color:#8be7ff}.site-popup p{margin:0 0 8px;color:#a9bbc3}.site-popup-scroll{overflow:auto;max-width:100%}.site-popup table{border-collapse:collapse;min-width:680px}.site-popup th,.site-popup td{padding:5px 7px;border:1px solid #304654;text-align:left;vertical-align:top}.site-popup thead{background:#1d303d;color:#c9f3ff}
 .ops-legend{position:absolute;z-index:999;right:10px;bottom:24px;max-width:min(310px,calc(100% - 20px));padding:9px 11px;border:1px solid #304654;border-radius:5px;background:rgba(10,19,26,.94);color:#dbe9ed;font:11px/1.45 monospace;box-sizing:border-box}.ops-legend b{color:#8be7ff}.legend-shape{display:inline-block;width:10px;height:10px;margin-right:5px;border:1px solid #eef8fa}.legend-line{display:inline-block;width:25px;height:3px;margin:0 6px 3px 0;background:#47d7ff;box-shadow:0 0 0 2px #08141b}
@@ -280,6 +282,8 @@ def _add_map_css(route_map: folium.Map) -> None:
 def add_controller_sites(
     route_map: folium.Map,
     site_records: list[dict[str, Any]],
+    *,
+    tracking_fill: bool = False,
 ) -> dict[str, folium.FeatureGroup]:
     layers = {
         "sites": folium.FeatureGroup(name="Controller sites", show=True),
@@ -289,8 +293,9 @@ def add_controller_sites(
     }
     for record in site_records:
         meta = SITE_STATE_META[record["state"]]
+        tracking_class = " tracking-fill" if tracking_fill else ""
         marker_html = (
-            f"<div class='binsight-site-marker state-{record['state']}' "
+            f"<div class='binsight-site-marker state-{record['state']}{tracking_class}' "
             f"data-site-id='{html.escape(record['site_id'])}' "
             f"data-state='{record['state']}' title='{html.escape(meta['label'])}' "
             f"data-original-state='{record['state']}' data-original-symbol='{meta['symbol']}' "
@@ -420,7 +425,9 @@ def add_static_route_layers(
 
 def _add_legend(route_map: folium.Map, include_tracking: bool = False) -> None:
     tracking = (
-        "<br><span class='legend-line'></span> Current leg · muted green = completed"
+        "<br><span class='legend-line'></span> Current leg · ✓ = service completed"
+        "<br><span class='legend-shape' style='background:linear-gradient(to top,#f05a47 75%,#7f919b 75%)'></span>"
+        " Site fill: grey → red; height = fullest bin"
         if include_tracking
         else ""
     )
@@ -501,7 +508,7 @@ def build_tracking_map(
     validate_pilot_extent(config, bins, route_points)
     route_map = create_restricted_map(config)
     site_records = build_site_records(bins, snapshot_rows)
-    add_controller_sites(route_map, site_records)
+    add_controller_sites(route_map, site_records, tracking_fill=True)
     add_depot(route_map, config)
     add_recycling_facility(route_map, config)
     active_layer = folium.FeatureGroup(name="Active truck route", show=True)
@@ -519,6 +526,10 @@ def build_tracking_map(
     remaining_name = remaining_layer.get_name()
     traffic_name = traffic_layer.get_name()
     manifest_json = json.dumps(manifest, separators=(",", ":")).replace("</", "<\\/")
+    site_fill_profiles_json = json.dumps(
+        build_site_fill_profiles(bins, snapshot_rows, manifest),
+        separators=(",", ":"),
+    ).replace("</", "<\\/")
     speeds = json.dumps(list(config.operations.tracking_speed_options))
     default_speed = int(config.operations.tracking_default_speed)
     panel = f"""
@@ -549,6 +560,7 @@ def build_tracking_map(
   const map = window['{map_name}'];
   if (!map) return;
   const manifest = {manifest_json};
+  const siteFillProfiles = {site_fill_profiles_json};
   const activeLayer = window['{active_name}'];
   const completedLayer = window['{completed_name}'];
   const remainingLayer = window['{remaining_name}'];
@@ -614,14 +626,33 @@ def build_tracking_map(
       item.underlay.addTo(layer); item.line.addTo(layer);
     }});
   }}
+  function fillColor(fill) {{
+    const ratio=Math.max(0,Math.min(1,fill/100));
+    const grey=[127,145,155], red=[240,65,71];
+    const rgb=grey.map((value,index)=>Math.round(value+(red[index]-value)*ratio));
+    return 'rgb('+rgb.join(',')+')';
+  }}
+  function binFillAt(profile, minute) {{
+    if (profile.completion_minute !== null && minute >= profile.completion_minute) return 0;
+    const initial=Number(profile.initial_fill_pct || 0);
+    const tto=profile.time_to_overflow_hours;
+    if (tto === null || !Number.isFinite(Number(tto)) || Number(tto) <= 0) return initial;
+    const elapsedHours=Math.max(0,minute-manifest.start_minute)/60;
+    return Math.max(0,Math.min(100,initial+(100-initial)*elapsedHours/Number(tto)));
+  }}
   function updateSites(minute) {{
-    Object.entries(manifest.site_completion_minutes || {{}}).forEach(([siteId, doneAt]) => {{
+    Object.entries(siteFillProfiles).forEach(([siteId, profiles]) => {{
+      const siteFill=profiles.reduce((maximum,profile)=>Math.max(maximum,binFillAt(profile,minute)),0);
+      const doneAt=(manifest.site_completion_minutes || {{}})[siteId];
       document.querySelectorAll('.binsight-site-marker[data-site-id="'+siteId+'"]').forEach(element => {{
-        const isComplete = minute >= doneAt;
+        const isComplete = Number.isFinite(Number(doneAt)) && minute >= Number(doneAt);
         element.classList.toggle('tracking-completed', isComplete);
         element.querySelector('.site-symbol').textContent=isComplete?'✓':element.dataset.originalSymbol;
-        element.querySelector('.site-badge').textContent=isComplete?('0/'+element.dataset.originalBadge.split('/')[1]):element.dataset.originalBadge;
+        element.querySelector('.site-badge').textContent=Math.round(siteFill)+'%';
+        element.style.setProperty('--fill-level',siteFill.toFixed(1)+'%');
+        element.style.setProperty('--fill-color',fillColor(siteFill));
         element.setAttribute('data-state',isComplete?'completed':element.dataset.originalState);
+        element.setAttribute('title',siteId+' · fullest bin '+Math.round(siteFill)+'%');
       }});
     }});
   }}

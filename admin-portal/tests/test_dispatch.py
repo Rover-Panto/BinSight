@@ -68,12 +68,28 @@ def test_demo_snapshot_builds_capacity_feasible_collection_route():
     assert "UGB-004" in selected_ids
     assert 12 not in plan.required_bin_indices  # high risk remains value-tested, not mandatory
     assert "UGB-025" not in selected_ids  # low-confidence evidence stays an inspection
-    assert "UGB-005" not in selected_ids  # co-location alone cannot force a pickup
-    assert next(row for row in plan.audit_rows if row["bin_id"] == "UGB-005")[
-        "collection_state"
-    ] == "Defer – wait or merge"
+    assert "UGB-005" in selected_ids  # same-deadline early-departure demonstration
+    equal_deadline_indices = [
+        int(bins.index[bins["bin_id"] == bin_id][0])
+        for bin_id in ("UGB-001", "UGB-005")
+    ]
+    arrivals = {
+        index: arrival
+        for route_arrivals in plan.route_plan.route_arrival_times_s
+        for index, arrival in route_arrivals.items()
+    }
+    assert all(arrivals[index] <= 6.3 * 3600 for index in equal_deadline_indices)
+    deadline_row = next(
+        row for row in plan.audit_rows if row["bin_id"] == "UGB-005"
+    )
+    assert deadline_row["collection_state"] == "Required"
+    assert "dispatch now" in deadline_row["reason"]
     assert plan.route_plan.distance_m > 0
     assert all(route[0] == -1 and route[-1] == -1 for route in plan.route_plan.routes)
+    assert set(plan.route_plan.route_vehicle_ids) == {
+        "GENERAL-01",
+        "RECYCLING-01",
+    }
     weights = snapshot["weight_kg"].to_numpy(dtype=float)
     for route in plan.route_plan.routes:
         route_load = sum(weights[index] for index in route if index != -1)
@@ -146,6 +162,78 @@ def test_optional_consolidation_gap_defers_value_route_but_not_emergency():
     assert 0 in emergency_plan.required_bin_indices
 
 
+def test_dispatches_before_wait_plus_travel_would_miss_overflow_deadline():
+    config, all_bins, full_matrix = _project_inputs()
+    bins = all_bins.iloc[[0]].reset_index(drop=True)
+    matrix = full_matrix[np.ix_([0, 1], [0, 1])]
+    duration = np.array([[0.0, 3600.0], [3600.0, 0.0]])
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    snapshot = _safe_snapshot(bins, now)
+    snapshot.loc[0, ["fill_pct", "weight_kg", "time_to_overflow_hours", "risk_level"]] = [
+        60.0,
+        float(bins.iloc[0]["capacity_kg"]) * 0.60,
+        6.5,
+        "medium",
+    ]
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+        now_utc=now,
+    )
+
+    plan = build_dispatch_plan(
+        normalized,
+        bins,
+        matrix,
+        config,
+        duration_matrix_s=duration,
+    )
+
+    assert plan.required_bin_indices == [0]
+    assert plan.route_plan.route_arrival_times_s[0][0] <= 6.5 * 3600
+    assert "dispatch now" in plan.audit_rows[0]["reason"]
+
+
+def test_equal_overflow_times_include_service_delay_at_the_first_bin():
+    config, all_bins, full_matrix = _project_inputs()
+    bins = all_bins.iloc[[0, 4]].reset_index(drop=True)
+    matrix = full_matrix[np.ix_([0, 1, 5], [0, 1, 5])]
+    duration = np.array(
+        [
+            [0.0, 3600.0, 3600.0],
+            [3600.0, 0.0, 1800.0],
+            [3600.0, 1800.0, 0.0],
+        ]
+    )
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    snapshot = _safe_snapshot(bins, now)
+    snapshot["fill_pct"] = 80.0
+    snapshot["weight_kg"] = bins["capacity_kg"].to_numpy(float) * 0.80
+    snapshot["time_to_overflow_hours"] = 7.2
+    snapshot["risk_level"] = "high"
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+        now_utc=now,
+    )
+
+    plan = build_dispatch_plan(
+        normalized,
+        bins,
+        matrix,
+        config,
+        duration_matrix_s=duration,
+    )
+
+    assert set(plan.required_bin_indices) == {0, 1}
+    assert len(plan.route_plan.routes) == 1
+    assert set(plan.route_plan.served_bin_indices) == {0, 1}
+    arrivals = plan.route_plan.route_arrival_times_s[0]
+    assert max(arrivals.values()) <= 7.2 * 3600
+
+
 def test_snapshot_validation_requires_all_unique_bins_and_timezone():
     config, bins, _ = _project_inputs()
     snapshot = make_snapshot_template(bins["bin_id"])
@@ -193,8 +281,15 @@ def test_json_object_parses_and_mock_dispatch_is_auditable(tmp_path):
     assert len(records) == 1
     assert records[0]["mode"] == "MOCK"
     assert records[0]["status"] == "MOCK_SENT_TO_TRUCK"
-    assert records[0]["routes"][0]["stops"][0] == "DEPOT"
-    assert records[0]["routes"][0]["stops"][-1] == "DEPOT"
+    for route in records[0]["routes"]:
+        expected_base = (
+            config.pilot.recycling_facility_id
+            if route["vehicle_type"] == "recycling"
+            else "DEPOT"
+        )
+        assert route["stops"][0] == expected_base
+        assert route["stops"][-1] == expected_base
+        assert route["planned_arrivals"]
     assert "No message was sent to a real vehicle" in records[0]["disclaimer"]
 
 
@@ -390,8 +485,8 @@ def test_incompatible_physical_waste_streams_use_separate_trips():
     bins = all_bins.iloc[:3].reset_index(drop=True).copy()
     bins["waste_stream"] = [
         "mixed_general_waste",
-        "beverage_recycling",
-        "beverage_recycling",
+        "dry_recycling",
+        "dry_recycling",
     ]
     matrix = full_matrix[np.ix_([0, 1, 2, 3], [0, 1, 2, 3])]
     snapshot = _safe_snapshot(bins, datetime.now(timezone.utc).replace(microsecond=0))
@@ -411,16 +506,22 @@ def test_incompatible_physical_waste_streams_use_separate_trips():
         streams = {bins.iloc[index]["waste_stream"] for index in route if index != -1}
         assert len(streams) == 1
     assert plan.route_plan.solver_method.startswith("stream_separated:")
+    assert set(plan.route_plan.route_vehicle_types) == {"general_waste", "recycling"}
+    assert set(plan.route_plan.route_vehicle_ids) == {"GENERAL-01", "RECYCLING-01"}
 
 
 def test_stream_trip_limit_reports_mandatory_bin_as_unserved():
     config, all_bins, full_matrix = _project_inputs()
     config = replace(
         config,
-        operations=replace(config.operations, max_daily_trips=1),
+        operations=replace(
+            config.operations,
+            max_daily_trips=1,
+            truck_capacity_kg=600.0,
+        ),
     )
-    bins = all_bins.iloc[:2].reset_index(drop=True).copy()
-    matrix = full_matrix[np.ix_([0, 1, 2], [0, 1, 2])]
+    bins = all_bins.iloc[[0, 4]].reset_index(drop=True).copy()
+    matrix = full_matrix[np.ix_([0, 1, 5], [0, 1, 5])]
     snapshot = _safe_snapshot(bins, datetime.now(timezone.utc).replace(microsecond=0))
     snapshot["fill_pct"] = 95.0
     snapshot["weight_kg"] = bins["capacity_kg"].to_numpy(dtype=float) * 0.95

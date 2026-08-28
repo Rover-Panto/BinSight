@@ -147,6 +147,14 @@ async function main() {
       ).dataset.state;
       return { siteId, beforeComplete, afterComplete, afterReset };
     });
+    const fillGauge = await trackingFrame.evaluate(() => {
+      const markers = [...document.querySelectorAll(".binsight-site-marker.tracking-fill")];
+      return {
+        markerCount: markers.length,
+        levels: markers.map((marker) => marker.style.getPropertyValue("--fill-level")),
+        colors: markers.map((marker) => marker.style.getPropertyValue("--fill-color")),
+      };
+    });
     await page.screenshot({
       path: path.join(outputDir, "mock-live-tracking-desktop.png"),
       fullPage: true,
@@ -218,6 +226,7 @@ async function main() {
       runningStatus,
       pauseStatus,
       completionState,
+      fillGauge,
       responsive,
       reducedMotion,
       pageErrors,
@@ -243,6 +252,9 @@ async function main() {
       completionState.beforeComplete === "completed" ||
       completionState.afterComplete !== "completed" ||
       completionState.afterReset === "completed" ||
+      fillGauge.markerCount !== 11 ||
+      fillGauge.levels.some((value) => !value.endsWith("%")) ||
+      fillGauge.colors.some((value) => !value.startsWith("rgb(")) ||
       Object.values(responsive).some(
         (item) => !item.pageNoHorizontalOverflow || !item.mapNoHorizontalOverflow || item.siteMarkerCount !== 11
       ) ||

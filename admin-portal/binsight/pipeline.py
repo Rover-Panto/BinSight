@@ -20,10 +20,10 @@ from .forecast import train_forecaster
 from .network import (
     ServiceNetwork,
     download_or_load_service_network,
+    expand_base_distance_matrix,
+    expand_base_duration_matrix,
     expand_bin_distance_matrix,
     expand_bin_duration_matrix,
-    expand_destination_distance_matrix,
-    expand_destination_duration_matrix,
     route_coordinates,
 )
 from .simulation import SimulationScenario, run_policy
@@ -47,10 +47,10 @@ def prepare_project(project_dir: str | Path, refresh_graph: bool = False):
     duration_matrix = expand_bin_duration_matrix(
         service_network, [item.service_index for item in bins]
     )
-    recycling_matrix = expand_destination_distance_matrix(
+    recycling_matrix = expand_base_distance_matrix(
         service_network, [item.service_index for item in bins], 1
     )
-    recycling_duration = expand_destination_duration_matrix(
+    recycling_duration = expand_base_duration_matrix(
         service_network, [item.service_index for item in bins], 1
     )
     save_district(bins, root / "artifacts" / "district_bins.csv")
@@ -190,12 +190,6 @@ def run_experiment(
     destination_matrices = {
         "recycling_facility": (recycling_matrix, recycling_duration_matrix)
     }
-    destination_return_legs = {
-        "recycling_facility": (
-            float(service_network.distance_matrix_m[1, 0]),
-            float(service_network.duration_matrix_s[1, 0]),
-        )
-    }
     replication_count = (
         config.operations.replications if replications is None else int(replications)
     )
@@ -267,7 +261,6 @@ def run_experiment(
             scenario=scenario,
             demand_context=demand.context,
             destination_matrices=destination_matrices,
-            destination_return_legs=destination_return_legs,
         )
         smart = run_policy(
             "smart",
@@ -282,7 +275,6 @@ def run_experiment(
             scenario=scenario,
             demand_context=demand.context,
             destination_matrices=destination_matrices,
-            destination_return_legs=destination_return_legs,
         )
         manifest = {
             "scenario": scenario.name,
@@ -350,6 +342,7 @@ def run_experiment(
     (artifacts / "representative_route_events.json").write_text(
         json.dumps(representative, indent=2), encoding="utf-8"
     )
+    write_dashboard_replays(representative, artifacts)
     (artifacts / "seed_manifest.json").write_text(
         json.dumps(seed_manifest, indent=2), encoding="utf-8"
     )
@@ -389,6 +382,67 @@ def run_experiment(
         "effects": effects,
         "artifacts_dir": artifacts,
     }
+
+
+def write_dashboard_replays(
+    representative: dict[str, dict[str, list[dict]]],
+    output_dir: Path,
+) -> None:
+    """Write a compact subset of the 30-day events for the local website.
+
+    The full event artifact is retained for audit, but loading tens of
+    megabytes of unrelated timelines on every Streamlit refresh is unnecessary.
+    """
+    scenario_name = (
+        "normal_patterned"
+        if "normal_patterned" in representative
+        else next(iter(representative))
+    )
+    smart_events = representative[scenario_name].get("smart", [])
+    completed = [event for event in smart_events if event.get("completed", False)]
+    if not completed:
+        raise ValueError("Dashboard replay export requires a completed smart route")
+    representative_event = max(completed, key=lambda event: event["distance_km"])
+    candidates_by_vehicle: dict[str, dict] = {}
+    for event in completed:
+        vehicle_ids = event.get("route_vehicle_ids", [])
+        vehicle_types = event.get("route_vehicle_types", [])
+        for route_position, vehicle_id in enumerate(vehicle_ids):
+            trip_number = route_position + 1
+            rows = [
+                row
+                for row in event.get("timeline", [])
+                if int(row.get("trip_number", -1)) == trip_number
+            ]
+            if not any(row.get("status") == "TRIP_COMPLETE" for row in rows):
+                continue
+            distance_km = sum(float(row.get("distance_km", 0.0)) for row in rows)
+            candidate = {
+                "event": event,
+                "trip_number": trip_number,
+                "vehicle_id": str(vehicle_id),
+                "vehicle_type": (
+                    str(vehicle_types[route_position])
+                    if route_position < len(vehicle_types)
+                    else "general_waste"
+                ),
+                "distance_km": distance_km,
+            }
+            prior = candidates_by_vehicle.get(str(vehicle_id))
+            if prior is None or distance_km > float(prior["distance_km"]):
+                candidates_by_vehicle[str(vehicle_id)] = candidate
+    if not candidates_by_vehicle:
+        raise ValueError("Dashboard replay export found no completed vehicle trip")
+    payload = {
+        "schema_version": "1.0",
+        "source": "representative replication from the paired 30-day simulation",
+        "scenario": scenario_name,
+        "representative_smart_event": representative_event,
+        "tracking_candidates": list(candidates_by_vehicle.values()),
+    }
+    (output_dir / "dashboard_replays.json").write_text(
+        json.dumps(payload, indent=2), encoding="utf-8"
+    )
 
 
 def build_fixed_baseline_route_audit(
@@ -518,8 +572,9 @@ def write_representative_route_geojson(
                 if trip_index - 1 < len(destinations)
                 else "waste_depot"
             )
-            if destination_id == "recycling_facility" and service_indices[-1] == depot:
-                service_indices.insert(-1, 1)
+            if destination_id == "recycling_facility":
+                service_indices[0] = 1
+                service_indices[-1] = 1
             coordinates = route_coordinates(
                 service_network,
                 service_indices,

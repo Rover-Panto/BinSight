@@ -13,8 +13,18 @@ from .demand import DemandContext, DemandScenario
 from .district import BinSpec
 from .dispatch import build_dispatch_plan, validate_snapshot
 from .forecast import ForecastBundle, make_feature_row
+from .fleet import (
+    GENERAL_STREAM,
+    RECYCLING_FACILITY,
+    RECYCLING_STREAM,
+    WASTE_DEPOT,
+    assign_route_vehicles,
+    trip_limit_for_stream,
+    vehicle_limit_for_stream,
+)
 from .fuel import calculate_idle_fuel, calculate_leg_fuel, leg_travel_minutes
 from .observations import generate_sensor_noise_scenario, observe_sensors
+from .multiday import optimize_multiday_pickups
 from .routing import (
     RoutePlan,
     greedy_proxy_distance_m,
@@ -178,8 +188,12 @@ def run_policy(
     # must accrue a full consolidation interval before its first departure;
     # emergency/service constraints can still override this clock.
     last_optional_dispatch_hour = 0.0
-    truck_active = False
-    trips_by_day: dict[int, int] = {}
+    # The two specialized trucks operate independently.  A busy general-waste
+    # truck must not prevent the recycling truck from receiving a dispatch (or
+    # vice versa), while a second departure for the same physical truck remains
+    # unavailable until that truck returns.
+    active_vehicle_ids: set[str] = set()
+    trips_by_day: dict[tuple[int, str], int] = {}
     warmup_minute = config.operations.analysis_warmup_days * 24 * 60
     effective_truck_capacity = (
         config.operations.truck_capacity_kg * active_scenario.truck_capacity_multiplier
@@ -416,11 +430,16 @@ def run_policy(
         record("traffic_fuel_penalty_l", leg_fuel.traffic_penalty_l)
         record("payload_fuel_penalty_l", leg_fuel.payload_penalty_l)
 
-    def execute_plan(plan: RoutePlan, route_event: dict[str, Any]):
-        nonlocal truck_active
-        completed_bins: list[int] = []
-        for trip_number, route in enumerate(plan.routes, start=1):
-            route_position = trip_number - 1
+    def execute_vehicle_routes(
+        plan: RoutePlan,
+        route_event: dict[str, Any],
+        route_positions: list[int],
+        completed_bins: list[int],
+    ):
+        for vehicle_trip_sequence, route_position in enumerate(route_positions):
+            trip_number = route_position + 1
+            route = plan.routes[route_position]
+            has_next_vehicle_trip = vehicle_trip_sequence < len(route_positions) - 1
             unload_destination_id = (
                 plan.route_destinations[route_position]
                 if route_position < len(plan.route_destinations)
@@ -429,8 +448,21 @@ def run_policy(
             route_distance_matrix, route_duration_matrix = active_destination_matrices[
                 unload_destination_id
             ]
+            route_stream = (
+                RECYCLING_STREAM
+                if unload_destination_id == RECYCLING_FACILITY
+                else GENERAL_STREAM
+            )
+            route_base_id = (
+                config.pilot.recycling_facility_id
+                if unload_destination_id == RECYCLING_FACILITY
+                else "DEPOT"
+            )
             start_day = int(env.now // 1440)
-            if trips_by_day.get(start_day, 0) >= config.operations.max_daily_trips:
+            trip_key = (start_day, unload_destination_id)
+            if trips_by_day.get(trip_key, 0) >= trip_limit_for_stream(
+                route_stream, config.operations
+            ):
                 next_day = (start_day + 1) * 1440
                 timeline_event(
                     route_event,
@@ -440,7 +472,8 @@ def run_policy(
                 )
                 yield env.timeout(next_day - env.now)
                 start_day += 1
-            trips_by_day[start_day] = trips_by_day.get(start_day, 0) + 1
+                trip_key = (start_day, unload_destination_id)
+            trips_by_day[trip_key] = trips_by_day.get(trip_key, 0) + 1
             record("collection_trips", 1)
             payload_kg = 0.0
             timeline_event(
@@ -459,8 +492,14 @@ def run_policy(
                 osrm_duration = float(
                     route_duration_matrix[origin_location, destination_location]
                 )
-                next_stop_id = "DEPOT" if destination == -1 else bins[destination].bin_id
-                status = "RETURNING_TO_DEPOT" if destination == -1 else "EN_ROUTE"
+                next_stop_id = (
+                    route_base_id if destination == -1 else bins[destination].bin_id
+                )
+                status = (
+                    "RETURNING_TO_RECYCLING_FACILITY"
+                    if destination == -1 and unload_destination_id == RECYCLING_FACILITY
+                    else ("RETURNING_TO_DEPOT" if destination == -1 else "EN_ROUTE")
+                )
 
                 if (
                     destination == -1
@@ -514,7 +553,7 @@ def run_policy(
                         payload_kg=payload_kg,
                     )
                     if (
-                        trip_number < len(plan.routes)
+                        has_next_vehicle_trip
                         and config.operations.turnaround_minutes > 0
                     ):
                         timeline_event(
@@ -540,7 +579,7 @@ def run_policy(
                     route_event,
                     trip_number=trip_number,
                     status=status,
-                    origin_id="DEPOT" if origin == -1 else bins[origin].bin_id,
+                    origin_id=route_base_id if origin == -1 else bins[origin].bin_id,
                     destination_id=next_stop_id,
                     distance_m=distance_m,
                     osrm_duration_s=osrm_duration,
@@ -568,7 +607,7 @@ def run_policy(
                     record("depot_idle_fuel_l", unload_fuel)
                     payload_kg = 0.0
                     if (
-                        trip_number < len(plan.routes)
+                        has_next_vehicle_trip
                         and config.operations.turnaround_minutes > 0
                     ):
                         timeline_event(
@@ -655,18 +694,81 @@ def run_policy(
                     payload_kg=round(payload_kg, 3),
                     bins_completed=len(completed_bins),
                 )
-        truck_active = False
+    def execute_active_vehicle(
+        vehicle_id: str,
+        plan: RoutePlan,
+        route_event: dict[str, Any],
+        route_positions: list[int],
+        completed_bins: list[int],
+    ):
+        try:
+            yield from execute_vehicle_routes(
+                plan,
+                route_event,
+                route_positions,
+                completed_bins,
+            )
+        finally:
+            active_vehicle_ids.discard(vehicle_id)
+
+    def execute_plan(plan: RoutePlan, route_event: dict[str, Any]):
+        completed_bins: list[int] = []
+        routes_by_vehicle: dict[str, list[int]] = {}
+        for route_position in range(len(plan.routes)):
+            vehicle_id = (
+                plan.route_vehicle_ids[route_position]
+                if route_position < len(plan.route_vehicle_ids)
+                else f"UNASSIGNED-{route_position + 1:02d}"
+            )
+            routes_by_vehicle.setdefault(vehicle_id, []).append(route_position)
+        processes = [
+            env.process(
+                execute_active_vehicle(
+                    vehicle_id,
+                    plan,
+                    route_event,
+                    route_positions,
+                    completed_bins,
+                )
+            )
+            for vehicle_id, route_positions in routes_by_vehicle.items()
+        ]
+        if processes:
+            yield simpy.events.AllOf(env, processes)
         route_event["completed"] = True
         route_event["completed_minute"] = round(float(env.now), 3)
 
     def dispatch(hour: int, batch) -> None:
-        nonlocal last_optional_dispatch_hour, truck_active
+        nonlocal last_optional_dispatch_hour
         decision_day = int(env.now // 1440)
-        remaining_trips = config.operations.max_daily_trips - trips_by_day.get(decision_day, 0)
-        if remaining_trips <= 0:
+        active_general = sum(
+            vehicle_id.startswith("GENERAL-") for vehicle_id in active_vehicle_ids
+        )
+        active_recycling = sum(
+            vehicle_id.startswith("RECYCLING-") for vehicle_id in active_vehicle_ids
+        )
+        remaining_trips_by_stream = {
+            GENERAL_STREAM: max(
+                0,
+                min(
+                    vehicle_limit_for_stream(GENERAL_STREAM, config.operations)
+                    - active_general,
+                    trip_limit_for_stream(GENERAL_STREAM, config.operations)
+                    - trips_by_day.get((decision_day, WASTE_DEPOT), 0),
+                ),
+            ),
+            RECYCLING_STREAM: max(
+                0,
+                min(
+                    vehicle_limit_for_stream(RECYCLING_STREAM, config.operations)
+                    - active_recycling,
+                    trip_limit_for_stream(RECYCLING_STREAM, config.operations)
+                    - trips_by_day.get((decision_day, RECYCLING_FACILITY), 0),
+                ),
+            ),
+        }
+        if not any(remaining_trips_by_stream.values()):
             record("dispatch_limit_blocks", 1)
-            return
-        if truck_active:
             return
         if policy == "fixed" and not fixed_service_due(hour, config):
             return
@@ -692,7 +794,6 @@ def run_policy(
                 stream_groups.setdefault(item.waste_stream, []).append(index)
             stream_plans: list[RoutePlan] = []
             fixed_unserved: set[int] = set()
-            remaining_stream_trips = remaining_trips
             for stream in sorted(stream_groups):
                 stream_selected = stream_groups[stream]
                 stream_destinations = {
@@ -708,14 +809,19 @@ def run_policy(
                 stream_distance_matrix, _ = active_destination_matrices[
                     stream_destination
                 ]
-                if remaining_stream_trips <= 0:
+                stream_trip_limit = max(
+                    0,
+                    trip_limit_for_stream(stream, config.operations)
+                    - trips_by_day.get((decision_day, stream_destination), 0),
+                )
+                if stream_trip_limit <= 0:
                     fixed_unserved.update(stream_selected)
                     continue
                 capacity_selected, rejected = select_capacity_feasible(
                     stream_selected,
                     route_weights,
                     effective_truck_capacity,
-                    remaining_stream_trips,
+                    stream_trip_limit,
                 )
                 fixed_unserved.update(rejected)
                 if not capacity_selected:
@@ -725,7 +831,7 @@ def run_policy(
                     route_weights,
                     stream_distance_matrix,
                     effective_truck_capacity,
-                    remaining_stream_trips,
+                    stream_trip_limit,
                     config.operations.route_solver_milliseconds,
                 )
                 stream_plan = replace(
@@ -735,7 +841,6 @@ def run_policy(
                 stream_plans.append(stream_plan)
                 served_in_stream = set(stream_plan.served_bin_indices)
                 fixed_unserved.update(set(capacity_selected) - served_in_stream)
-                remaining_stream_trips -= len(stream_plan.routes)
             plan = RoutePlan(
                 routes=[route for item in stream_plans for route in item.routes],
                 distance_m=sum(item.distance_m for item in stream_plans),
@@ -753,6 +858,7 @@ def run_policy(
                     for destination in item.route_destinations
                 ],
             )
+            plan = assign_route_vehicles(plan, config.operations)
             capacity_selected = list(plan.served_bin_indices)
             required_set = set(capacity_selected)
             unserved_required = sorted(set(selected) - required_set | fixed_unserved)
@@ -871,12 +977,17 @@ def run_policy(
                 operations=replace(
                     config.operations,
                     truck_capacity_kg=effective_truck_capacity,
-                    max_daily_trips=remaining_trips,
                 ),
             )
             optional_window_open = (
                 hour - last_optional_dispatch_hour
                 >= config.operations.smart_min_dispatch_gap_hours
+            )
+            multi_day_plan = optimize_multiday_pickups(
+                normalized,
+                bins_table,
+                decision_config,
+                active_destination_matrices,
             )
             dispatch_plan = build_dispatch_plan(
                 normalized,
@@ -887,6 +998,12 @@ def run_policy(
                 duration_matrix_s,
                 optional_dispatch_allowed=optional_window_open,
                 destination_matrices=active_destination_matrices,
+                trip_limits_by_stream=remaining_trips_by_stream,
+                scheduled_bin_indices=multi_day_plan.day_zero_bin_indices,
+            )
+            dispatch_plan = replace(
+                dispatch_plan,
+                multi_day_plan=multi_day_plan.to_dict(),
             )
             record("inspection_events", len(dispatch_plan.review_bin_indices))
             record(
@@ -934,19 +1051,27 @@ def run_policy(
             "route_solver_method": plan.solver_method,
             "routes": [
                 (
-                    ["DEPOT"]
-                    + [bins[index].bin_id for index in route if index != -1]
-                    + (
-                        [config.pilot.recycling_facility_id, "DEPOT"]
+                    [
+                        config.pilot.recycling_facility_id
                         if route_position < len(plan.route_destinations)
                         and plan.route_destinations[route_position]
-                        == "recycling_facility"
+                        == RECYCLING_FACILITY
+                        else "DEPOT"
+                    ]
+                    + [bins[index].bin_id for index in route if index != -1]
+                    + (
+                        [config.pilot.recycling_facility_id]
+                        if route_position < len(plan.route_destinations)
+                        and plan.route_destinations[route_position]
+                        == RECYCLING_FACILITY
                         else ["DEPOT"]
                     )
                 )
                 for route_position, route in enumerate(plan.routes)
             ],
             "route_destinations": list(plan.route_destinations),
+            "route_vehicle_types": list(plan.route_vehicle_types),
+            "route_vehicle_ids": list(plan.route_vehicle_ids),
             "route_bin_indices": plan.routes,
             "served_bins": [bins[index].bin_id for index in plan.served_bin_indices],
             "required_bins": [bins[index].bin_id for index in required_set],
@@ -956,6 +1081,9 @@ def run_policy(
             ) if policy == "smart" else len(capacity_selected),
             "unserved_required_bins": [bins[index].bin_id for index in unserved_required],
             "snapshot_rows": snapshot_rows,
+            "multi_day_plan": (
+                dispatch_plan.multi_day_plan if policy == "smart" else None
+            ),
             "predicted_growth_mean_pct": {
                 bins[index].bin_id: float(predicted_mean[index]) for index in capacity_selected
             },
@@ -984,7 +1112,11 @@ def run_policy(
             },
         }
         route_events.append(route_event)
-        truck_active = True
+        dispatched_vehicle_ids = set(plan.route_vehicle_ids)
+        if dispatched_vehicle_ids & active_vehicle_ids:
+            raise RuntimeError("A route was assigned to a truck that is already active")
+        active_vehicle_ids.update(dispatched_vehicle_ids)
+        route_event["active_vehicle_ids"] = sorted(dispatched_vehicle_ids)
         env.process(execute_plan(plan, route_event))
 
     def waste_process():
@@ -994,21 +1126,35 @@ def run_policy(
             spilled = np.maximum(unconstrained - capacities, 0)
             record("overflow_incidents", float(crossed.sum()))
             record("overflow_spilled_kg", float(spilled.sum()))
-            if truck_active and route_events and np.any(spilled > 0):
-                latest = route_events[-1]
-                current_status = (
-                    latest["timeline"][-1]["status"] if latest["timeline"] else "DISPATCHED"
-                )
-                timeline_event(
-                    latest,
-                    "OVERFLOW_DETECTED",
-                    truck_status=current_status,
-                    affected_bins=[
-                        bins[index].bin_id
-                        for index in np.flatnonzero(spilled > 0)
-                    ],
-                    spilled_kg=round(float(spilled.sum()), 3),
-                )
+            if active_vehicle_ids and route_events and np.any(spilled > 0):
+                # An event can contain both specialized trucks.  Record the
+                # overflow once on each still-active dispatch event rather than
+                # assuming the most recently created event owns the only truck.
+                active_events = []
+                for event in route_events:
+                    event_vehicle_ids = set(event.get("active_vehicle_ids", ()))
+                    if event_vehicle_ids & active_vehicle_ids:
+                        active_events.append(event)
+                for active_event in active_events:
+                    current_status = (
+                        active_event["timeline"][-1]["status"]
+                        if active_event["timeline"]
+                        else "DISPATCHED"
+                    )
+                    timeline_event(
+                        active_event,
+                        "OVERFLOW_DETECTED",
+                        truck_status=current_status,
+                        active_vehicle_ids=sorted(
+                            set(active_event.get("active_vehicle_ids", ()))
+                            & active_vehicle_ids
+                        ),
+                        affected_bins=[
+                            bins[index].bin_id
+                            for index in np.flatnonzero(spilled > 0)
+                        ],
+                        spilled_kg=round(float(spilled.sum()), 3),
+                    )
             hidden_mass[:] = np.minimum(unconstrained, capacities)
             record("overflow_bin_hours", float(np.count_nonzero(hidden_mass >= capacities)))
             yield env.timeout(60)
@@ -1120,7 +1266,7 @@ def run_policy(
         **assembled(totals),
         **assembled(post_warmup, "_post_warmup"),
         "uncollected_kg_at_horizon": float(hidden_mass.sum()),
-        "unfinished_trip_count": int(truck_active),
+        "unfinished_trip_count": len(active_vehicle_ids),
         "analysis_warmup_days": config.operations.analysis_warmup_days,
     }
     regime_rows = []

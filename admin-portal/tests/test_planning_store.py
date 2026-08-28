@@ -97,6 +97,8 @@ def test_active_trip_revision_freezes_leg_and_preserves_accepted_plan(tmp_path):
     clock = datetime(2026, 8, 27, 8, tzinfo=timezone.utc)
     snapshot = make_demo_snapshot(bins, clock)
     active = service.evaluate(snapshot, decision_at=clock)
+    assert active.plan.multi_day_plan is not None
+    assert active.plan.multi_day_plan["horizon_days"] == 3
     store.accept(active.plan.plan_id, "test-operator")
     first_route = active.plan.route_plan.routes[0]
     destination_index = next(index for index in first_route if index != -1)
@@ -115,10 +117,15 @@ def test_active_trip_revision_freezes_leg_and_preserves_accepted_plan(tmp_path):
     assert revision.remaining.stored_record["status"] == "DRAFT"
     assert revision.remaining.plan.plan_id != active.plan.plan_id
     assert revision.frozen_leg_destination == destination
+    assert revision.allowed_waste_stream in {"mixed_general_waste", "dry_recycling"}
     assert destination not in {
         str(bins.iloc[index]["bin_id"])
         for index in revision.remaining.plan.selected_bin_indices
     }
+    assert {
+        str(bins.iloc[index]["waste_stream"])
+        for index in revision.remaining.plan.selected_bin_indices
+    } <= {revision.allowed_waste_stream}
     store.close()
 
 

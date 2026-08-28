@@ -198,6 +198,11 @@ class OperationsConfig:
     truck_capacity_kg: float
     crane_lift_limit_kg: float
     max_daily_trips: int
+    general_waste_truck_count: int
+    recycling_truck_count: int
+    recycling_compartment_count: int
+    active_route_updates_enabled: bool
+    multi_day_planning_horizon_days: int
     service_minutes_per_bin: float
     depot_unload_minutes: float
     turnaround_minutes: float
@@ -479,6 +484,14 @@ def validate_config(config: Config) -> None:
         raise ValueError("smart_decision_hours must contain sensor-aligned hours in 0..23")
     if o.max_daily_trips < 1 or o.max_daily_trips > 20:
         raise ValueError("max_daily_trips must be in 1..20")
+    if not 1 <= o.general_waste_truck_count <= 10:
+        raise ValueError("general_waste_truck_count must be in 1..10")
+    if not 1 <= o.recycling_truck_count <= 10:
+        raise ValueError("recycling_truck_count must be in 1..10")
+    if o.recycling_compartment_count != 3:
+        raise ValueError("The four-bin demonstration requires three recycling compartments")
+    if not 2 <= o.multi_day_planning_horizon_days <= 7:
+        raise ValueError("multi_day_planning_horizon_days must be in 2..7")
     if any(
         w.material_capacity_kg(density) > o.crane_lift_limit_kg
         for _, _, _, _, density, _ in w.material_profiles

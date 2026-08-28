@@ -13,6 +13,8 @@ The portal is decision support, not an autonomous municipal dispatch system. Sit
 - A chronological multi-horizon forecaster trained on a separate 730-day pre-period; the 30-day operational window is excluded and hidden state is used only for labels/outcomes.
 - Three operator decisions: `COLLECTION_REQUIRED`, `INSPECTION_REQUIRED`, and `NO_COLLECTION_REQUIRED`, plus a trip-value gate that can defer a non-urgent route when waiting/merging is cheaper.
 - Prize-collecting OR-Tools routes over cached OSRM road distance and duration matrices. Emergency/service-level stops are mandatory; optional pickups are accepted only when their avoided-overflow value exceeds fixed-trip, distance, time, service and low-fill costs. Mass, compacted volume, route duration and daily trip limits are enforced.
+- Exactly two independent specialized vehicles: one general-waste truck based at the waste depot and one three-compartment recycling truck based at the recycling facility. Either truck can dispatch while the other is active; no surge vehicle is created.
+- Route-arrival deadlines include travel and all earlier stop-service time, so equal-deadline bins trigger an earlier departure instead of an extra truck. A three-day rolling optimizer assigns due work to days before same-day road ordering.
 - Minute-level SimPy execution with travel, per-bin service, unloading, turnaround, traffic, payload-dependent fuel, and overflow during an active trip.
 - A fair fixed baseline whose first collection occurs after its configured interval, plus a three-day common warm-up report for both policies.
 - Eleven paired scenarios spanning normal patterns, seasonal/event demand, persistent/local surges, trend/change point, traffic, sensor failure, reduced capacity and combined stress.
@@ -30,13 +32,14 @@ The portal is decision support, not an autonomous municipal dispatch system. Sit
 | Depot | Provisional Subang Jaya/Batu Tiga point at 3.06192, 101.55272 |
 | Recycling destination | Provisional MBSJ USJ 9 Recycling Centre at 3.04547, 101.58697 |
 | Vehicle archetype | VDL Maxxum/UGS underground-container collection system |
-| Route payload assumption | 9,000 kg, maximum 2 trips per calendar day |
+| Fleet | 1 general-waste truck + 1 three-compartment recycling truck (1:1) |
+| Route payload assumption | 9,000 kg per truck, maximum 2 trips per truck per calendar day |
 
 The four-bin change affects the local demonstration and simulator only. It does not fabricate a fourth live hardware channel.
 
 ## Evidence status
 
-Evidence artifacts are accepted by the website only when their recorded configuration hash matches the active four-bin configuration. The current `artifacts/four-bin-smoke/` set contains two paired normal-scenario replications for integration verification only. It reduced wasted pickups and overflow in those seeds but increased trips and distance, so it is **not** a performance or production-deployment claim. The older 33-bin studies remain historical references and are no longer presented as current evidence.
+Evidence artifacts are accepted by the website only when their recorded configuration hash matches the active four-bin configuration. The current `artifacts/dynamic_v2/` set contains two paired 30-day replications for each of eleven scenarios and supplies the GENERAL-01 and RECYCLING-01 live-tracking replays. It is integration verification only: the smart policy improved several overflow/selectivity outcomes but increased trips and distance, so it is **not** a performance or production-deployment claim. The older 33-bin studies remain historical references and are no longer presented as current evidence.
 
 ## Run on Windows
 
@@ -55,7 +58,9 @@ Ordinary reruns use the committed road matrices. Use `--refresh-map` only when d
 
 ## Routing demonstration and integration contracts
 
-The portal's **Routing demo** is deliberately demonstration-only: it loads the complete configured 44-bin scenario automatically, shows a 12-row preview, and evaluates all bins when the operator runs it. Manual CSV/JSON upload and paste controls are not exposed in the presentation UI.
+The portal's **Routing demo** is deliberately demonstration-only: it loads the complete configured 44-bin scenario automatically, shows a 12-row preview, and evaluates all bins when the operator runs it. UGB-001 and UGB-005 share a 6.3-hour overflow deadline so the preview visibly demonstrates one truck leaving early and reaching both stops on time. Manual CSV/JSON upload and paste controls are not exposed in the presentation UI.
+
+The **Mock live tracking** tab replays completed routes from the current 30-day artifact. The operator can select GENERAL-01 or RECYCLING-01. Each site marker is a forecast-fill gauge: grey is empty, its filled height is the fullest of the site's four bins, and its color approaches red at 100%; collection resets the serviced bin to zero in the playback.
 
 The integration and command-line adapters remain documented for engineering use. The competition snapshot has one row for each `UGB-001` through `UGB-044`. The preferred telemetry-routing 2.1 envelope still contains only the three registered physical-pilot fill channels and carries per-bin event kind, bin type/waste stream, timing, availability, quality and forecast provenance. That live profile therefore cannot claim complete four-bin coverage. Vision recognition/session events remain outside routing. See [TELEMETRY_ROUTING_CONTRACT.md](../docs/TELEMETRY_ROUTING_CONTRACT.md).
 

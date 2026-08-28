@@ -285,12 +285,6 @@ def _run_task(task: dict) -> dict:
         destination_matrices={
             "recycling_facility": (recycling_distance, recycling_duration)
         },
-        destination_return_legs={
-            "recycling_facility": (
-                float(service_network.distance_matrix_m[1, 0]),
-                float(service_network.duration_matrix_s[1, 0]),
-            )
-        },
     )
     row = {
         "candidate": candidate,

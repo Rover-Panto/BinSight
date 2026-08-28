@@ -186,6 +186,32 @@ def expand_bin_duration_matrix(
     return service_network.duration_matrix_s[np.ix_(indices, indices)].copy()
 
 
+def expand_base_distance_matrix(
+    service_network: ServiceNetwork,
+    bin_service_indices: Iterable[int],
+    base_service_index: int,
+) -> np.ndarray:
+    """Build a loop matrix whose virtual node zero is a vehicle's real base."""
+    base = int(base_service_index)
+    indices = [base] + [int(index) for index in bin_service_indices]
+    if any(index < 0 or index >= service_network.service_count for index in indices):
+        raise ValueError("Base or bin service index is outside the OSRM service network")
+    return service_network.distance_matrix_m[np.ix_(indices, indices)].copy()
+
+
+def expand_base_duration_matrix(
+    service_network: ServiceNetwork,
+    bin_service_indices: Iterable[int],
+    base_service_index: int,
+) -> np.ndarray:
+    """Duration counterpart to :func:`expand_base_distance_matrix`."""
+    base = int(base_service_index)
+    indices = [base] + [int(index) for index in bin_service_indices]
+    if any(index < 0 or index >= service_network.service_count for index in indices):
+        raise ValueError("Base or bin service index is outside the OSRM service network")
+    return service_network.duration_matrix_s[np.ix_(indices, indices)].copy()
+
+
 def expand_destination_distance_matrix(
     service_network: ServiceNetwork,
     bin_service_indices: Iterable[int],

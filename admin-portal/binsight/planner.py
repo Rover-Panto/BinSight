@@ -14,6 +14,7 @@ import pandas as pd
 
 from .config import Config
 from .dispatch import DispatchPlan, POLICY_VERSION, build_dispatch_plan, validate_snapshot
+from .multiday import optimize_multiday_pickups
 from .planning_store import PlanningStore
 from .routing import RoutePlan
 
@@ -33,6 +34,8 @@ class DynamicRouteRevision:
     frozen_leg_destination: str
     completed_bin_ids: tuple[str, ...]
     remaining: PlanningResult
+    vehicle_type: str
+    allowed_waste_stream: str
     start_location_semantics: str = "after frozen leg service completes"
 
 
@@ -193,6 +196,16 @@ class PlanningService:
             optional_dispatch_allowed = (
                 elapsed_hours >= self.config.operations.smart_min_dispatch_gap_hours
             )
+        planning_matrices = {
+            "waste_depot": (self.distance_matrix_m, self.duration_matrix_s),
+            **self.destination_matrices,
+        }
+        multi_day_plan = optimize_multiday_pickups(
+            normalized,
+            self.bins,
+            self.config,
+            planning_matrices,
+        )
         plan = build_dispatch_plan(
             normalized,
             self.bins,
@@ -202,7 +215,9 @@ class PlanningService:
             self.duration_matrix_s,
             optional_dispatch_allowed=optional_dispatch_allowed,
             destination_matrices=self.destination_matrices,
+            scheduled_bin_indices=multi_day_plan.day_zero_bin_indices,
         )
+        plan = replace(plan, multi_day_plan=multi_day_plan.to_dict())
         bucket_seconds = self.config.operations.dynamic_replan_interval_minutes * 60
         bucket = int(clock.timestamp()) // bucket_seconds
         assumptions = {
@@ -217,7 +232,11 @@ class PlanningService:
                 "body_volume_m3": self.config.operations.truck_body_volume_m3,
                 "compaction_ratio": self.config.operations.truck_compaction_ratio,
                 "max_daily_trips": self.config.operations.max_daily_trips,
+                "general_waste_trucks": self.config.operations.general_waste_truck_count,
+                "recycling_trucks": self.config.operations.recycling_truck_count,
+                "recycling_compartments": self.config.operations.recycling_compartment_count,
             },
+            "multi_day_plan": multi_day_plan.to_dict(),
         }
         idempotency_material = json.dumps(
             [source_identity_ids, bucket, assumptions], sort_keys=True, separators=(",", ":")
@@ -251,6 +270,7 @@ class PlanningService:
         completed_bin_ids: set[str],
         current_payload_kg: float = 0.0,
         current_payload_m3: float = 0.0,
+        vehicle_type: str | None = None,
         decision_at: datetime | None = None,
         last_valid_readings: dict | None = None,
     ) -> DynamicRouteRevision:
@@ -261,12 +281,29 @@ class PlanningService:
         Only the current trip is revised; later depot departures are evaluated
         as separate proposals after unload/turnaround.
         """
+        if not self.config.operations.active_route_updates_enabled:
+            raise ValueError("Active-route updates are disabled by configuration")
         active = self.store.get_plan(active_plan_id)
         if active["status"] != "ACCEPTED":
             raise ValueError("Dynamic replanning requires an accepted active route")
         bin_ids = self.bins["bin_id"].astype(str).tolist()
         if frozen_leg_destination not in bin_ids:
             raise ValueError("Frozen destination is not in the configured district")
+        frozen_index = bin_ids.index(frozen_leg_destination)
+        frozen_stream = str(self.bins.iloc[frozen_index]["waste_stream"])
+        inferred_vehicle_type = (
+            "recycling" if frozen_stream == "dry_recycling" else "general_waste"
+        )
+        active_vehicle_type = vehicle_type or inferred_vehicle_type
+        allowed_stream = (
+            "dry_recycling"
+            if active_vehicle_type == "recycling"
+            else "mixed_general_waste"
+        )
+        if active_vehicle_type not in {"general_waste", "recycling"}:
+            raise ValueError("vehicle_type must be general_waste or recycling")
+        if frozen_stream != allowed_stream:
+            raise ValueError("The frozen stop is incompatible with the active vehicle type")
         unknown_completed = set(completed_bin_ids) - set(bin_ids)
         if unknown_completed:
             raise ValueError(f"Unknown completed bins: {sorted(unknown_completed)}")
@@ -294,6 +331,9 @@ class PlanningService:
             adjusted["model_version"] = None
             adjusted["quality_flags"] = [tuple() for _ in range(len(adjusted))]
         finished = set(completed_bin_ids) | {frozen_leg_destination}
+        incompatible = ~self.bins["waste_stream"].astype(str).eq(allowed_stream)
+        incompatible_ids = set(self.bins.loc[incompatible, "bin_id"].astype(str))
+        finished |= incompatible_ids
         mask = adjusted["bin_id"].astype(str).isin(finished)
         adjusted.loc[mask, "fill_pct"] = 0.0
         adjusted.loc[mask, "weight_kg"] = 0.0
@@ -303,7 +343,7 @@ class PlanningService:
         if "forecast_status" in adjusted.columns:
             adjusted.loc[mask, "forecast_status"] = "stable_no_overflow"
 
-        start_index = bin_ids.index(frozen_leg_destination) + 1
+        start_index = frozen_index + 1
         distance = np.array(self.distance_matrix_m, copy=True)
         duration = np.array(self.duration_matrix_s, copy=True)
         distance[0, :] = self.distance_matrix_m[start_index, :]
@@ -355,6 +395,8 @@ class PlanningService:
             frozen_leg_destination=frozen_leg_destination,
             completed_bin_ids=tuple(sorted(completed_bin_ids)),
             remaining=result,
+            vehicle_type=active_vehicle_type,
+            allowed_waste_stream=allowed_stream,
         )
 
 

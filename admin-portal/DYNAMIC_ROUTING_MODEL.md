@@ -33,7 +33,15 @@ A stop is mandatory when any of these apply:
 
 Low-confidence/stale evidence is retained for inspection and capacity conservatism but cannot by itself convert a model forecast into an automatic trip. Independent upstream `critical` evidence remains service-relevant. Lower 65–85% uncertainty boundaries proved too aggressive because a one-sided margin or isolated outlier could turn ordinary mid-fill readings into mandatory departures.
 
-Mandatory stops can still require operator inspection. If mass, volume or route-time constraints cannot serve them, dispatch is blocked and the bins are recorded as unserved required stops.
+Mandatory stops can still require operator inspection. If mass, volume or route-time constraints cannot serve them, the affected bins are recorded as unserved required stops. If the bins physically fit but their forecast arrival deadlines are already mutually impossible, the deadline guarantee is relaxed explicitly, the truck leaves immediately, and the route is labelled `deadline_infeasible_serve_asap`; the UI must not describe those late stops as on time.
+
+Arrival time is a route constraint, not just a bin-selection threshold. For a selected bin (i), the modeled arrival (A_i) includes road travel plus service time at every earlier stop and must satisfy:
+
+\[
+A_i \le 3600T_i
+\]
+
+The decision also checks whether waiting for the next planning opportunity (H) would make the route late. A bin becomes due now when (H+A_i\ge T_i). Bins in the same stream with the same or earlier deadline are promoted together, so two bins forecast to overflow at the same time cause one earlier departure rather than a second vehicle. The route preview reports each planned arrival, deadline and remaining margin.
 
 ## Trip-value objective
 
@@ -70,9 +78,11 @@ The route solver minimizes:
 +\sum B_i(1-y_i)
 \]
 
-subject to route flow, a 9,000 kg mass limit, 22 m³ compacted-body limit, two daily trips, 480-minute route limit, mandatory-stop service and stable tie-breaking. OR-Tools disjunctions implement optional skip penalties.
+subject to route flow, a 9,000 kg mass limit, 22 m³ compacted-body limit, two daily trips per specialized truck, a 480-minute route limit, mandatory-stop service, arrival deadlines and stable tie-breaking. OR-Tools disjunctions implement optional skip penalties.
 
-Registered `waste_stream` values are also hard constraints. General waste and dry recycling are solved separately under the same daily trip limit. Plastic, metal and glass remain separate monitored bins but share the configured dry-recycling truck stream. General routes start and end at the waste depot. Recycling routes are costed and displayed as `depot -> selected recycling bins -> USJ 9 recycling facility -> depot`; their bin-to-end arc includes both facility unloading access and the return to the depot. No generated trip mixes general waste with recycling.
+Registered `waste_stream` values are also hard constraints. The configured fleet is exactly one `GENERAL-01` truck based at the waste depot and one `RECYCLING-01` truck based at the USJ 9 recycling facility. Plastic, metal and glass remain separate monitored bins and occupy three sealed, movable compartments on the recycling truck; the prototype constrains their combined payload and compacted volume while assuming the partitions can move. General routes are `waste depot -> general bins -> waste depot`. Recycling routes are `recycling facility -> plastic/metal/glass bins -> recycling facility`. No generated trip mixes general waste with recycling, and a general truck never visits the recycling facility.
+
+Each truck has its own daily trip allowance. The two physical trucks are independent: `RECYCLING-01` may be dispatched while `GENERAL-01` is active and vice versa. A second route for the same truck waits for its return, unload and turnaround; the planner never creates a surge or reserve vehicle.
 
 Here `E_i` is the central fused fill estimate before the one-sided safety margin. Safety selection and capacity use conservative `U_i`; low-fill economics use `E_i` so an uncertainty margin does not erase the cost of an expected low-fill pickup.
 
@@ -98,11 +108,13 @@ The simulation evaluates at every six-hour sensor observation. Non-mandatory pos
 
 Repeated inputs are idempotent within the interval, but elapsed time creates a new decision snapshot because observation age changes. Draft proposals never overwrite an accepted route.
 
+A deterministic three-day rolling-horizon CP-SAT assignment schedules forecast-due work no later than its service day under each specialized stream's trip, mass and volume limits. It chooses days and site groupings; the same-day OR-Tools solver still determines exact road order and enforces arrival deadlines.
+
 A completed service is a durable planning event. For six hours it supersedes delayed pre-service readings with a confirmed-empty state, preventing immediate duplicate collection. That override then expires: without a genuinely newer post-service acquisition, fill and weight become unknown, the forecast becomes unavailable, and the bin is sent to inspection. The service plan ID and service timestamp remain separate durable facts, so the system neither forgets the collection nor claims the bin stays empty forever.
 
-## Current four-bin smoke evidence
+## Current 30-day integration evidence
 
-The bounded `four-bin-smoke` run contains two paired normal-scenario replications. It verified end-to-end execution with no routing fallbacks or unfinished trips. Mean wasted pickups fell from 197.5 to 39.5 and mean overflow incidents fell from 6 to 4, while mean distance increased from 766.0 km to 1,273.6 km and trips increased from 18 to 36. Two replications are not inferential evidence. The result shows that the current safety settings do not yet satisfy the distance objective, so dynamic routing remains demonstration/shadow-mode logic rather than a proven replacement for the fixed schedule.
+The active `dynamic_v2` artifact contains two paired 30-day replications in each of eleven declared scenarios. It verifies the two specialized bases, independent dispatch, three-day scheduling, arrival-deadline routing and completed GENERAL-01/RECYCLING-01 tracking. In normal patterned demand, mean spilled mass fell from 71.40 kg to 39.82 kg and wasted pickups fell from 199.5 to 32.0, but mean overflow incidents rose from 1.5 to 2.0, distance rose from 593.35 km to 914.94 km and trips rose from 18.5 to 37.0. High-demand and combined-stress seeds showed much lower overflow under the smart policy but substantially more distance and trips. Two replications are functional evidence only, not inference or a field-performance claim. The distance objective remains unresolved, so dynamic routing remains demonstration/shadow-mode logic rather than a proven replacement for the fixed schedule.
 
 ### Distance-coefficient tuning result
 
@@ -110,9 +122,9 @@ A separate bounded tuning study screened emergency-fill thresholds, optional-rou
 
 A follow-up structural screen also rejected optional-route batch gates, marginal-detour caps, deadline admission and longer search budgets. A bounded asymmetric 2-opt pass was allowed to reorder the same stops only when road distance fell and no mandatory stop arrived later. Even that locally safe edit failed the untouched system-level confirmation because changed route completion times altered later decisions: normal distance rose 2.5% and high-demand distance rose 0.5%, with worse overflow duration. The implementation is retained for reproducible testing but `route_post_optimization_enabled` is `false`. No rejected policy is active.
 
-Further distance reduction requires eliminating a physical deadhead leg rather than retuning selection thresholds. The next candidate is to continue from a recycling-facility unload directly into the next compatible trip. It requires a trusted facility-to-site matrix and explicit confirmation that the vehicle does not need to return to the depot for crew, inspection or turnaround between trips.
+The facility-origin deadhead hypothesis is now implemented: recycling routes begin and end at the facility and no longer make a waste-depot leg. Remaining distance growth comes primarily from the smart policy dispatching more often to satisfy overflow timing. Further work must improve compatible-stop consolidation and calibrate service costs without relaxing the arrival service constraint.
 
-For an active route, the current leg is frozen. `PlanningService.replan_remaining_after_event()` uses the frozen destination as the start of a new suffix, excludes completed/current-service bins, applies residual mass and volume, and writes a separate draft referencing the active accepted plan. Operator acceptance remains required.
+For an active route, the current leg is frozen. `PlanningService.replan_remaining_after_event()` uses the frozen destination as the start of a new suffix, excludes completed/current-service bins and incompatible waste streams, applies residual mass and volume, and writes a separate draft referencing the active accepted plan. This lets a non-full general truck receive updated general-waste work while it is out without sending it to the recycling facility. Operator acceptance remains required.
 
 ## Forecast validation
 

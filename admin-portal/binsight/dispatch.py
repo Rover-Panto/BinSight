@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from .config import Config
+from .fleet import assign_route_vehicles, vehicle_limit_for_stream
 from .routing import (
     RoutePlan,
     select_dual_capacity_feasible,
@@ -71,6 +72,7 @@ class DispatchPlan:
     source_event_ids: tuple[str, ...] = ()
     decision_at: str = ""
     deferred_bin_indices: list[int] | None = None
+    multi_day_plan: dict[str, Any] | None = None
 
     @property
     def selected_count(self) -> int:
@@ -391,8 +393,13 @@ def make_demo_snapshot(bins: pd.DataFrame, timestamp: datetime | None = None) ->
     )
 
     examples = {
+        # Two general-waste bins share one overflow deadline.  Waiting for the
+        # next six-hour planning cycle would leave too little time to reach the
+        # first bin, service it, and then reach the second, so this pair makes
+        # the early-departure constraint visible in the route preview.
+        "UGB-001": (80.0, 6.3, "high", True),
         "UGB-004": (94.0, 6.0, "critical", True),
-        "UGB-005": (58.0, 64.0, "medium", True),
+        "UGB-005": (80.0, 6.3, "high", True),
         "UGB-013": (82.0, 30.0, "high", True),
         "UGB-025": (76.0, 40.0, "high", False),
         "UGB-026": (52.0, 70.0, "medium", True),
@@ -422,6 +429,8 @@ def build_dispatch_plan(
     *,
     optional_dispatch_allowed: bool = True,
     destination_matrices: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
+    trip_limits_by_stream: dict[str, int] | None = None,
+    scheduled_bin_indices: Iterable[int] | None = None,
 ) -> DispatchPlan:
     """Build a dynamic safety-constrained, trip-value collection proposal."""
     if snapshot["bin_id"].tolist() != bins["bin_id"].astype(str).tolist():
@@ -446,6 +455,16 @@ def build_dispatch_plan(
             raise ValueError(
                 f"Duration matrix for {destination_id} must contain the depot plus every bin"
             )
+    stream_values = (
+        bins["waste_stream"].fillna("mixed_general_waste").astype(str).tolist()
+        if "waste_stream" in bins.columns
+        else ["mixed_general_waste"] * len(bins)
+    )
+    destination_values = (
+        bins["destination_id"].fillna("waste_depot").astype(str).tolist()
+        if "destination_id" in bins.columns
+        else ["waste_depot"] * len(bins)
+    )
 
     fill_pct = snapshot["fill_pct"].to_numpy(dtype=float)
     weights = snapshot["weight_kg"].to_numpy(dtype=float)
@@ -453,6 +472,24 @@ def build_dispatch_plan(
     risk = snapshot["risk_level"].to_numpy(dtype=object)
     confidence = snapshot["confidence_flag"].to_numpy(dtype=bool)
     operations = config.operations
+    scheduled_indices = {
+        int(index)
+        for index in (scheduled_bin_indices or ())
+        if 0 <= int(index) < len(bins)
+    }
+    explicit_trip_limits = dict(trip_limits_by_stream or {})
+
+    def stream_trip_limit(stream: str) -> int:
+        return max(
+            0,
+            int(
+                explicit_trip_limits.get(
+                    stream,
+                    vehicle_limit_for_stream(stream, operations),
+                )
+            ),
+        )
+
     capacities = bins["capacity_kg"].to_numpy(dtype=float)
     capacity_litres = np.full(
         len(bins), config.waste.bin_capacity_litres, dtype=float
@@ -687,11 +724,88 @@ def build_dispatch_plan(
             probability = float(model_probability[index])
         overflow_probability[index] = min(1.0, probability)
 
+    deadline_evidence = confidence & ~stale & np.isfinite(effective_tto)
+    direct_travel_hours = np.full(len(bins), np.inf, dtype=float)
+    for index, destination_id in enumerate(destination_values):
+        matrices = destination_matrices.get(destination_id)
+        if matrices is not None:
+            direct_travel_hours[index] = float(matrices[1][0, index + 1]) / 3600.0
+    deadline_already_missed = (
+        deadline_evidence
+        & np.isfinite(direct_travel_hours)
+        & (effective_tto <= direct_travel_hours)
+    )
+    arrival_deadline_s = np.full(len(bins), np.inf, dtype=float)
+    enforceable_deadline = deadline_evidence & ~deadline_already_missed
+    arrival_deadline_s[enforceable_deadline] = np.maximum(
+        0.0, effective_tto[enforceable_deadline] * 3600.0
+    )
+    anticipated_route_arrival_hours = np.full(len(bins), np.inf, dtype=float)
+    for stream in sorted(set(stream_values)):
+        stream_indices = [
+            index
+            for index in range(len(bins))
+            if stream_values[index] == stream and deadline_evidence[index]
+        ]
+        if not stream_indices:
+            continue
+        stream_indices.sort(
+            key=lambda index: (
+                effective_tto[index],
+                str(bins.iloc[index]["bin_id"]),
+            )
+        )
+        matrices = destination_matrices.get(destination_values[stream_indices[0]])
+        if matrices is None:
+            continue
+        duration = matrices[1]
+        elapsed_s = 0.0
+        origin_location = 0
+        for position, index in enumerate(stream_indices):
+            destination_location = index + 1
+            elapsed_s += float(duration[origin_location, destination_location])
+            anticipated_route_arrival_hours[index] = elapsed_s / 3600.0
+            if position < len(stream_indices) - 1:
+                elapsed_s += operations.service_minutes_per_bin * 60.0
+            origin_location = destination_location
+    # Waiting for the next sensor-aligned planning opportunity is unsafe when
+    # one dedicated truck could not reach the bin in earliest-deadline order.
+    # This includes travel and service at other bins with earlier deadlines.
+    travel_deadline_required = (
+        deadline_evidence
+        & np.isfinite(anticipated_route_arrival_hours)
+        & (
+            effective_tto
+            <= operations.next_planning_opportunity_hours
+            + anticipated_route_arrival_hours
+        )
+    )
+    for stream in sorted(set(stream_values)):
+        anchors = [
+            index
+            for index in range(len(bins))
+            if stream_values[index] == stream and travel_deadline_required[index]
+        ]
+        if not anchors:
+            continue
+        latest_anchor_deadline = max(effective_tto[index] for index in anchors)
+        travel_deadline_required |= np.array(
+            [
+                stream_values[index] == stream
+                and deadline_evidence[index]
+                and effective_tto[index] <= latest_anchor_deadline + 1e-9
+                for index in range(len(bins))
+            ],
+            dtype=bool,
+        )
+
     mandatory = sorted(
         (
             index
             for index in range(len(bins))
             if risk[index] == "critical"
+            or deadline_already_missed[index]
+            or travel_deadline_required[index]
             or (
                 confidence[index]
                 and not stale[index]
@@ -729,14 +843,25 @@ def build_dispatch_plan(
         capacity_litres / 1000.0 / operations.truck_compaction_ratio,
     )
     truck_volume_m3 = operations.truck_body_volume_m3
-    feasible_mandatory, unserved_required = select_dual_capacity_feasible(
-        mandatory,
-        conservative_weight,
-        compacted_volume_m3,
-        operations.truck_capacity_kg,
-        truck_volume_m3,
-        operations.max_daily_trips,
-    )
+    feasible_mandatory: list[int] = []
+    unserved_required: list[int] = []
+    for stream in sorted({stream_values[index] for index in mandatory}):
+        stream_mandatory = [
+            index for index in mandatory if stream_values[index] == stream
+        ]
+        if stream_trip_limit(stream) <= 0:
+            unserved_required.extend(stream_mandatory)
+            continue
+        stream_feasible, stream_unserved = select_dual_capacity_feasible(
+            stream_mandatory,
+            conservative_weight,
+            compacted_volume_m3,
+            operations.truck_capacity_kg,
+            truck_volume_m3,
+            stream_trip_limit(stream),
+        )
+        feasible_mandatory.extend(stream_feasible)
+        unserved_required.extend(stream_unserved)
     feasible_mandatory_set = set(feasible_mandatory)
     mandatory_services = {
         int(bins.iloc[index]["service_index"]) for index in feasible_mandatory
@@ -790,6 +915,14 @@ def build_dispatch_plan(
             candidate_set.add(index)
         if is_sibling:
             sibling_candidates.add(index)
+
+    candidate_set.update(
+        index
+        for index in scheduled_indices
+        if confidence[index]
+        and not stale[index]
+        and np.isfinite(conservative_fill[index])
+    )
 
     # A fresh uncertain/high-fill bin may join a scheduled batch only when its
     # site already has at least two confident eligible bins (or mandatory
@@ -856,17 +989,6 @@ def build_dispatch_plan(
             str(bins.iloc[index]["bin_id"]),
         ),
     )
-    stream_values = (
-        bins["waste_stream"].fillna("mixed_general_waste").astype(str).tolist()
-        if "waste_stream" in bins.columns
-        else ["mixed_general_waste"] * len(bins)
-    )
-    destination_values = (
-        bins["destination_id"].fillna("waste_depot").astype(str).tolist()
-        if "destination_id" in bins.columns
-        else ["waste_depot"] * len(bins)
-    )
-
     def stream_destination_and_matrices(
         indices: list[int],
     ) -> tuple[str, np.ndarray, np.ndarray]:
@@ -899,6 +1021,15 @@ def build_dispatch_plan(
             solver_method="value_none",
             dispatch_reason="no_candidate",
         )
+    elif len(candidate_streams) <= 1 and stream_trip_limit(candidate_streams[0]) <= 0:
+        route_plan = RoutePlan(
+            routes=[],
+            distance_m=0,
+            served_bin_indices=[],
+            solver_method="stream_trip_limit",
+            dropped_bin_indices=candidates,
+            dispatch_reason="stream_trip_limit",
+        )
     elif len(candidate_streams) <= 1:
         destination_id, active_distance_matrix, active_duration_matrix = (
             stream_destination_and_matrices(candidates)
@@ -913,7 +1044,7 @@ def build_dispatch_plan(
             skip_penalties,
             operations.truck_capacity_kg,
             truck_volume_m3,
-            operations.max_daily_trips,
+            stream_trip_limit(candidate_streams[0]),
             operations.service_minutes_per_bin * 60.0,
             operations.max_route_duration_minutes * 60.0,
             operations.route_fixed_cost_m_equivalent,
@@ -923,6 +1054,7 @@ def build_dispatch_plan(
             operations.route_solver_milliseconds,
             minimum_net_value_m_equivalent=operations.minimum_route_value_m,
             post_optimize=operations.route_post_optimization_enabled,
+            arrival_deadline_s_by_bin=arrival_deadline_s,
         )
         route_plan = replace(
             route_plan,
@@ -930,7 +1062,6 @@ def build_dispatch_plan(
         )
     else:
         stream_plans: list[RoutePlan] = []
-        remaining_trips = operations.max_daily_trips
         for stream in sorted(
             candidate_streams,
             key=lambda value: (
@@ -949,7 +1080,7 @@ def build_dispatch_plan(
             stream_mandatory = [
                 index for index in feasible_mandatory if stream_values[index] == stream
             ]
-            if remaining_trips <= 0:
+            if stream_trip_limit(stream) <= 0:
                 stream_plans.append(
                     RoutePlan(
                         [],
@@ -971,7 +1102,7 @@ def build_dispatch_plan(
                 skip_penalties,
                 operations.truck_capacity_kg,
                 truck_volume_m3,
-                remaining_trips,
+                stream_trip_limit(stream),
                 operations.service_minutes_per_bin * 60.0,
                 operations.max_route_duration_minutes * 60.0,
                 operations.route_fixed_cost_m_equivalent,
@@ -981,13 +1112,13 @@ def build_dispatch_plan(
                 operations.route_solver_milliseconds,
                 minimum_net_value_m_equivalent=operations.minimum_route_value_m,
                 post_optimize=operations.route_post_optimization_enabled,
+                arrival_deadline_s_by_bin=arrival_deadline_s,
             )
             stream_plan = replace(
                 stream_plan,
                 route_destinations=[destination_id] * len(stream_plan.routes),
             )
             stream_plans.append(stream_plan)
-            remaining_trips -= len(stream_plan.routes)
         combined_routes = [route for plan in stream_plans for route in plan.routes]
         route_plan = RoutePlan(
             routes=combined_routes,
@@ -1009,6 +1140,11 @@ def build_dispatch_plan(
             ],
             route_volumes_m3=[
                 value for plan in stream_plans for value in plan.route_volumes_m3
+            ],
+            route_arrival_times_s=[
+                value
+                for plan in stream_plans
+                for value in plan.route_arrival_times_s
             ],
             objective_cost_m_equivalent=sum(
                 plan.objective_cost_m_equivalent for plan in stream_plans
@@ -1037,6 +1173,7 @@ def build_dispatch_plan(
                 for destination in plan.route_destinations
             ],
         )
+    route_plan = assign_route_vehicles(route_plan, operations)
     served_set = set(route_plan.served_bin_indices)
     unserved_required = sorted(set(unserved_required) | (set(mandatory) - served_set))
     selected_siblings = sorted(served_set & sibling_candidates)
@@ -1059,6 +1196,12 @@ def build_dispatch_plan(
     if route_plan.distance_m > distance_budget_m and mandatory:
         warnings.append(
             "The required route exceeds the optional 30 km planning budget; safety-critical bins were retained."
+        )
+    if "deadline_relaxed" in route_plan.solver_method:
+        warnings.append(
+            "The mandatory arrival deadlines could not all be met from the current decision time. "
+            "The route is dispatched immediately to serve them as soon as physically feasible; "
+            "the preview must not describe every stop as on time."
         )
     over_nominal = [
         index
@@ -1106,6 +1249,12 @@ def build_dispatch_plan(
         if np.isfinite(effective_tto[index]) and effective_tto[index] <= operations.smart_dispatch_time_to_overflow_hours:
             method = "forecast" if forecast_available[index] else "fallback"
             reasons.append(f"{method} overflow horizon {effective_tto[index]:g}h")
+        if travel_deadline_required[index]:
+            reasons.append(
+                "dispatch now: next planning opportunity plus earlier-deadline route work would miss overflow deadline"
+            )
+        if deadline_already_missed[index]:
+            reasons.append("overflow deadline already inside direct travel time; serve immediately")
         if conservative_fill[index] >= operations.smart_dispatch_current_trigger_pct:
             reasons.append(f"conservative upper fill {conservative_fill[index]:.1f}%")
         if not reasons:
@@ -1358,18 +1507,69 @@ def mock_dispatch_payload(
             else "waste_depot"
         )
         bin_stops = [str(bins.iloc[index]["bin_id"]) for index in route if index != -1]
-        stops = ["DEPOT", *bin_stops]
+        vehicle_id = (
+            plan.route_plan.route_vehicle_ids[route_position]
+            if route_position < len(plan.route_plan.route_vehicle_ids)
+            else "GENERAL-01"
+        )
+        vehicle_type = (
+            plan.route_plan.route_vehicle_types[route_position]
+            if route_position < len(plan.route_plan.route_vehicle_types)
+            else "general_waste"
+        )
         if destination_id == "recycling_facility":
-            stops.extend([config.pilot.recycling_facility_id, "DEPOT"])
+            stops = [config.pilot.recycling_facility_id, *bin_stops, config.pilot.recycling_facility_id]
         else:
-            stops.append("DEPOT")
+            stops = ["DEPOT", *bin_stops, "DEPOT"]
         routes.append(
             {
                 "trip_number": trip_number,
-                "vehicle_id": "MOCK-TRUCK-01",
+                "vehicle_id": vehicle_id,
+                "vehicle_type": vehicle_type,
                 "stops": stops,
                 "unload_destination": destination_id,
                 "estimated_load_kg": round(load, 1),
+                "planned_arrivals": [
+                    {
+                        "bin_id": str(bins.iloc[index]["bin_id"]),
+                        "arrival_minutes_after_dispatch": round(
+                            float(
+                                plan.route_plan.route_arrival_times_s[route_position].get(
+                                    index, 0.0
+                                )
+                            )
+                            / 60.0,
+                            1,
+                        ),
+                        "overflow_deadline_hours": (
+                            plan.audit_rows[index].get("time_to_overflow_hours")
+                        ),
+                        "deadline_margin_minutes": (
+                            round(
+                                float(
+                                    plan.audit_rows[index]["time_to_overflow_hours"]
+                                )
+                                * 60.0
+                                - float(
+                                    plan.route_plan.route_arrival_times_s[
+                                        route_position
+                                    ].get(index, 0.0)
+                                )
+                                / 60.0,
+                                1,
+                            )
+                            if plan.audit_rows[index].get(
+                                "time_to_overflow_hours"
+                            )
+                            is not None
+                            else None
+                        ),
+                    }
+                    for index in route
+                    if index != -1
+                    and route_position
+                    < len(plan.route_plan.route_arrival_times_s)
+                ],
             }
         )
     return {
@@ -1383,7 +1583,9 @@ def mock_dispatch_payload(
         "policy_version": plan.policy_version,
         "source_mode": plan.source_mode,
         "source_event_ids": list(plan.source_event_ids),
-        "vehicle_id": "MOCK-TRUCK-01",
+        "vehicle_id": (
+            routes[0]["vehicle_id"] if len(routes) == 1 else "MULTI-VEHICLE"
+        ),
         "depot": {
             "label": config.pilot.depot_label,
             "latitude": config.pilot.depot_lat,

@@ -55,3 +55,64 @@ def test_compacted_volume_constraint_prevents_an_overfilled_trip():
     assert len(plan.served_bin_indices) == 1
     assert len(plan.dropped_bin_indices) == 1
     assert plan.route_volumes_m3[0] <= 1.0
+
+
+def test_one_truck_orders_equal_deadlines_so_both_arrivals_are_on_time():
+    distance = np.array(
+        [[0, 100, 100], [100, 0, 100], [100, 100, 0]], dtype=int
+    )
+    duration = distance.astype(float)
+    plan = solve_value_routes(
+        [0, 1],
+        [0, 1],
+        np.array([50.0, 50.0]),
+        np.array([0.1, 0.1]),
+        distance,
+        duration,
+        np.array([1000.0, 1000.0]),
+        100.0,
+        1.0,
+        1,
+        60.0,
+        3600.0,
+        0,
+        0.0,
+        0.0,
+        np.zeros(2),
+        100,
+        arrival_deadline_s_by_bin=np.array([300.0, 300.0]),
+    )
+
+    assert len(plan.routes) == 1
+    assert set(plan.served_bin_indices) == {0, 1}
+    for arrivals in plan.route_arrival_times_s:
+        assert all(arrival <= 300.0 for arrival in arrivals.values())
+
+
+def test_impossible_deadlines_dispatch_feasible_route_as_soon_as_possible():
+    distance, duration = _matrices(2)
+    plan = solve_value_routes(
+        [0, 1],
+        [0, 1],
+        np.array([50.0, 50.0]),
+        np.array([0.1, 0.1]),
+        distance,
+        duration,
+        np.array([1000.0, 1000.0]),
+        100.0,
+        1.0,
+        1,
+        60.0,
+        3600.0,
+        0,
+        0.0,
+        0.0,
+        np.zeros(2),
+        100,
+        arrival_deadline_s_by_bin=np.array([30.0, 30.0]),
+    )
+
+    assert plan.routes
+    assert set(plan.served_bin_indices) == {0, 1}
+    assert "deadline_relaxed" in plan.solver_method
+    assert plan.dispatch_reason == "deadline_infeasible_serve_asap"

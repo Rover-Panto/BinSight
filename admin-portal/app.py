@@ -437,8 +437,11 @@ def _dispatch_geometries(plan, bins: pd.DataFrame) -> tuple[list[list[tuple[floa
                 else "waste_depot"
             )
         )
-        if destination_id == "recycling_facility" and service_indices[-1] == 0:
-            service_indices.insert(-1, 1)
+        if destination_id == "recycling_facility":
+            # Recycling routes are based at the recycling facility.  They do
+            # not originate at or return through the general-waste depot.
+            service_indices[0] = 1
+            service_indices[-1] = 1
         try:
             geometry = route_coordinates(
                 network,
@@ -555,28 +558,72 @@ recycling_duration_matrix = np.load(
     ARTIFACTS / "recycling_road_duration_matrix_s.npy"
 )
 routes = json.loads((EVIDENCE_ARTIFACTS / "representative_routes.geojson").read_text(encoding="utf-8"))
-route_events = json.loads(
-    (EVIDENCE_ARTIFACTS / "representative_route_events.json").read_text(encoding="utf-8")
-)
-base_route_events = route_events.get(
-    "normal_patterned", route_events.get("base", route_events)
-)
-completed_smart_events = [
-    event for event in base_route_events["smart"] if event.get("completed", False)
-]
-representative_smart_event = max(
-    completed_smart_events or base_route_events["smart"],
-    key=lambda event: event["distance_km"],
-)
+dashboard_replay_path = EVIDENCE_ARTIFACTS / "dashboard_replays.json"
+if dashboard_replay_path.exists():
+    dashboard_replays = json.loads(
+        dashboard_replay_path.read_text(encoding="utf-8")
+    )
+    representative_smart_event = dashboard_replays[
+        "representative_smart_event"
+    ]
+    dashboard_tracking_candidates = dashboard_replays["tracking_candidates"]
+    completed_smart_events = [
+        candidate["event"] for candidate in dashboard_tracking_candidates
+    ]
+else:
+    route_events = json.loads(
+        (EVIDENCE_ARTIFACTS / "representative_route_events.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    base_route_events = route_events.get(
+        "normal_patterned", route_events.get("base", route_events)
+    )
+    completed_smart_events = [
+        event
+        for event in base_route_events["smart"]
+        if event.get("completed", False)
+    ]
+    representative_smart_event = max(
+        completed_smart_events or base_route_events["smart"],
+        key=lambda event: event["distance_km"],
+    )
+    dashboard_tracking_candidates = []
 sites = _site_frame(bins)
 service_network = load_cached_service_network(DATA / "subang_jaya_osrm_network.json")
-tracking_manifest = build_tracking_manifest(
-    representative_smart_event,
-    bins,
-    service_network,
-    DATA / "osrm_route_geometry_cache.json",
-    {CONFIG.pilot.recycling_facility_id: 1},
-)
+tracking_candidates: dict[str, dict] = {}
+for compact_candidate in dashboard_tracking_candidates:
+    tracking_candidates[str(compact_candidate["vehicle_id"])] = compact_candidate
+fallback_tracking_events = [] if tracking_candidates else completed_smart_events
+for event in fallback_tracking_events:
+    vehicle_ids = event.get("route_vehicle_ids", [])
+    vehicle_types = event.get("route_vehicle_types", [])
+    for route_position, vehicle_id in enumerate(vehicle_ids):
+        trip_number = route_position + 1
+        trip_rows = [
+            row
+            for row in event.get("timeline", [])
+            if int(row.get("trip_number", -1)) == trip_number
+        ]
+        if not any(row.get("status") == "TRIP_COMPLETE" for row in trip_rows):
+            continue
+        score = sum(float(row.get("distance_km", 0.0)) for row in trip_rows)
+        candidate = {
+            "event": event,
+            "trip_number": trip_number,
+            "vehicle_id": str(vehicle_id),
+            "vehicle_type": (
+                str(vehicle_types[route_position])
+                if route_position < len(vehicle_types)
+                else "general_waste"
+            ),
+            "distance_km": score,
+        }
+        existing = tracking_candidates.get(str(vehicle_id))
+        if existing is None or score > float(existing["distance_km"]):
+            tracking_candidates[str(vehicle_id)] = candidate
+if not tracking_candidates:
+    raise ValueError("The current 30-day evidence has no completed specialized-truck route")
 
 input_tab, overview_tab, tracking_tab, log_tab = st.tabs(
     [
@@ -754,8 +801,9 @@ with input_tab:
         how="left",
     )
     st.info(
-        "The scenario includes critical, high-risk, optional, deferred, and low-confidence bins "
-        "so every routing decision state is visible."
+        "The scenario includes critical, high-risk, optional, deferred, and low-confidence bins. "
+        "UGB-001 and UGB-005 are the early-departure example: both have 6.3 hours until overflow, "
+        "so GENERAL-01 must leave before the next six-hour planning cycle and reach both in time."
     )
     st.dataframe(
         demo_preview[
@@ -914,23 +962,111 @@ with input_tab:
                 for trip_number, (route, load) in enumerate(
                     zip(plan.route_plan.routes, loads), start=1
                 ):
-                    labels = ["DEPOT"] + [
-                        str(plan_bins.iloc[index]["bin_id"])
-                        for index in route
-                        if index != -1
-                    ]
                     route_position = trip_number - 1
                     destination_id = (
                         plan.route_plan.route_destinations[route_position]
                         if route_position < len(plan.route_plan.route_destinations)
                         else "waste_depot"
                     )
-                    if destination_id == "recycling_facility":
-                        labels.extend(["USJ 9 RECYCLING", "DEPOT"])
-                    else:
-                        labels.append("DEPOT")
-                    st.markdown(f"**Trip {trip_number} · {load:,.0f} kg**")
+                    vehicle_id = (
+                        plan.route_plan.route_vehicle_ids[route_position]
+                        if route_position < len(plan.route_plan.route_vehicle_ids)
+                        else f"TRUCK-{trip_number:02d}"
+                    )
+                    base_label = (
+                        "USJ 9 RECYCLING"
+                        if destination_id == "recycling_facility"
+                        else "WASTE DEPOT"
+                    )
+                    labels = [base_label] + [
+                        str(plan_bins.iloc[index]["bin_id"])
+                        for index in route
+                        if index != -1
+                    ] + [base_label]
+                    st.markdown(
+                        f"**{vehicle_id} · trip {trip_number} · {load:,.0f} kg**"
+                    )
                     st.write(" → ".join(labels))
+
+                arrival_rows = []
+                for route_position, route in enumerate(plan.route_plan.routes):
+                    arrivals = (
+                        plan.route_plan.route_arrival_times_s[route_position]
+                        if route_position < len(plan.route_plan.route_arrival_times_s)
+                        else {}
+                    )
+                    vehicle_id = (
+                        plan.route_plan.route_vehicle_ids[route_position]
+                        if route_position < len(plan.route_plan.route_vehicle_ids)
+                        else f"TRUCK-{route_position + 1:02d}"
+                    )
+                    for stop_number, index in enumerate(
+                        (value for value in route if value != -1), start=1
+                    ):
+                        arrival_minutes = float(arrivals.get(index, 0.0)) / 60.0
+                        deadline_hours = plan.audit_rows[index].get(
+                            "time_to_overflow_hours"
+                        )
+                        margin_minutes = (
+                            float(deadline_hours) * 60.0 - arrival_minutes
+                            if deadline_hours is not None
+                            else None
+                        )
+                        arrival_rows.append(
+                            {
+                                "Truck": vehicle_id,
+                                "Stop": stop_number,
+                                "Bin": str(plan_bins.iloc[index]["bin_id"]),
+                                "Planned arrival": f"+{arrival_minutes:.0f} min",
+                                "Overflow deadline": (
+                                    f"+{float(deadline_hours):.1f} h"
+                                    if deadline_hours is not None
+                                    else "No finite deadline"
+                                ),
+                                "Safety margin": (
+                                    f"{margin_minutes:.0f} min"
+                                    if margin_minutes is not None
+                                    else "—"
+                                ),
+                                "On time": (
+                                    "Yes"
+                                    if margin_minutes is None or margin_minutes >= 0
+                                    else "No"
+                                ),
+                                "_deadline": deadline_hours,
+                            }
+                        )
+                if arrival_rows:
+                    deadline_groups: dict[float, list[dict]] = {}
+                    for row in arrival_rows:
+                        if row["_deadline"] is not None:
+                            deadline_groups.setdefault(
+                                round(float(row["_deadline"]), 3), []
+                            ).append(row)
+                    simultaneous = next(
+                        (
+                            (deadline, rows)
+                            for deadline, rows in sorted(deadline_groups.items())
+                            if len(rows) >= 2
+                        ),
+                        None,
+                    )
+                    st.subheader("Arrival deadline check")
+                    if simultaneous is not None:
+                        deadline, rows = simultaneous
+                        st.info(
+                            f"Early-departure example: {', '.join(row['Bin'] for row in rows)} "
+                            f"share a +{deadline:g} h overflow deadline. The truck leaves now, "
+                            "and the planned arrival at each bin remains before that deadline."
+                        )
+                    arrival_table = pd.DataFrame(arrival_rows).drop(
+                        columns=["_deadline"]
+                    )
+                    st.dataframe(
+                        arrival_table,
+                        hide_index=True,
+                        width="stretch",
+                    )
                 st.caption(f"Solver: {plan.route_plan.solver_method}")
                 st.caption(
                     f"Decision: {plan.route_plan.dispatch_reason}; operating cost "
@@ -1005,8 +1141,12 @@ with input_tab:
                 store.close()
                 st.session_state["last_mock_dispatch"] = recorded
                 verb = "recorded" if created else "already recorded"
+                vehicle_ids = ", ".join(
+                    route["vehicle_id"] for route in recorded.get("routes", [])
+                )
                 st.success(
-                    f"Mock route {verb} for MOCK-TRUCK-01 · dispatch {recorded['dispatch_id']}"
+                    f"Mock route {verb} for {vehicle_ids or 'configured truck'} · "
+                    f"dispatch {recorded['dispatch_id']}"
                 )
                 st.toast("Mock dispatch audit updated", icon="✅")
         elif plan.collection_required:
@@ -1056,21 +1196,40 @@ with tracking_tab:
     st.markdown('<p class="micro-label">Local playback · simulated vehicle only</p>', unsafe_allow_html=True)
     st.subheader("Mock live truck tracking")
     st.caption(
-        "This replays one completed smart-policy dispatch using its timestamped OSRM travel, "
-        "collection-service, unloading, and turnaround events. No GPS device or real truck is connected."
+        "This replays a completed route from the current 30-day two-truck simulation using "
+        "timestamped OSRM travel, collection, unloading, and turnaround events. No GPS device "
+        "or real truck is connected."
+    )
+    tracking_vehicle_id = st.selectbox(
+        "Specialized truck replay",
+        sorted(tracking_candidates),
+        format_func=lambda vehicle_id: (
+            f"{vehicle_id} · "
+            f"{tracking_candidates[vehicle_id]['vehicle_type'].replace('_', ' ').title()}"
+        ),
+    )
+    tracking_candidate = tracking_candidates[tracking_vehicle_id]
+    tracking_manifest = build_tracking_manifest(
+        tracking_candidate["event"],
+        bins,
+        service_network,
+        DATA / "osrm_route_geometry_cache.json",
+        {CONFIG.pilot.recycling_facility_id: 1},
+        trip_number=int(tracking_candidate["trip_number"]),
     )
     tracking_summary = st.columns(4)
-    tracking_summary[0].metric("Route ID", tracking_manifest["route_id"])
+    tracking_summary[0].metric("Truck", tracking_manifest["vehicle_id"])
     tracking_summary[1].metric("Bins served", tracking_manifest["total_bins"])
     tracking_summary[2].metric(
         "Playback duration", f"{tracking_manifest['duration_minutes']:.0f} sim min"
     )
     tracking_summary[3].metric(
-        "Truck capacity", f"{tracking_manifest['payload_capacity_kg']:,.0f} kg"
+        "Route distance", f"{tracking_candidate['distance_km']:.1f} km"
     )
     st.info(
-        "Use Resume, Pause, Reset, and the speed selector inside the map. Site markers turn green "
-        "only after collection service completes."
+        "Use Resume, Pause, Reset, and the speed selector inside the map. Each site marker is a "
+        "fill gauge: grey is empty, its colored height is the fullest of the site's four bins, "
+        "and the color moves toward red as that fill approaches 100%. A check appears after service."
     )
     _render_map(
         build_tracking_map(

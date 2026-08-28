@@ -29,6 +29,8 @@ async function main() {
     await page.getByRole("button", { name: "Run demonstration and build collection route" }).click();
     await page.getByText("Bin collection required", { exact: true }).waitFor({ timeout: 180000 });
     await page.getByText("Dispatch route preview", { exact: true }).waitFor();
+    await page.getByText("Arrival deadline check", { exact: true }).waitFor();
+    await page.getByText(/Early-departure example: UGB-001, UGB-005|Early-departure example: UGB-005, UGB-001/).waitFor();
     await page.getByText(/USJ 9 RECYCLING/).waitFor();
     const frameHandle = await page.locator("iframe:visible").first().elementHandle();
     const frame = await frameHandle.contentFrame();
@@ -56,6 +58,7 @@ async function main() {
         demoUses44Bins: true,
         manualUploadRemoved: fileInputCount === 0,
         routeBuilt: true,
+        simultaneousDeadlineExampleShown: true,
         recyclingDestinationShown: true,
         fourBinSitesShown: mapState.siteMarkers === 11,
         facilityMarked: mapState.recyclingFacilities === 1,

@@ -26,13 +26,12 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 180000,
     });
-    await page.getByRole("tab", { name: "Route input" }).waitFor({ timeout: 180000 });
-    await page.getByText("Build a collection route", { exact: true }).waitFor({ timeout: 180000 });
+    await page.getByRole("tab", { name: "Routing demo" }).waitFor({ timeout: 180000 });
+    await page.getByText("Run the demonstration route", { exact: true }).waitFor({ timeout: 180000 });
     await page.screenshot({ path: path.join(outputDir, "route-input-desktop.png"), fullPage: true });
-    await page.getByText("Waiting for a bin snapshot", { exact: true }).waitFor();
-    await page.getByText("Use built-in demo", { exact: true }).click();
-    await page.getByText(/The demo contains critical/).waitFor();
-    await page.getByRole("button", { name: "Check bins and build collection route" }).click();
+    await page.getByText("Demonstration ready", { exact: true }).waitFor();
+    await page.getByText(/UGB-001 and UGB-005 are the early-departure example/).waitFor();
+    await page.getByRole("button", { name: "Run demonstration and build collection route" }).click();
 
     await page.getByText("Bin collection required", { exact: true }).waitFor({ timeout: 180000 });
     await page.getByRole("button", { name: "Send mock route to garbage truck" }).waitFor();
@@ -48,8 +47,8 @@ async function main() {
       .getByRole("button", { name: "Send mock route to garbage truck" })
       .isEnabled();
     await page.getByRole("button", { name: "Send mock route to garbage truck" }).click();
-    await page.getByText(/Mock route (recorded|already recorded) for MOCK-TRUCK-01/).waitFor({ timeout: 30000 });
-    const successText = await page.getByText(/Mock route (recorded|already recorded) for MOCK-TRUCK-01/).first().innerText();
+    await page.getByText(/Mock route (recorded|already recorded) for .*GENERAL-01|Mock route (recorded|already recorded) for .*RECYCLING-01/).waitFor({ timeout: 30000 });
+    const successText = await page.getByText(/Mock route (recorded|already recorded) for/).first().innerText();
     await page.screenshot({ path: path.join(outputDir, "mock-dispatch-sent.png"), fullPage: true });
 
     await page.getByRole("tab", { name: "Dispatch log" }).click();
@@ -66,8 +65,8 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 180000,
     });
-    await tablet.getByRole("tab", { name: "Route input" }).waitFor({ timeout: 180000 });
-    await tablet.getByText("Build a collection route", { exact: true }).waitFor({ timeout: 180000 });
+    await tablet.getByRole("tab", { name: "Routing demo" }).waitFor({ timeout: 180000 });
+    await tablet.getByText("Run the demonstration route", { exact: true }).waitFor({ timeout: 180000 });
     await tablet.screenshot({ path: path.join(outputDir, "route-input-tablet.png"), fullPage: true });
 
     const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -79,8 +78,8 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 180000,
     });
-    await mobile.getByRole("tab", { name: "Route input" }).waitFor({ timeout: 180000 });
-    await mobile.getByText("Build a collection route", { exact: true }).waitFor({ timeout: 180000 });
+    await mobile.getByRole("tab", { name: "Routing demo" }).waitFor({ timeout: 180000 });
+    await mobile.getByText("Run the demonstration route", { exact: true }).waitFor({ timeout: 180000 });
     await mobile.screenshot({ path: path.join(outputDir, "route-input-mobile.png"), fullPage: true });
 
     const viewportChecks = {};

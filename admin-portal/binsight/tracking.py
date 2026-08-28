@@ -62,11 +62,19 @@ def build_tracking_manifest(
     service_network: ServiceNetwork,
     cache_path: str | Path,
     destination_service_indices: dict[str, int] | None = None,
+    *,
+    trip_number: int | None = None,
 ) -> dict[str, Any]:
     """Convert one completed simulated dispatch into browser-playable segments."""
     timeline = sorted(
         route_event.get("timeline", []), key=lambda row: float(row["simulation_minute"])
     )
+    if trip_number is not None:
+        timeline = [
+            row
+            for row in timeline
+            if int(row.get("trip_number", -1)) == int(trip_number)
+        ]
     if not timeline:
         raise ValueError("The route event has no timestamped execution timeline")
     by_id = {str(row.bin_id): row for row in bins.itertuples()}
@@ -82,7 +90,35 @@ def build_tracking_manifest(
         if stop_id not in by_id:
             raise ValueError(f"Tracking timeline contains unknown stop {stop_id}")
         return int(by_id[stop_id].service_index)
-    served_bins = [str(value) for value in route_event.get("served_bins", [])]
+    route_position = max(0, int(trip_number or 1) - 1)
+    route_bin_indices = route_event.get("route_bin_indices", [])
+    if trip_number is not None and route_position < len(route_bin_indices):
+        served_bins = [
+            str(bins.iloc[index]["bin_id"])
+            for index in route_bin_indices[route_position]
+            if int(index) != -1
+        ]
+    else:
+        served_bins = [str(value) for value in route_event.get("served_bins", [])]
+    route_stops = route_event.get("routes", [])
+    selected_route_stops = (
+        route_stops[route_position]
+        if route_position < len(route_stops)
+        else ["DEPOT"]
+    )
+    route_base_id = str(selected_route_stops[0]) if selected_route_stops else "DEPOT"
+    vehicle_ids = route_event.get("route_vehicle_ids", [])
+    vehicle_types = route_event.get("route_vehicle_types", [])
+    vehicle_id = (
+        str(vehicle_ids[route_position])
+        if route_position < len(vehicle_ids)
+        else "UNASSIGNED"
+    )
+    vehicle_type = (
+        str(vehicle_types[route_position])
+        if route_position < len(vehicle_types)
+        else "general_waste"
+    )
     payload_capacity = max(
         (
             float(row.get("payload_capacity_kg", 0.0))
@@ -102,7 +138,12 @@ def build_tracking_manifest(
         trip_number = int(row.get("trip_number", trip_number or 1))
         if "payload_kg" in row:
             payload = float(row["payload_kg"])
-        if status in {"EN_ROUTE", "EN_ROUTE_TO_UNLOAD", "RETURNING_TO_DEPOT"}:
+        if status in {
+            "EN_ROUTE",
+            "EN_ROUTE_TO_UNLOAD",
+            "RETURNING_TO_DEPOT",
+            "RETURNING_TO_RECYCLING_FACILITY",
+        }:
             duration = max(0.0, float(row.get("travel_minutes", 0.0)))
             if duration <= 0:
                 continue
@@ -157,9 +198,9 @@ def build_tracking_manifest(
         elif status in {"UNLOADING", "TURNAROUND"}:
             duration = max(0.0, float(row.get("duration_minutes", 0.0)))
             stop_id = (
-                str(row.get("unload_destination_id", "DEPOT"))
+                str(row.get("unload_destination_id") or route_base_id)
                 if status == "UNLOADING"
-                else "DEPOT"
+                else route_base_id
             )
             stop_service = service_index(stop_id)
             stop_coordinate = service_network.snapped_coordinates[stop_service]
@@ -200,8 +241,12 @@ def build_tracking_manifest(
         "disclaimer": "Local playback only; no real vehicle is connected.",
         "route_id": (
             f"{route_event.get('policy', 'smart').upper()}-D{route_event.get('day', 0)}"
-            f"-H{route_event.get('hour', 0)}"
+            f"-H{route_event.get('hour', 0)}-{vehicle_id}"
         ),
+        "vehicle_id": vehicle_id,
+        "vehicle_type": vehicle_type,
+        "trip_number": int(trip_number or 1),
+        "route_base_id": route_base_id,
         "start_minute": start_minute,
         "end_minute": end_minute,
         "duration_minutes": end_minute - start_minute,
@@ -212,6 +257,52 @@ def build_tracking_manifest(
         "site_completion_minutes": site_completion,
         "segments": segments,
     }
+
+
+def build_site_fill_profiles(
+    bins: pd.DataFrame,
+    snapshot_rows: list[dict[str, Any]],
+    manifest: dict[str, Any],
+) -> dict[str, list[dict[str, float | str | None]]]:
+    """Build forecast-fill playback inputs for every bin at every site.
+
+    Fill grows linearly from the dispatch snapshot to the supplied
+    time-to-overflow estimate.  A bin resets to zero when its simulated
+    collection completes.  This is a transparent UI interpolation, not a new
+    sensor reading or a claim about actual waste generation between readings.
+    """
+    audit = {str(row.get("bin_id")): row for row in snapshot_rows}
+    completions = {
+        str(bin_id): float(minute)
+        for bin_id, minute in manifest.get("completion_minutes", {}).items()
+    }
+    profiles: dict[str, list[dict[str, float | str | None]]] = {}
+    for item in bins.itertuples():
+        bin_id = str(item.bin_id)
+        row = audit.get(bin_id, {})
+        fill_value = row.get("fill_pct", 0.0)
+        tto_value = row.get("time_to_overflow_hours")
+        try:
+            fill = float(fill_value)
+        except (TypeError, ValueError):
+            fill = 0.0
+        if not np.isfinite(fill):
+            fill = 0.0
+        try:
+            tto = float(tto_value)
+        except (TypeError, ValueError):
+            tto = float("nan")
+        profiles.setdefault(str(item.site_id), []).append(
+            {
+                "bin_id": bin_id,
+                "initial_fill_pct": min(100.0, max(0.0, fill)),
+                "time_to_overflow_hours": (
+                    tto if np.isfinite(tto) and tto > 0 else None
+                ),
+                "completion_minute": completions.get(bin_id),
+            }
+        )
+    return profiles
 
 
 def tracking_frame_at(manifest: dict[str, Any], simulation_minute: float) -> TrackingFrame:

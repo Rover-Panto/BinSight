@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
@@ -23,6 +23,9 @@ class RoutePlan:
     net_value_m_equivalent: float = 0.0
     dispatch_reason: str = "no_candidate"
     route_destinations: list[str] = field(default_factory=list)
+    route_vehicle_types: list[str] = field(default_factory=list)
+    route_vehicle_ids: list[str] = field(default_factory=list)
+    route_arrival_times_s: list[dict[int, float]] = field(default_factory=list)
 
 
 def _routing_demand_kg(value: float) -> int:
@@ -41,6 +44,27 @@ def route_distance_m(route: list[int], full_matrix_m: np.ndarray) -> int:
             for origin, destination in zip(locations[:-1], locations[1:])
         )
     )
+
+
+def route_arrival_times_s(
+    route: list[int],
+    full_duration_matrix_s: np.ndarray,
+    service_seconds_per_bin: float,
+) -> dict[int, float]:
+    """Return modeled arrival time at each bin from a simultaneous dispatch."""
+    elapsed = 0.0
+    arrivals: dict[int, float] = {}
+    for origin, destination in zip(route[:-1], route[1:]):
+        if origin != -1:
+            elapsed += service_seconds_per_bin
+        origin_location = 0 if origin == -1 else origin + 1
+        destination_location = 0 if destination == -1 else destination + 1
+        elapsed += float(
+            full_duration_matrix_s[origin_location, destination_location]
+        )
+        if destination != -1:
+            arrivals[destination] = elapsed
+    return arrivals
 
 
 def improve_route_order(
@@ -437,6 +461,7 @@ def solve_value_routes(
     *,
     minimum_net_value_m_equivalent: float = 0.0,
     post_optimize: bool = False,
+    arrival_deadline_s_by_bin: np.ndarray | None = None,
 ) -> RoutePlan:
     """Jointly choose optional pickups and route mandatory safety stops.
 
@@ -465,6 +490,8 @@ def solve_value_routes(
         or len(additional_service_cost_m_equivalent) != node_count
     ):
         raise ValueError("Demand and penalty arrays must match the bin count")
+    if arrival_deadline_s_by_bin is not None and len(arrival_deadline_s_by_bin) != node_count:
+        raise ValueError("Arrival deadlines must match the bin count")
     if any(_routing_demand_kg(demands_kg[index]) > int(math.floor(truck_capacity_kg)) for index in mandatory):
         raise ValueError("A mandatory pickup exceeds the truck mass capacity")
     if any(float(demands_m3[index]) > truck_capacity_m3 + 1e-9 for index in mandatory):
@@ -532,6 +559,16 @@ def solve_value_routes(
         True,
         "RouteTime",
     )
+    time_dimension = routing.GetDimensionOrDie("RouteTime")
+    if arrival_deadline_s_by_bin is not None:
+        for local_node, bin_index in enumerate(candidates, start=1):
+            deadline = float(arrival_deadline_s_by_bin[bin_index])
+            if not np.isfinite(deadline):
+                continue
+            routing_index = manager.NodeToIndex(local_node)
+            time_dimension.CumulVar(routing_index).SetMax(
+                max(0, int(math.floor(deadline)))
+            )
 
     for local_node, bin_index in enumerate(candidates, start=1):
         if bin_index in mandatory:
@@ -546,6 +583,45 @@ def solve_value_routes(
     search.solution_limit = 100
     solution = routing.SolveWithParameters(search)
     if solution is None:
+        if arrival_deadline_s_by_bin is not None and any(
+            np.isfinite(float(arrival_deadline_s_by_bin[index]))
+            for index in mandatory
+        ):
+            # Forecast error or a late observation can make a set of mandatory
+            # arrival deadlines mutually impossible even though the bins still
+            # fit on a physical route.  In that case, serve the best feasible
+            # route immediately and make the relaxed guarantee explicit rather
+            # than stranding every mandatory bin with an empty plan.
+            fallback = solve_value_routes(
+                candidate_bin_indices=candidates,
+                mandatory_bin_indices=sorted(mandatory),
+                demands_kg=demands_kg,
+                demands_m3=demands_m3,
+                full_distance_matrix_m=full_distance_matrix_m,
+                full_duration_matrix_s=full_duration_matrix_s,
+                skip_penalties_m_equivalent=skip_penalties_m_equivalent,
+                truck_capacity_kg=truck_capacity_kg,
+                truck_capacity_m3=truck_capacity_m3,
+                max_trips=max_trips,
+                service_seconds_per_bin=service_seconds_per_bin,
+                max_route_duration_seconds=max_route_duration_seconds,
+                fixed_trip_cost_m_equivalent=fixed_trip_cost_m_equivalent,
+                travel_time_cost_m_per_minute=travel_time_cost_m_per_minute,
+                service_cost_m_per_minute=service_cost_m_per_minute,
+                additional_service_cost_m_equivalent=(
+                    additional_service_cost_m_equivalent
+                ),
+                solver_milliseconds=solver_milliseconds,
+                minimum_net_value_m_equivalent=minimum_net_value_m_equivalent,
+                post_optimize=post_optimize,
+                arrival_deadline_s_by_bin=None,
+            )
+            if fallback.routes:
+                return replace(
+                    fallback,
+                    solver_method=fallback.solver_method + ":deadline_relaxed",
+                    dispatch_reason="deadline_infeasible_serve_asap",
+                )
         return RoutePlan(
             routes=[],
             distance_m=0,
@@ -565,6 +641,7 @@ def solve_value_routes(
     route_durations: list[float] = []
     route_loads: list[float] = []
     route_volumes: list[float] = []
+    route_arrivals: list[dict[int, float]] = []
     served: list[int] = []
     total_distance = 0
     operating_cost = 0.0
@@ -616,6 +693,13 @@ def solve_value_routes(
             route_durations.append(route_duration)
             route_loads.append(route_load)
             route_volumes.append(route_volume)
+            route_arrivals.append(
+                route_arrival_times_s(
+                    route,
+                    full_duration_matrix_s,
+                    service_seconds_per_bin,
+                )
+            )
             served.extend(route_nodes)
             total_distance += route_distance
             operating_cost += route_cost
@@ -656,6 +740,7 @@ def solve_value_routes(
         route_duration_s=route_durations,
         route_loads_kg=route_loads,
         route_volumes_m3=route_volumes,
+        route_arrival_times_s=route_arrivals,
         objective_cost_m_equivalent=float(solution.ObjectiveValue()),
         operating_cost_m_equivalent=operating_cost,
         avoided_loss_value_m_equivalent=avoided_loss,

@@ -12,6 +12,11 @@ plastic, metal, and glass at each site. Dry-recycling routes unload at the
 provisional MBSJ USJ 9 Recycling Centre; general-waste routes unload at the
 provisional waste depot.
 
+The configured fleet is exactly two vehicles: `GENERAL-01` is based at the
+waste depot and `RECYCLING-01` is a three-compartment truck based at the
+recycling facility. They can dispatch independently. No third or surge vehicle
+is created by the demonstration.
+
 ## First-time setup
 
 From `admin-portal` in PowerShell:
@@ -95,6 +100,12 @@ an API key. Internet access is needed for those background tiles. Site,
 facility, and route overlays still render against a light fallback background
 if public tiles are unavailable.
 
+The live-tracking tab uses completed routes from the current paired 30-day
+simulation. Select either specialized truck. Marker fill is forecast
+interpolation for playback: grey is empty; the gauge height is the fullest bin
+at that four-bin site; and the color approaches red as fill approaches 100%.
+It is not a live sensor feed.
+
 ## Gates before real operations
 
 This demonstration is not yet approved for unattended or live dispatch. Before
@@ -110,6 +121,7 @@ that scope changes:
 - add operator authentication and network hardening before changing the
   localhost bind address.
 
-The current bounded two-replication smoke run is a functional check only. It
-reduced overflow and wasteful pickups in that run but increased distance, so it
-does not establish that the smart policy meets all objectives.
+The current bounded run has two paired 30-day replications in each of eleven
+scenarios. It is a functional check only. It improved several overflow and
+wasteful-pickup outcomes but increased distance and trips, so it does not
+establish that the smart policy meets all objectives.

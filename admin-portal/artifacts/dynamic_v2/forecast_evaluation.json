@@ -1,7 +1,7 @@
 {
-  "training_rows": 61083.0,
-  "calibration_rows": 15312.0,
-  "holdout_rows": 17193.0,
+  "training_rows": 81444.0,
+  "calibration_rows": 20416.0,
+  "holdout_rows": 22924.0,
   "calibration_start_hour": -6246.0,
   "chronological_cutoff_hour": -3294.0,
   "training_target_end_before_hour": -6246.0,
@@ -11,50 +11,50 @@
   "operational_evaluation_start_hour": 0.0,
   "latest_historical_feature_hour": -174.0,
   "latest_historical_target_end_hour": -6.0,
-  "model_mae_growth_pct_horizon": 7.608870988259768,
-  "naive_mae_growth_pct_horizon": 32.621410658622835,
-  "model_improvement_pct": 76.6752239261348,
+  "model_mae_growth_pct_horizon": 6.986750282989352,
+  "naive_mae_growth_pct_horizon": 28.77069333110403,
+  "model_improvement_pct": 75.71573892021584,
   "upper_quantile": 0.9,
-  "upper_adjustment_pct": 1.9783358487471463,
-  "upper_empirical_coverage": 0.8460419938347001,
-  "upper_coverage_error": 0.05395800616529989,
-  "upper_pinball_loss": 2.1634103995456297,
-  "upper_mean_width_pct": 10.83479528960272,
-  "time_to_overflow_mae_hours": 57.17357824054153,
-  "overflow_alert_precision_48h": 0.929533969679955,
-  "overflow_alert_recall_48h": 0.9927043773735759,
-  "overflow_probability_brier_48h": 0.018512395958525163,
-  "overflow_probability_brier_6h": 0.004864281859151296,
-  "overflow_alert_precision_6h_at_10pct": 0.9739940483891836,
-  "overflow_alert_recall_6h_at_10pct": 0.998805890938039,
+  "upper_adjustment_pct": 3.790953719844728,
+  "upper_empirical_coverage": 0.8624149363112895,
+  "upper_coverage_error": 0.03758506368871051,
+  "upper_pinball_loss": 1.9524289856049855,
+  "upper_mean_width_pct": 11.797109984952764,
+  "time_to_overflow_mae_hours": 66.50858950584566,
+  "overflow_alert_precision_48h": 0.9481067740468923,
+  "overflow_alert_recall_48h": 0.9963144963144963,
+  "overflow_probability_brier_48h": 0.016554578782423477,
+  "overflow_probability_brier_6h": 0.005005289536436653,
+  "overflow_alert_precision_6h_at_10pct": 0.9772553028366981,
+  "overflow_alert_recall_6h_at_10pct": 0.9980859578910736,
   "overflow_probability_calibration": [
     {
-      "predicted": 0.0002971773411743024,
-      "observed": 0.0
+      "predicted": 0.0005183256843289117,
+      "observed": 0.0006537371976465461
     },
     {
-      "predicted": 0.02324983270259462,
-      "observed": 0.035485747527632346
+      "predicted": 0.187081314034857,
+      "observed": 0.19820999781707052
     },
     {
-      "predicted": 0.9252190581174639,
-      "observed": 0.9306692344727973
+      "predicted": 0.9956192840102339,
+      "observed": 0.9983437380558033
     },
     {
-      "predicted": 0.9996197920500484,
+      "predicted": 0.9997386476786202,
       "observed": 1.0
     },
     {
-      "predicted": 0.9996352263460113,
+      "predicted": 0.9997462855176915,
       "observed": 1.0
     }
   ],
-  "model_mae_growth_6h_pct": 1.5651441806843855,
-  "naive_mae_growth_6h_pct": 4.442606935437064,
-  "model_mae_growth_24h_pct": 4.438020692673987,
-  "naive_mae_growth_24h_pct": 16.35795622945566,
-  "model_mae_growth_48h_pct": 7.608870988259768,
-  "naive_mae_growth_48h_pct": 32.621410658622835,
-  "model_mae_growth_168h_pct": 17.467676812992917,
-  "naive_mae_growth_168h_pct": 113.92236610550025
+  "model_mae_growth_6h_pct": 1.3879915431820595,
+  "naive_mae_growth_6h_pct": 3.8861004904505583,
+  "model_mae_growth_24h_pct": 3.989316596284457,
+  "naive_mae_growth_24h_pct": 14.423492788039622,
+  "model_mae_growth_48h_pct": 6.986750282989352,
+  "naive_mae_growth_48h_pct": 28.770693331104027,
+  "model_mae_growth_168h_pct": 17.33890026823624,
+  "naive_mae_growth_168h_pct": 100.26234385715098
 }

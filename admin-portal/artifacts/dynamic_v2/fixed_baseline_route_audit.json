@@ -14,7 +14,7 @@
     "The network matrix is a cached OSM/OSRM snapshot and does not prove live road availability."
   ],
   "matrix": {
-    "location_count_including_depot": 34,
+    "location_count_including_depot": 45,
     "finite_nonnegative": true,
     "zero_diagonal": true,
     "directed_distance_matrix": true,
@@ -23,9 +23,9 @@
   "representative_replication_checks": {
     "normal_patterned": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 286,
-      "unserved_required_stops": 11,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
@@ -37,9 +37,9 @@
     },
     "high_demand_seasonal": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 231,
-      "unserved_required_stops": 66,
+      "trips": 25,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
@@ -52,7 +52,7 @@
     "event_heavy": {
       "dispatches": 9,
       "trips": 18,
-      "planned_stops": 297,
+      "planned_stops": 396,
       "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
@@ -65,9 +65,9 @@
     },
     "persistent_multi_day_surge": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 275,
-      "unserved_required_stops": 22,
+      "trips": 21,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
@@ -79,9 +79,9 @@
     },
     "localized_surge": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 286,
-      "unserved_required_stops": 11,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
@@ -93,10 +93,10 @@
     },
     "gradual_upward_trend": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 286,
-      "unserved_required_stops": 11,
-      "collection_blocked_capacity_events": 1,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
       },
@@ -107,9 +107,9 @@
     },
     "abrupt_behavior_change": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 253,
-      "unserved_required_stops": 44,
+      "trips": 22,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
@@ -121,9 +121,9 @@
     },
     "traffic_disruption": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 286,
-      "unserved_required_stops": 11,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
@@ -135,9 +135,9 @@
     },
     "sensor_failure": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 286,
-      "unserved_required_stops": 11,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
@@ -149,9 +149,9 @@
     },
     "reduced_truck_capacity": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 218,
-      "unserved_required_stops": 79,
+      "trips": 25,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
       "collection_blocked_capacity_events": 0,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
@@ -163,10 +163,10 @@
     },
     "combined_demand_operational_stress": {
       "dispatches": 9,
-      "trips": 18,
-      "planned_stops": 193,
-      "unserved_required_stops": 104,
-      "collection_blocked_capacity_events": 1,
+      "trips": 30,
+      "planned_stops": 382,
+      "unserved_required_stops": 14,
+      "collection_blocked_capacity_events": 3,
       "route_solver_methods": {
         "stream_separated_fixed:ortools": 9
       },
