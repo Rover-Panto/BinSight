@@ -21,6 +21,19 @@ Storage keys or schema versions changed:
 
 ## Verification
 
+Tested commit SHA:
+
+Integration gate IDs and producer/consumer versions:
+
+Commands/results and evidence links (include failures/skips):
+
+Remaining dependencies or hardware checks:
+
+- [ ] Read `docs/INTEGRATION_TEST_PLAN.md` and respected component ownership
+- [ ] No active duplicate forecast, gateway, session or credit implementation introduced
+- [ ] Component tests and applicable integration gates verified at the stated SHA
+- [ ] No claim of live integration based only on mocks or a clean merge
+
 - [ ] `pnpm lint`
 - [ ] `pnpm test:run`
 - [ ] `pnpm test:e2e`

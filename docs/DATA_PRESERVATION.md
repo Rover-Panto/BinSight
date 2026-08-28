@@ -20,9 +20,9 @@ Do not rename or clear `binsight-demo-v1` in feature work. Do not call `localSto
 
 ## Admin storage
 
-Use a separate key for admin fixtures and preferences. Start with `binsight-admin-v1`. Admin code must not write an object to `binsight-demo-v1`.
+PR1 uses a separate server-side planning store in its Streamlit application. Preserve that store, its schema migrations, route history and audit records. If admin browser preferences are added later, give them their own key such as `binsight-admin-v1`. Admin code must not write an object to `binsight-demo-v1`.
 
-Shared data should pass through typed selectors or adapters. Do not let two stores write the same record. Until a backend exists, citizen reports remain citizen-owned records; the admin area may read a mapped copy for display.
+Shared data must pass through an explicit versioned API/adapter with one authoritative writer per domain. The separate Streamlit app cannot read citizen browser storage. Until a report API and owner-approved scope exist, citizen reports stay local; any admin example must be a separate synthetic fixture labelled as such. Do not silently import or upload existing images or overwrite a source record with an admin copy.
 
 Keep hardware records separated by event purpose. Fill observations from both bin types belong to the telemetry and routing store. Recycling classification and session events belong to the return-station domain. Preserve `binId`, `binType` and event kind at storage and API boundaries; reject recognition events from routing and never migrate one record type into another to satisfy a route or KPI schema.
 

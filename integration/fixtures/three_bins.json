@@ -1,0 +1,21 @@
+{
+  "fixture_version": 1,
+  "is_simulation": true,
+  "purpose": "Synthetic fill-only snapshot; IDs are examples, not deployment configuration",
+  "gateway_id": "shared-gateway-01",
+  "source_controller_id": "teensy-demo-01",
+  "decision_at": "2026-08-28T10:00:00Z",
+  "bins": [
+    {"bin_id": "bin_01", "bin_type": "general-waste"},
+    {"bin_id": "bin_02", "bin_type": "recycling-return"},
+    {"bin_id": "bin_03", "bin_type": "recycling-return"}
+  ],
+  "observations": [
+    {"event_id": "fill-demo-001", "bin_id": "bin_01", "timestamp": "2026-08-28T09:00:00Z", "received_at": "2026-08-28T09:00:01Z", "fill_pct": 30.0, "weight_kg": null, "confidence_flag": 1},
+    {"event_id": "fill-demo-002", "bin_id": "bin_02", "timestamp": "2026-08-28T09:00:00Z", "received_at": "2026-08-28T09:00:02Z", "fill_pct": 70.0, "weight_kg": null, "confidence_flag": 1},
+    {"event_id": "fill-demo-003", "bin_id": "bin_03", "timestamp": "2026-08-28T09:00:00Z", "received_at": "2026-08-28T09:00:03Z", "fill_pct": 40.0, "weight_kg": null, "confidence_flag": 1},
+    {"event_id": "fill-demo-004", "bin_id": "bin_01", "timestamp": "2026-08-28T09:30:00Z", "received_at": "2026-08-28T09:30:01Z", "fill_pct": 35.0, "weight_kg": null, "confidence_flag": 1},
+    {"event_id": "fill-demo-005", "bin_id": "bin_02", "timestamp": "2026-08-28T09:30:00Z", "received_at": "2026-08-28T09:30:02Z", "fill_pct": 80.0, "weight_kg": null, "confidence_flag": 1},
+    {"event_id": "fill-demo-006", "bin_id": "bin_03", "timestamp": "2026-08-28T09:30:00Z", "received_at": "2026-08-28T09:30:03Z", "fill_pct": null, "weight_kg": null, "confidence_flag": 0}
+  ]
+}

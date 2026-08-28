@@ -19,11 +19,15 @@ PR1 should retire its duplicate forecasting after PR4's replacement passes the s
 
 ## Repository contents
 
+Integration coordination starts at [the test plan](docs/INTEGRATION_TEST_PLAN.md). The `codex/integration-test` branch holds the foundation checks and candidate ledger while contributors update PR1-4; it is not a merged or deployed system.
+
 - `docs/`: frontend reference, project state, admin integration, and data-preservation contracts
 - `docs/PR3_RECYCLING_VISION_REVIEW.md`: recycling-model review and Grove-to-website integration contract
 - `docs/PR_REVIEW_2026-08-28.md`: current PR changes, defects, duplicated work and integration order
 - `docs/PR1_PR4_FORECAST_INTEGRATION.md`: forecasting/routing ownership, shared interface and duplicate-code cleanup sequence
 - `docs/SHARED_ESP32_GATEWAY.md`: one-board fill/recognition contract and firmware ownership
+- `docs/INTEGRATION_TEST_PLAN.md`: two-site architecture, ownership, test gates and staged merge process
+- `integration/`: synthetic shared fixtures and candidate-readiness checks
 - `BinSight_UI_Design_Language.txt`: citizen and admin interface rules
 - `server/`: central-server recycling decision policy and unit tests; HTTP integration remains pending
 - `web/`: React and TypeScript citizen hub prototype

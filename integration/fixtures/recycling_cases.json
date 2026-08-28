@@ -1,0 +1,17 @@
+{
+  "fixture_version": 1,
+  "is_simulation": true,
+  "purpose": "Policy inputs only; these are not authenticated or persisted HTTP events",
+  "cases": [
+    {"id": "plastic_boundary", "samples": [[1, "plastic", 0.70, 1, 100], [2, "plastic", 0.70, 1, 200], [3, "plastic", 0.70, 1, 300]], "outcome": "accepted", "reason": "eligible_high_confidence", "value_cents": 20},
+    {"id": "metal", "samples": [[1, "metal", 0.91, 1, 100], [2, "metal", 0.83, 1, 200], [3, "metal", 0.79, 1, 300]], "outcome": "accepted", "reason": "eligible_high_confidence", "value_cents": 20},
+    {"id": "glass", "samples": [[1, "glass", 0.90, 1, 100], [2, "glass", 0.90, 1, 200], [3, "glass", 0.90, 1, 300]], "outcome": "accepted", "reason": "eligible_high_confidence", "value_cents": 20},
+    {"id": "paper", "samples": [[1, "paper", 0.99, 1, 100]], "outcome": "rejected", "reason": "unsupported_material", "value_cents": 0},
+    {"id": "other", "samples": [[1, "other", 0.99, 1, 100]], "outcome": "rejected", "reason": "unsupported_material", "value_cents": 0},
+    {"id": "below_boundary", "samples": [[1, "plastic", 0.699, 1, 100]], "poll_at_ms": 5000, "outcome": "rejected", "reason": "inspection_timeout", "value_cents": 0},
+    {"id": "multiple_items", "samples": [[1, "glass", 0.99, 2, 100]], "outcome": "rejected", "reason": "multiple_items", "value_cents": 0},
+    {"id": "empty", "samples": [[1, null, null, 0, 100]], "poll_at_ms": 5000, "outcome": "rejected", "reason": "inspection_timeout", "value_cents": 0},
+    {"id": "duplicate_does_not_confirm", "samples": [[1, "metal", 0.99, 1, 100], [1, "metal", 0.99, 1, 200], [1, "metal", 0.99, 1, 300]], "outcome": "waiting", "reason": "confirming_item", "value_cents": 0},
+    {"id": "gap_breaks_stability", "samples": [[1, "metal", 0.99, 1, 100], [2, "metal", 0.99, 1, 200], [4, "metal", 0.99, 1, 300]], "outcome": "waiting", "reason": "confirming_item", "value_cents": 0}
+  ]
+}

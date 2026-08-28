@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "branch": "codex/integration-test",
+  "captured_at": "2026-08-28",
+  "foundation_sha": "68f12831a3a0551502e78f19df83a509e11af4ff",
+  "main_sha": "9fca9d47afb805f40034da970bb47d791ba8f0b4",
+  "components": [
+    {"pr": 1, "owner": "Rover-Panto", "path": "admin-portal", "sha": "d276313467fe30c81218c980e626da6624c2d78a", "review": "changes_required"},
+    {"pr": 2, "owner": "laijoelton", "path": "hardware_pipeline", "sha": "e7055764b57663a9d916602d7b0e89f54df2eaa4", "review": "changes_required"},
+    {"pr": 3, "owner": "Rishhhj05", "path": "recycling_vision", "sha": "819ff37b41a78208ba1624ad0060f8bec0358346", "review": "changes_required"},
+    {"pr": 4, "owner": "Niccc8", "path": "ml", "sha": "038e262044a1bc29cee08d189c6fe4f78c970caf", "review": "changes_required"}
+  ],
+  "decisions": [
+    {"id": "D1", "status": "pending", "question": "Demo location and audience"},
+    {"id": "D2", "status": "pending", "question": "Admin report workflow scope"},
+    {"id": "D3", "status": "pending", "question": "Shared station and QR session topology"}
+  ],
+  "gates": [
+    {"id": "G01", "level": "software", "status": "partial", "evidence": ["docs/INTEGRATION_BASELINE_2026-08-28.md: local foundation passed; rerun on combined candidate"]},
+    {"id": "G02", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G03", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G04", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G05", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G06", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G07", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G08", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G09", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G10", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G11", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G12", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "G13", "level": "software", "status": "not_run", "evidence": []},
+    {"id": "H01", "level": "hardware", "status": "not_run", "evidence": []},
+    {"id": "H02", "level": "hardware", "status": "not_run", "evidence": []}
+  ]
+}

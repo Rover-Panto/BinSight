@@ -1,6 +1,6 @@
 # Frontend Reference
 
-Last verified: 17 August 2026
+Architecture documentation updated: 28 August 2026. See the integration baseline for current test evidence.
 
 ## Stack
 
@@ -10,6 +10,7 @@ Last verified: 17 August 2026
 - Lucide icons
 - Barlow for interface text and JetBrains Mono for technical references
 - Vitest and Testing Library for component tests
+- One process-based Vitest worker for repeatable Windows and CI runs
 - Playwright for browser workflows and responsive screenshots
 
 The frontend lives under `web/`. It is a local demonstration with simulated identity, payouts, service data, and bin activity.
@@ -37,7 +38,7 @@ Keep the distinction visible without asking the citizen to categorise the item m
 | `web/src/index.css` | Design tokens, components, responsive rules, and accessibility states |
 | `web/tests/` | Browser workflows and visual checks |
 
-Admin pages belong under `web/src/admin/` and use a separate shell and store. See [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md).
+The first integration preserves PR1's separate Streamlit application in `admin-portal/`. It does not add admin pages to the citizen React router. Both applications exchange data through owned backend/provider contracts, not shared browser storage. See [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [the integration test plan](INTEGRATION_TEST_PLAN.md).
 
 ## Citizen navigation
 
@@ -72,6 +73,8 @@ The planned hardware integration receives decision metadata from the laptop serv
 ### Waste report
 
 The resident selects an issue, location, observation time, description, safety flag, and up to three images. The browser converts JPG, PNG, and WEBP files into compressed local attachments. The report detail page keeps them visible after submission and reload.
+
+Reports currently stay in that browser. Admin report management is pending owner decision D2. Connecting it requires a report/photo/status API and an explicit migration/import design; do not claim Streamlit can already see these records or automatically upload old local images.
 
 ### Disposal guidance
 

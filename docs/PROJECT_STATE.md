@@ -50,7 +50,13 @@ Recycling fill readings and recycling inference events are logically independent
 
 The route-optimisation and KPI dashboard has substantial implementation on PR #1, but has not merged into `main`. Its latest update adds predictive telemetry snapshots, trip-value routing, stored route lifecycle and expanded synthetic evaluation. PR #4 adds a separate overflow predictor that overlaps this work. Follow [the cross-PR review](PR_REVIEW_2026-08-28.md), [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [DATA_PRESERVATION.md](DATA_PRESERVATION.md).
 
-The admin implementation should use `/admin` as its route prefix and keep admin state outside the citizen store. The first pull request must record its final route map, state model, fixtures, KPI formulas, and tests in this directory.
+The initial integration keeps PR1's Streamlit website under `admin-portal/` and the citizen React site under `web/`. Do not rebuild the admin site inside React. `/admin` is a possible later shared-origin deployment prefix, not a current citizen route. PR1 must document its actual navigation, planning store, fixtures, KPI formulas and tests in this directory.
+
+## Integration Test Branch
+
+`codex/integration-test` starts from the documentation/server-policy foundation at `68f1283`. It does not initially contain PR1-4. It adds [the integration test plan](INTEGRATION_TEST_PLAN.md), synthetic fixtures, a candidate ledger and foundation CI. Component, cross-service and hardware gates remain distinct from the existing citizen/policy checks.
+
+The owner has been asked to confirm the first demo's location/audience, admin report-management scope, and the shared return station/QR arrangement. These remain pending decisions, not implemented capabilities. Contributors keep their PR branches and report exact tested SHAs; Codex stages reviewed changes for combined testing before any owner-approved merge into `main`.
 
 ## Integration ownership
 

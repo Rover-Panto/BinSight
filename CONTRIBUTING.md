@@ -6,6 +6,8 @@ Create a focused branch from the latest `main`. Use names such as `feature/admin
 
 Do not force-push `main`. Submit admin routing and KPI work through a pull request.
 
+For PR1-4 integration, read [the test plan](docs/INTEGRATION_TEST_PLAN.md). `codex/integration-test` is coordinator-managed staging, not a replacement PR base. Keep changes on your existing feature branch and report the tested commit SHA. Do not merge the aggregate staging branch into feature branches or merge into `main` before review and owner approval.
+
 ## Before coding
 
 Read:
@@ -13,6 +15,7 @@ Read:
 - [Project state](docs/PROJECT_STATE.md)
 - [Frontend reference](docs/FRONTEND.md)
 - [Admin integration](docs/ADMIN_INTEGRATION.md)
+- [Integration test plan and gates](docs/INTEGRATION_TEST_PLAN.md)
 - [Data preservation](docs/DATA_PRESERVATION.md)
 - [UI design language](BinSight_UI_Design_Language.txt)
 - [Web prototype instructions](web/README.md)
@@ -37,6 +40,16 @@ Keep citizen and admin state separate. Changes to `web/src/model.ts`, `web/src/s
 Use simulated data. Label route output, KPI values, payouts, service status, and access control accurately.
 
 ## Required checks
+
+Run from the root for the shared integration foundation:
+
+```powershell
+python -m unittest discover -s server/tests -v
+python -m unittest discover -s integration/tests -v
+python -m integration.check_readiness
+```
+
+Foundation checks do not validate unmerged subsystems. Attach component tests and the applicable integration gate evidence, including skipped hardware checks, to each PR. The test plan defines those gates.
 
 Run from `web/`:
 
