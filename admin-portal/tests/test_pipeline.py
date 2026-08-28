@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from binsight.config import load_config
 from binsight.pipeline import (
@@ -32,10 +33,27 @@ def test_monthly_fleet_export_has_all_30_days_without_snapshot_bulk(tmp_path):
         "completed": True,
     }
     ignored = {**completed, "day": 5, "completed": False}
+    metrics = pd.DataFrame(
+        [
+            {
+                "scenario": "normal_patterned",
+                "replication": replication,
+                "policy": policy,
+                "overflow_bin_hours": 5.0 if policy == "fixed" else 2.0,
+                "overflow_spilled_kg": 10.0 if policy == "fixed" else 1.0,
+                "wasted_pickups": 8.0 if policy == "fixed" else 2.0,
+                "mean_fill_at_collection_pct": 50.0 if policy == "fixed" else 70.0,
+                "distance_km": 100.0 if policy == "fixed" else 120.0,
+            }
+            for replication in range(2)
+            for policy in ("fixed", "smart")
+        ]
+    )
 
     write_monthly_fleet_events(
         {"normal_patterned": {"smart": [completed, ignored], "fixed": []}},
         tmp_path,
+        metrics,
     )
 
     payload = json.loads(
@@ -43,10 +61,17 @@ def test_monthly_fleet_export_has_all_30_days_without_snapshot_bulk(tmp_path):
     )
     assert list(payload["days"]) == [str(day) for day in range(1, 31)]
     assert payload["active_days"] == [4]
+    assert payload["replication"] == 0
     assert len(payload["days"]["4"]) == 1
     assert payload["days"]["5"] == []
     assert "snapshot_rows" not in payload["days"]["4"][0]
     assert payload["vehicle_ids"] == ["GENERAL-01", "RECYCLING-01"]
+    assert payload["schema_version"] == "1.1"
+    assert payload["policy_comparison"]["replications"] == 2
+    assert payload["policy_comparison"]["metrics"]["overflow_bin_hours"] == {
+        "fixed": 5.0,
+        "smart": 2.0,
+    }
 
 
 def test_prepare_project_persists_matching_osrm_distance_and_duration_matrices(tmp_path):

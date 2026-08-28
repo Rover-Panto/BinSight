@@ -105,16 +105,13 @@ def test_operations_map_renders_four_independent_fill_quadrants_per_site():
             "glass_bottles",
         )
     )
-    assert "--bin-fill:12.300%" in rendered
-    assert "--fill-angle:11.070deg" in rendered
-    assert "--bin-fill:45.600%" in rendered
-    assert "--fill-angle:41.040deg" in rendered
-    assert "--bin-fill:78.900%" in rendered
-    assert "--fill-angle:71.010deg" in rendered
-    assert "--bin-fill:100.000%" in rendered
-    assert "--fill-angle:90.000deg" in rendered
+    assert "--fill-color:rgb(141,135,145)" in rendered
+    assert "--fill-color:rgb(179,109,117)" in rendered
+    assert "--fill-color:rgb(216,82,89)" in rendered
+    assert "--fill-color:rgb(240,65,71)" in rendered
     assert "OPERATIONS SNAPSHOT · SIMULATED" in rendered
-    assert "Red quarter-circle wedge + number = each bin's unchanged fill percentage" in rendered
+    assert "Each quarter uses the live-tracking scale: grey empty → red full" in rendered
+    assert "Number = that bin's unchanged fill percentage" in rendered
 
 
 def test_monthly_fleet_map_keeps_both_trucks_visible_and_exposes_playback_controls():

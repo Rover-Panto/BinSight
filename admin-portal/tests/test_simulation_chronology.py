@@ -252,6 +252,18 @@ def test_overflow_can_occur_while_truck_is_still_en_route():
     assert result.metrics["overflow_spilled_kg"] >= 1.0
 
 
+def test_overflow_bin_hours_aggregate_simultaneous_overflow_exposure():
+    config = _config(horizon_days=1)
+    bins = [_bin(0), _bin(1)]
+    distance, duration = _matrices(2, 60.0)
+    arrivals = np.zeros((24, 2), dtype=float)
+    arrivals[23, :] = 101.0
+
+    result = run_policy("fixed", 0, bins, config, distance, duration, arrivals, 141)
+
+    assert result.metrics["overflow_bin_hours"] == 2.0
+
+
 def test_daily_trip_limit_is_shared_by_morning_and_evening_decisions():
     config = _config(horizon_days=1, max_daily_trips=1)
     bins = [_bin(0)]

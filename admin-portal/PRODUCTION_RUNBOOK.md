@@ -105,11 +105,11 @@ all waypoint coordinates match the current service network. This prevents an
 older cache from drawing the wrong leg after a depot, facility, or site changes
 the service-point ordering.
 
-The Operations snapshot renders every four-bin site as a circle with fixed
-general, plastic, metal, and glass quadrants. Each quadrant independently fills
-as a proportional red quarter-circle wedge using the bin's unchanged snapshot
-percentage; the outer ring carries the site routing state. Exact values remain
-available in the site popup.
+The Operations snapshot renders every four-bin site as one circle divided by a
+cross into fixed general, plastic, metal, and glass quadrants. Each whole
+quadrant independently uses the Mock live tracking grey-to-red scale and prints
+the bin's unchanged snapshot percentage; the outer ring carries the site
+routing state. Exact values remain available in the site popup.
 
 The sidebar's **Run 30-day experiment** control does not run forecasting or
 simulation inside the Streamlit request. It opens the compact committed
@@ -118,7 +118,15 @@ simulation inside the Streamlit request. It opens the compact committed
 speeds while both GENERAL-01 and RECYCLING-01 remain visible. An idle day keeps
 the trucks at the waste depot and recycling facility respectively. Required
 road legs are preloaded in the validated local OSRM geometry cache so changing
-days does not wait on a public routing request.
+days does not wait on a public routing request. The Fixed-versus-Dynamic table
+uses the paired mean from the declared normal-patterned scenario; it does not
+select a favorable stress scenario. The map is the representative first run
+from that same scenario.
+
+The comparison's aggregate overflow-exposure row is `overflow_bin_hours` across
+the entire month. Every overflowing bin contributes its overflow duration, so
+two bins overflowing for 30 minutes equal 1.0 bin-hour. This intentionally adds
+simultaneous bin exposure instead of reducing it to an incident count.
 
 The live-tracking tab uses completed routes from the current paired 30-day
 simulation. Select either specialized truck. Marker fill is forecast

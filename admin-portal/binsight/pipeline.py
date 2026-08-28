@@ -343,7 +343,7 @@ def run_experiment(
         json.dumps(representative, indent=2), encoding="utf-8"
     )
     write_dashboard_replays(representative, artifacts)
-    write_monthly_fleet_events(representative, artifacts)
+    write_monthly_fleet_events(representative, artifacts, metrics)
     (artifacts / "seed_manifest.json").write_text(
         json.dumps(seed_manifest, indent=2), encoding="utf-8"
     )
@@ -449,6 +449,7 @@ def write_dashboard_replays(
 def write_monthly_fleet_events(
     representative: dict[str, dict[str, list[dict]]],
     output_dir: Path,
+    metrics: pd.DataFrame | None = None,
 ) -> None:
     """Write the completed smart dispatches needed for 30-day fleet playback."""
     scenario_name = (
@@ -485,14 +486,51 @@ def write_monthly_fleet_events(
     for events in days.values():
         events.sort(key=lambda event: float(event.get("dispatch_minute", 0.0)))
     payload = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "source": "completed smart dispatches from the representative 30-day replication",
         "scenario": scenario_name,
+        "replication": 0,
         "day_count": 30,
         "vehicle_ids": ["GENERAL-01", "RECYCLING-01"],
         "active_days": [int(day) for day, events in days.items() if events],
         "days": days,
     }
+    if metrics is not None:
+        scenario_metrics = metrics[metrics["scenario"] == scenario_name]
+        comparison_metrics = (
+            "overflow_bin_hours",
+            "overflow_spilled_kg",
+            "wasted_pickups",
+            "mean_fill_at_collection_pct",
+            "distance_km",
+        )
+        missing = [
+            metric for metric in comparison_metrics if metric not in scenario_metrics.columns
+        ]
+        if missing:
+            raise ValueError(
+                "Monthly comparison is missing metrics: " + ", ".join(missing)
+            )
+        policies = set(scenario_metrics["policy"].astype(str))
+        if policies != {"fixed", "smart"}:
+            raise ValueError("Monthly comparison requires paired fixed and smart policies")
+        payload["policy_comparison"] = {
+            "scenario": scenario_name,
+            "replications": int(scenario_metrics["replication"].nunique()),
+            "horizon_days": 30,
+            "aggregation": "paired policy mean over the full simulation horizon",
+            "metrics": {
+                metric: {
+                    policy: float(
+                        scenario_metrics.loc[
+                            scenario_metrics["policy"] == policy, metric
+                        ].mean()
+                    )
+                    for policy in ("fixed", "smart")
+                }
+                for metric in comparison_metrics
+            },
+        }
     (output_dir / "monthly_fleet_events.json").write_text(
         json.dumps(payload, indent=2), encoding="utf-8"
     )

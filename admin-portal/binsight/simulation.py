@@ -1156,7 +1156,8 @@ def run_policy(
                         spilled_kg=round(float(spilled.sum()), 3),
                     )
             hidden_mass[:] = np.minimum(unconstrained, capacities)
-            record("overflow_bin_hours", float(np.count_nonzero(hidden_mass >= capacities)))
+            overflowing = hidden_mass >= capacities
+            record("overflow_bin_hours", float(np.count_nonzero(overflowing)))
             yield env.timeout(60)
 
     def observation_process():

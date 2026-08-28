@@ -1,7 +1,8 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "source": "completed smart dispatches from the representative 30-day replication",
   "scenario": "normal_patterned",
+  "replication": 0,
   "day_count": 30,
   "vehicle_ids": [
     "GENERAL-01",
@@ -16828,5 +16829,33 @@
         "completed_minute": 42278.743
       }
     ]
+  },
+  "policy_comparison": {
+    "scenario": "normal_patterned",
+    "replications": 2,
+    "horizon_days": 30,
+    "aggregation": "paired policy mean over the full simulation horizon",
+    "metrics": {
+      "overflow_bin_hours": {
+        "fixed": 12.5,
+        "smart": 34.5
+      },
+      "overflow_spilled_kg": {
+        "fixed": 71.3972788351345,
+        "smart": 39.8183812132006
+      },
+      "wasted_pickups": {
+        "fixed": 199.5,
+        "smart": 32.0
+      },
+      "mean_fill_at_collection_pct": {
+        "fixed": 52.050491081895984,
+        "smart": 66.38961272682265
+      },
+      "distance_km": {
+        "fixed": 593.3479999999997,
+        "smart": 914.9439999999995
+      }
+    }
   }
 }

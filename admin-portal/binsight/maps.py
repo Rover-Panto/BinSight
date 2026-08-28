@@ -156,6 +156,18 @@ def _format_value(value: Any, suffix: str = "") -> str:
     return html.escape(str(value))
 
 
+def _tracking_fill_color(fill_pct: float) -> str:
+    """Use the same grey-to-red scale as the Mock live tracking map."""
+    ratio = min(1.0, max(0.0, float(fill_pct) / 100.0))
+    grey = (127, 145, 155)
+    red = (240, 65, 71)
+    rgb = tuple(
+        round(start + (end - start) * ratio)
+        for start, end in zip(grey, red)
+    )
+    return f"rgb({rgb[0]},{rgb[1]},{rgb[2]})"
+
+
 def _quarter_fill_marker(record: dict[str, Any], meta: dict[str, str]) -> tuple[str, str]:
     """Render four independent material-fill quadrants for an operations site."""
     by_material = {detail["material_type"]: detail for detail in record["bins"]}
@@ -168,10 +180,11 @@ def _quarter_fill_marker(record: dict[str, Any], meta: dict[str, str]) -> tuple[
         fill = 0.0 if missing else min(100.0, max(0.0, float(raw_fill)))
         displayed = "?" if missing else f"{fill:.0f}%"
         exact = "missing" if missing else f"{fill:.1f}%"
+        fill_color = _tracking_fill_color(fill)
         descriptions.append(f"{label} {exact}")
         quarters.append(
             f"<span class='site-quarter quarter-{position}' "
-            f"style='--bin-fill:{fill:.3f}%;--fill-angle:{fill * 0.9:.3f}deg' "
+            f"style='--fill-color:{fill_color}' "
             f"title='{html.escape(label)}: {exact}' "
             f"data-material='{html.escape(material)}' data-fill-pct='{fill:.3f}'>"
             f"<span class='quarter-code'>{html.escape(code)}</span>"
@@ -325,13 +338,9 @@ def _add_map_css(route_map: folium.Map) -> None:
 .binsight-site-marker.state-waiting{--site-color:#7f919b;border-radius:4px;}
 .binsight-site-marker.state-completed,.binsight-site-marker.tracking-completed{--site-color:#55a879;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);}
 .binsight-site-marker.tracking-fill{background:linear-gradient(to top,var(--fill-color,#7f919b) 0 var(--fill-level,0%),#7f919b var(--fill-level,0%) 100%);transition:background .18s linear;}
-.binsight-site-marker.site-quarter-marker{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;width:56px;height:56px;overflow:hidden;clip-path:none;transform:none;border:3px solid var(--site-color,#7f919b);border-radius:50%;border-style:solid;background:#7f919b;box-shadow:0 0 0 3px rgba(4,12,18,.78);font-family:Inter,Segoe UI,sans-serif;}
-.site-quarter{position:relative;display:grid;grid-template-rows:1fr 1fr;place-items:center;overflow:hidden;min-width:0;min-height:0;background:#7f919b;color:#fff;text-shadow:0 1px 2px #071015;}
-.site-quarter::before{content:'';position:absolute;z-index:0;width:200%;height:200%;border-radius:50%;transition:background .18s linear;}
-.quarter-0::before{left:0;top:0;background:conic-gradient(transparent 0 270deg,#f05a47 270deg calc(270deg + var(--fill-angle,0deg)),transparent calc(270deg + var(--fill-angle,0deg)) 360deg)}
-.quarter-1::before{left:-100%;top:0;background:conic-gradient(#f05a47 0 var(--fill-angle,0deg),transparent var(--fill-angle,0deg) 360deg)}
-.quarter-2::before{left:0;top:-100%;background:conic-gradient(transparent 0 180deg,#f05a47 180deg calc(180deg + var(--fill-angle,0deg)),transparent calc(180deg + var(--fill-angle,0deg)) 360deg)}
-.quarter-3::before{left:-100%;top:-100%;background:conic-gradient(transparent 0 90deg,#f05a47 90deg calc(90deg + var(--fill-angle,0deg)),transparent calc(90deg + var(--fill-angle,0deg)) 360deg)}
+.binsight-site-marker.site-quarter-marker{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;width:56px;height:56px;overflow:hidden;clip-path:none;transform:none;border:3px solid var(--site-color,#7f919b);border-radius:50%;background:#7f919b;box-shadow:0 0 0 3px rgba(4,12,18,.78);font-family:Inter,Segoe UI,sans-serif;}
+.binsight-site-marker.site-quarter-marker.state-optional{border-style:dashed;}
+.site-quarter{position:relative;display:grid;grid-template-rows:1fr 1fr;place-items:center;overflow:hidden;min-width:0;min-height:0;background:var(--fill-color,#7f919b);color:#fff;text-shadow:0 1px 2px #071015;transition:background-color .18s linear;}
 .site-quarter>*{position:relative;z-index:1}.quarter-code{align-self:end;font:800 7px/1 monospace;letter-spacing:-.2px}.quarter-value{align-self:start;font:800 7px/1 monospace;}
 .quarter-0{border-right:1px solid #e9f5f7;border-bottom:1px solid #e9f5f7}.quarter-1{border-bottom:1px solid #e9f5f7}.quarter-2{border-right:1px solid #e9f5f7}
 .site-badge{position:absolute;right:-10px;top:-10px;min-width:24px;padding:3px 4px;border-radius:10px;background:#071015;color:#fff;border:1px solid #6f8794;font:700 9px/1 monospace;text-align:center;}
@@ -525,7 +534,8 @@ def _add_legend(
   <b>OPERATIONS SNAPSHOT · SIMULATED</b><br>
   <span class="legend-quarters"><i></i><i></i><i></i><i></i></span>
   Four bins: <b>G</b> general · <b>P</b> plastic · <b>M</b> metal · <b>Gl</b> glass<br>
-  Red quarter-circle wedge + number = each bin's unchanged fill percentage<br>
+  Each quarter uses the live-tracking scale: grey empty → red full<br>
+  Number = that bin's unchanged fill percentage<br>
   Outer ring: <span class="legend-ring" style="border-color:#f05a47"></span>required
   <span class="legend-ring" style="border-color:#f2ad3f"></span>inspection
   <span class="legend-ring" style="border-color:#23a6a0"></span>efficient

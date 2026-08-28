@@ -7,7 +7,12 @@ async function fleetFrame(page) {
     const handles = await page.locator("iframe").elementHandles();
     for (const handle of handles) {
       const frame = await handle.contentFrame();
-      if (frame && (await frame.locator(".fleet-panel").count()) > 0) return frame;
+      if (frame && (await frame.locator(".fleet-panel").count()) > 0) {
+        await frame.waitForFunction(() => Boolean(window.binsightFleetPlayback), null, {
+          timeout: 180000,
+        });
+        return frame;
+      }
     }
     await page.waitForTimeout(100);
   }
@@ -40,6 +45,8 @@ async function main() {
     await openPlayback.waitFor({ timeout: 180000 });
     await openPlayback.click();
     await page.getByRole("heading", { name: "Two trucks. One month. Any day." }).waitFor({ timeout: 180000 });
+    await page.getByRole("heading", { name: "Fixed and dynamic over 30 days" }).waitFor({ timeout: 180000 });
+    await page.getByText(/Normal patterned demand · paired average across 2 independent 30-day runs/).waitFor({ timeout: 180000 });
     if (!page.url().includes("view=fleet-playback")) throw new Error("Playback navigation did not set the dedicated view");
 
     let frame = await fleetFrame(page);
@@ -98,6 +105,7 @@ async function main() {
       consoleErrors,
       checks: {
         dedicatedNavigation: page.url().includes("view=fleet-playback"),
+        normalPatternComparisonShown: true,
         twoSpecializedTrucks: activeState.vehicleIds.join(",") === "GENERAL-01,RECYCLING-01",
         bothTrucksMoveTogether: bothMoved,
         twoMapMarkers: activeState.markerCount === 2 && idleState.markerCount === 2,

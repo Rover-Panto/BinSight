@@ -622,6 +622,86 @@ if fleet_playback_active:
         "the shared playback speed. GENERAL-01 starts at the waste depot; RECYCLING-01 starts "
         "at the recycling facility. Days without a dispatch keep both trucks visibly at base."
     )
+    comparison = monthly_fleet["policy_comparison"]
+    comparison_metrics = comparison["metrics"]
+    comparison_replications = int(comparison["replications"])
+
+    def comparison_value(metric: str, policy: str) -> float:
+        return float(comparison_metrics[metric][policy])
+
+    def lower_is_better_difference(
+        fixed_value: float,
+        dynamic_value: float,
+        unit: str,
+    ) -> str:
+        improvement = fixed_value - dynamic_value
+        direction = "fewer" if improvement >= 0 else "more"
+        if unit:
+            direction = "less" if improvement >= 0 else "more"
+        magnitude = abs(improvement)
+        return f"{magnitude:.1f}{unit} {direction}"
+
+    st.subheader("Fixed and dynamic over 30 days")
+    st.caption(
+        f"Normal patterned demand · paired average across {comparison_replications} independent "
+        "30-day runs. Aggregate overflow exposure covers the entire month and adds the duration "
+        "for every overflowing bin: two bins for 30 minutes equal 1.0 bin-hour. The map below "
+        "replays the representative first run from this same normal scenario. These are simulated "
+        "integration results, not a production-performance claim."
+    )
+    fixed_overflow_exposure = comparison_value("overflow_bin_hours", "fixed")
+    dynamic_overflow_exposure = comparison_value("overflow_bin_hours", "smart")
+    fixed_spill = comparison_value("overflow_spilled_kg", "fixed")
+    dynamic_spill = comparison_value("overflow_spilled_kg", "smart")
+    fixed_waste = comparison_value("wasted_pickups", "fixed")
+    dynamic_waste = comparison_value("wasted_pickups", "smart")
+    fixed_fill = comparison_value("mean_fill_at_collection_pct", "fixed")
+    dynamic_fill = comparison_value("mean_fill_at_collection_pct", "smart")
+    fixed_distance = comparison_value("distance_km", "fixed")
+    dynamic_distance = comparison_value("distance_km", "smart")
+    comparison_rows = [
+        {
+            "Measure": "Aggregate overflow exposure · entire month",
+            "Fixed": f"{fixed_overflow_exposure:.1f} bin-hours",
+            "Dynamic": f"{dynamic_overflow_exposure:.1f} bin-hours",
+            "Average difference": lower_is_better_difference(
+                fixed_overflow_exposure, dynamic_overflow_exposure, " bin-hours"
+            ),
+        },
+        {
+            "Measure": "Overflow spilled mass",
+            "Fixed": f"{fixed_spill:.1f} kg",
+            "Dynamic": f"{dynamic_spill:.1f} kg",
+            "Average difference": lower_is_better_difference(
+                fixed_spill, dynamic_spill, " kg"
+            ),
+        },
+        {
+            "Measure": "Wasteful pickups",
+            "Fixed": f"{fixed_waste:.1f}",
+            "Dynamic": f"{dynamic_waste:.1f}",
+            "Average difference": lower_is_better_difference(
+                fixed_waste, dynamic_waste, ""
+            ),
+        },
+        {
+            "Measure": "Mean fill at collection",
+            "Fixed": f"{fixed_fill:.1f}%",
+            "Dynamic": f"{dynamic_fill:.1f}%",
+            "Average difference": f"{dynamic_fill - fixed_fill:+.1f} pp",
+        },
+        {
+            "Measure": "Distance travelled",
+            "Fixed": f"{fixed_distance:.1f} km",
+            "Dynamic": f"{dynamic_distance:.1f} km",
+            "Average difference": f"{dynamic_distance - fixed_distance:+.1f} km · trade-off",
+        },
+    ]
+    st.dataframe(
+        pd.DataFrame(comparison_rows),
+        hide_index=True,
+        width="stretch",
+    )
     selected_day = st.selectbox(
         "Simulation day",
         options=list(range(1, 31)),
@@ -765,8 +845,9 @@ with overview_tab:
         st.caption(
             f"Smart dispatch from simulation day {representative_smart_event['day']}, "
             f"{representative_smart_event['hour'] % 24:02d}:00. Each circular marker has one "
-            "quarter for general, plastic, metal, and glass; each red wedge uses that bin's "
-            "unchanged snapshot fill percentage. The outer ring shows the site's routing state."
+            "quarter for general, plastic, metal, and glass. Each whole quarter uses the same "
+            "grey-to-red fill scale as Mock live tracking and prints that bin's unchanged fill "
+            "percentage. The outer ring shows the site's routing state."
         )
         _render_map(
             _overview_map(
