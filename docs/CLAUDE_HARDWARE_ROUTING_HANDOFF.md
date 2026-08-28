@@ -2,6 +2,8 @@
 
 Prepared: 27 August 2026
 
+Follow-up: 28 August 2026. PR #2 remains at `e7055764b57663a9d916602d7b0e89f54df2eaa4`; the findings below are still unresolved in code. The owner's latest hardware requirement is one C3 shared by fill and recognition modules, documented in [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md). PR #1 has since completed much of its consumer work; coordinate using [the cross-PR review](PR_REVIEW_2026-08-28.md) instead of rebuilding its forecast adapter or route store.
+
 Use this file as the task brief for Claude Pro or Claude Code. It contains the review findings and the owner's requested architecture. It does not claim that anyone has completed the repairs or wireless integration.
 
 ## Coordination With the Routing Contributor
@@ -44,19 +46,22 @@ BinSight has exactly two bin types. Do not use “smart bin” as though one dev
 
 | Bin type | Hardware and responsibility |
 | --- | --- |
-| General waste | One demonstrator bin has a fill channel on the shared Teensy 4.1 and PR #2 ESP32-C3. It reports fill, optional measured weight, health and confidence for server-side prediction and routing. It has no camera or vision model. |
-| Recycling return | Two demonstrator bins have independent fill channels on the same Teensy/PR #2 relay. The separate OV5647/Grove Vision AI V2 path classifies submitted items, and the PR #3 ESP32-C3 relays recognition results without running inference. |
+| General waste | One demonstrator bin has a fill channel on the shared Teensy 4.1. The single ESP32-C3 relays fill, optional measured weight, health and confidence for server-side prediction and routing. It uses no vision result. |
+| Recycling return | Two demonstrator bins have independent fill channels on the same Teensy. OV5647/Grove Vision AI V2 classifies submitted items, and the same ESP32-C3 relays compact recognition results without running inference. |
 
-PR #2 owns fill sensing and delivery for all three physical bins. Preserve each `bin_id`, `bin_type`, calibration and health state, and allow validated fill readings from both bin types to reach routing. PR #3 owns recognition delivery. A recycling classification event must never enter the route adapter as a fill observation, and no fill reading may be used to infer material class.
+The demonstrator has one physical ESP32-C3 and one buildable gateway firmware target. PR #2 owns the gateway shell, Teensy UART transport, fill queue, Wi-Fi delivery and recovery behavior. PR #3 contributes the Grove/SSCMA I2C adapter, recognition queue and station-feedback module. Integrate them through explicit module interfaces; a recycling classification event must never enter the route adapter as fill, and no fill reading may be used to infer material class.
 
-Use [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md) before selecting boards or claiming budget feasibility. It counts the one owned Teensy at full replacement value and separates the shared three-bin fill path from the recycling camera path.
+Use [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md) before selecting boards or claiming budget feasibility. It counts one owned Teensy, one ESP32-C3 and one Grove/camera stack.
 
 ```text
 Three-bin fill path
   1 general-waste + 2 recycling sensors -> one Teensy 4.1 with RTOS
-      -> Wi-Fi communications module
-      -> Wi-Fi access point
-      -> Network connection to the central server
+      -> hardware UART -> one shared ESP32-C3
+
+Recycling recognition path
+  OV5647 -> Grove Vision AI V2 -> I2C -> same ESP32-C3
+      -> separate fill and recognition queues
+      -> Wi-Fi access point -> central server
 
 Central BinSight server
   Authenticated ingestion -> Stored observations
@@ -68,7 +73,7 @@ Central BinSight server
 
 Keep fill prediction and routing on the server. Keep all three channels' acquisition, bounded filtering, health reporting and transmission buffering on the shared sensing path. Recycling vision inference runs on Grove Vision AI V2; its accept/reject decision tree runs on the central server. A laptop can host the server for the prototype; the design should allow a separate host later. Do not buy hosting, expose services to the public internet, or connect real municipal systems as part of this task.
 
-Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for all three scaled bins and use the selected PR #2 ESP32-C3 over UART for fill communications. The C3 does not replace Teensy sensing or RTOS work. Give every channel its own identity, type, calibration and health state; do not merge three readings into one virtual bin. Keep the Grove Vision AI V2 recognition path and its PR #3 ESP32-C3 distinct from this fill gateway.
+Teensy 4.1 has no built-in Wi-Fi. Retain one Teensy as the controller for all three scaled bins and connect it to the C3 over hardware UART. Connect Grove Vision AI V2 to the same C3 over I2C so the interfaces do not compete for one peripheral. The C3 does not replace Teensy sensing or Grove inference. Give every fill channel and recognition inspection its own identity and sequence space.
 
 Confirm the selected module, firmware/toolchain, serial pins and shared 5V power arrangement before implementing board-specific Wi-Fi firmware. The budget baseline selects an ESP32-C3 but does not prove its wiring, power stability or firmware. Proceed with the protocol, server adapter, mocks and USB development path while those tests are pending. An HTTP upload test or laptop Wi-Fi connection does not prove standalone wireless operation at the bin.
 
@@ -77,13 +82,13 @@ Confirm the selected module, firmware/toolchain, serial pins and shared 5V power
 Implement compatibility with the budgeted [ESP32-C3 Super Mini](HARDWARE_BUDGET_LOCAL_SOURCING.md), not only a generic ESP32 sketch or laptop bridge. Deliver two reproducible firmware builds:
 
 1. The existing Teensy 4.1 sensing target, extended with an ESP transport implementation behind the same event contract used by USB.
-2. A separate ESP32-C3 gateway target that receives Teensy events over UART, manages Wi-Fi and sends authenticated requests to the ingestion backend.
+2. One combined ESP32-C3 gateway target that receives Teensy events over UART, reads Grove results over I2C, manages the two queues, controls station feedback and sends authenticated requests to the appropriate server handlers.
 
-Keep the Teensy and C3 code in separate target directories with pinned toolchain and library versions. Document the exact board profile, flash/USB settings, upload command and clean-build procedure. The MakerHub listing describes the C3 board as native USB with loose headers; verify the delivered board marking and pinout instead of assuming every `ESP32-C3 Super Mini` clone is identical.
+Keep the Teensy and combined C3 code in separate target directories with pinned toolchain and library versions. Within the C3 target, keep `teensy_transport`, `grove_adapter`, `network`, `queues`, `station_control` and `health` as testable modules. Document the exact board profile, flash/USB settings, upload command and clean-build procedure. Verify the delivered board marking and pinout instead of assuming every `ESP32-C3 Super Mini` clone is identical.
 
-Use a hardware UART, 3.3V logic and a common ground. Serial1 pins 0/1 are the proposed Teensy default, but verify them against the actual Teensy pinout and existing sensor allocation before wiring. Power the C3 from a verified input on the shared regulated supply; do not power Wi-Fi radio current from the Teensy's 3.3V pin. Record the final TX/RX crossover, ground, input-voltage pin, baud rate and measured current in the setup guide.
+Use a hardware UART between Teensy and C3, I2C between Grove and C3, 3.3V signalling and a common ground. Serial1 pins 0/1 are the proposed Teensy default, but verify the final C3 pins against the delivered board, avoiding strapping, flash and USB/JTAG conflicts. Power the C3, Grove and servo from verified inputs on the shared regulated supply; do not power their operating current from the Teensy's 3.3V pin. Record the final UART crossover, I2C pins/address, servo GPIO, grounds, supply pins, rates and measured current.
 
-Do not fold recycling classification into the PR #2 gateway. PR #2 owns the shared Teensy fill path and its ESP32-C3 relay for one general-waste and two recycling bins. PR #3 and `main` own Grove Vision AI V2, the recognition ESP32-C3, inference endpoint, QR session and citizen return workflow. PR #2 must implement recycling **fill** compatibility but must not implement, host or test recycling recognition.
+The shared C3 firmware must include both transport modules without combining their decisions. PR #2 owns the fill producer path and reusable gateway services. PR #3 owns Grove model/export work and the recognition adapter. `main` owns the inference endpoint, QR session and citizen return workflow. Use separate schemas, bounded queues, retry policies, counters and server paths. Serialize network requests through a fair scheduler so a fill backlog cannot starve an active inspection and recognition traffic cannot suppress fill reporting.
 
 Manufacturer references: [Teensy 4.1 interfaces](https://www.pjrc.com/store/teensy41.html), [ESP32 communications capabilities](https://www.espressif.com/en/products/socs/esp32).
 
@@ -320,7 +325,7 @@ Agree and version the contract. Add the registry, adapter, timestamp/quality han
 
 ### Phase C: Add Wi-Fi and controlled automation
 
-Implement the Teensy transport interface and separate ESP32-C3 gateway target described above. First pass the shared UART fixtures and host emulator, then test the purchased C3 with the actual Teensy, regulated supply and central server. Exercise reconnection, replay, queue exhaustion, module restart, power interruption and end-to-end storage acknowledgement. Add server-side route evaluation and operator controls. Keep physical tests explicitly pending when the equipment is unavailable; do not let that block independent server tests.
+Implement the Teensy transport interface and combined ESP32-C3 gateway target described above. First pass UART and SSCMA fixtures and a host emulator, then test the purchased C3 with the actual Teensy, Grove, regulated supply and central server. Exercise concurrent fill/inference traffic, reconnection, replay, queue exhaustion, I2C failure, module restart, power interruption, stale decision rejection and end-to-end acknowledgements. Add server-side route evaluation and operator controls. Keep physical tests explicitly pending when the equipment is unavailable.
 
 ### Branch discipline
 
@@ -373,6 +378,11 @@ Add these as committed tests or recorded hardware procedures. Report each as pas
 | T25 | C3 reset and full power interruption preserve every event promised as `QUEUED`; if persistence is not implemented, no such acknowledgement is emitted. |
 | T26 | Queue capacity exhaustion, malformed UART input, authentication failure and unsupported schema each produce a visible machine-readable fault without leaking credentials. |
 | T27 | USB and C3 delivery of the same fixture produce equivalent stored observations, while the physical path remains distinguishable in provenance. |
+| T28 | One C3 reads Teensy UART and Grove I2C concurrently; neither queue starves, corrupts or rewrites the other stream. |
+| T29 | A missing or stuck Grove leaves fill delivery operational and reports recognition health as degraded. |
+| T30 | A malformed or flooded Teensy stream cannot block an active inspection or servo-decision acknowledgement. |
+| T31 | C3 reset interrupts both paths visibly; recovery preserves promised events and never executes an expired or duplicate servo command. |
+| T32 | The complete Teensy, C3, Grove, Wi-Fi and servo assembly passes measured power and brownout testing on the selected supply. |
 
 Run the existing routing tests after adapter, policy or schema changes. Run the citizen checks required by `CONTRIBUTING.md` from `web/`: `pnpm lint`, `pnpm test:run`, `pnpm test:e2e`, and `pnpm build`. Record any environment blocker instead of claiming a pass. Add screenshots at the documented desktop/tablet/mobile sizes if changing a visible page.
 
@@ -398,7 +408,7 @@ Return a report with:
 3. The final event/route contracts, migration details and data ownership rules.
 4. Test commands and results, including a separate list of untested physical behaviors.
 5. Startup, shutdown, provisioning and recovery instructions another contributor can follow.
-6. ESP32-C3 board profile, UART wiring, power arrangement, provisioning method, queue ownership and the result of T22-T27, or the exact missing evidence that prevents physical Wi-Fi completion.
+6. ESP32-C3 board profile, UART/I2C/servo wiring, power arrangement, provisioning method, both queue owners and the result of T22-T32, or the exact missing evidence that prevents physical completion.
 7. Commit/branch/PR references and the remaining review items before merge.
 
 Do not call the system deployed, lossless, production-ready or proven without evidence. Do not claim genuine truck dispatch or real savings from a simulated demonstration. Leave a reviewable implementation with accurate documentation and explicit limitations.

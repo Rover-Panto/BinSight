@@ -1,6 +1,6 @@
 # BinSight Project State
 
-Last verified: 27 August 2026
+Last verified: 28 August 2026
 
 ## Main branch
 
@@ -35,20 +35,20 @@ The citizen app currently supports:
 
 There is no collection-schedule route. BinSight describes public-bin servicing as demand-led and automatically routed.
 
-## Two-bin architecture
+## Two Bin Types
 
 BinSight has two and only two bin types. Keep this distinction in firmware, APIs, storage, routing, dashboards, proposal text and demonstrations.
 
 | Bin type | Physical role | Processing boundary |
 | --- | --- | --- |
-| General waste | One model bin measures fill and, where fitted, weight | The shared Teensy 4.1 schedules its sensing; the PR #2 ESP32-C3 relays telemetry for overflow prediction and routing. No camera or vision model is used. |
-| Recycling return | Two model bins measure fill and support the return flow | The same Teensy and PR #2 C3 carry two independently identified fill channels into routing. OV5647/Grove Vision AI V2 performs local classification for the return flow; the separate PR #3 C3 relays compact recognition results and controls feedback. |
+| General waste | One model bin measures fill and, where fitted, weight | The shared Teensy 4.1 schedules sensing; the single ESP32-C3 relays telemetry for overflow prediction and routing. No camera or vision model is used for this bin. |
+| Recycling return | Two model bins measure fill and support the return flow | The same Teensy and ESP carry two independently identified fill channels. OV5647/Grove Vision AI V2 performs local classification; the same ESP relays compact recognition results and controls feedback after the server decision. |
 
-Recycling fill readings and recycling inference events are independent. A classifier fault must not stop fill reporting, and fill level must not influence item acceptance. The route adapter may consume fill observations from either bin type, but must reject every classification event.
+Recycling fill readings and recycling inference events are logically independent. Firmware must contain a classifier/peripheral fault so fill reporting can continue; a shared C3 reset or power loss interrupts both streams. Fill level must not influence item acceptance. The route adapter may consume fill observations from either bin type, but must reject every classification event. See [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md).
 
 ## Admin work
 
-The route-optimisation and KPI dashboard is planned collaborator work. It has not merged into `main` at the date above. The collaborator should follow [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [DATA_PRESERVATION.md](DATA_PRESERVATION.md).
+The route-optimisation and KPI dashboard has substantial implementation on PR #1, but has not merged into `main`. Its latest update adds predictive telemetry snapshots, trip-value routing, stored route lifecycle and expanded synthetic evaluation. PR #4 adds a separate overflow predictor that overlaps this work. Follow [the cross-PR review](PR_REVIEW_2026-08-28.md), [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md) and [DATA_PRESERVATION.md](DATA_PRESERVATION.md).
 
 The admin implementation should use `/admin` as its route prefix and keep admin state outside the citizen store. The first pull request must record its final route map, state model, fixtures, KPI formulas, and tests in this directory.
 
@@ -56,18 +56,19 @@ The admin implementation should use `/admin` as its route prefix and keep admin 
 
 | Track | Components | Integration target |
 | --- | --- | --- |
-| Fill sensing for all three bins | PR #2 shared Teensy sensing and its dedicated ESP32-C3 relay | PR #1 prediction, routing and operations portal |
-| Recycling recognition | PR #3 Grove model and its dedicated ESP32-C3 inference relay | `main` server, QR-bound return sessions, citizen portal and simulated payout |
+| Fill sensing for all three bins | PR #2 Teensy sensing plus the fill module in the shared ESP32-C3 firmware | PR #1 prediction, routing and operations portal |
+| Recycling recognition | PR #3 Grove model plus the SSCMA module in the shared ESP32-C3 firmware | `main` server, QR-bound return sessions, citizen portal and simulated payout |
+| Candidate overflow model | PR #4 training, evaluation and prediction adapter | PR #1's single routing-facing prediction contract; no independent dispatcher or citizen integration |
 
-PR #2 owns recycling-bin fill telemetry but must not implement Grove recognition, the inference endpoint, QR workflow or citizen return state. PR #3 must not send recognition events into PR #1's routing adapter. The tracks may share a physical recycling bin, but not event schemas, queues or decision logic.
+PR #2 owns the gateway shell, Teensy transport and fill queue. PR #3 owns the Grove/SSCMA adapter and recognition queue. A focused integration change combines those modules into one ESP firmware target without sending recognition into PR #1 or fill into the return-session decision. `main` still owns the inference endpoint, QR workflow and citizen return state.
 
 ## Hardware sourcing baseline
 
-The USD150 demonstrator uses one Teensy 4.1 for three fill channels: one general-waste bin and two recycling bins. One PR #2 ESP32-C3 relays all three fill streams. The return flow uses one OV5647 camera and Grove Vision AI V2 for local inference, plus a separate PR #3 ESP32-C3 for recognition delivery and station control. Only recycling uses vision, and neither C3 runs the model. The owned Teensy is counted at full local replacement value inside the competition ceiling.
+The USD150 demonstrator uses one Teensy 4.1 for three fill channels, one OV5647/Grove Vision AI V2 stack for recycling inference, and one ESP32-C3 for both Wi-Fi relay functions and station feedback. The C3 receives Teensy data over hardware UART and Grove metadata over I2C. It does not run the model or make server decisions. The owned Teensy is counted at full local replacement value inside the competition ceiling.
 
 See [HARDWARE_BUDGET_LOCAL_SOURCING.md](HARDWARE_BUDGET_LOCAL_SOURCING.md) for the dated Malaysian listings, Selangor delivery assumptions, budget totals and purchase gates.
 
-PR #3 adds a laptop/webcam YOLO training prototype but does not yet implement the Grove export, ESP32-C3 result relay, server decision contract or website integration. It must not merge unchanged. Follow [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md) for the required class map, high-confidence decision gate, no-camera web boundary, data contract, merge order and acceptance checks.
+PR #3 now adds isolated laptop/webcam training code, pinned dependencies, a raw inference metadata class and three passing unit tests. It does not supply trained weights or tested Grove/ESP deployment. Main still needs to implement the inference/session HTTP endpoints and website integration. Follow [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md) for current findings and the integration contract.
 
 The documentation/integration branch now includes `server/recycling_policy.py`: a tested central-server decision tree that accepts stable high-confidence `plastic`, `metal` and `glass` labels and rejects every other material. It is not yet wired to an HTTP endpoint or the citizen return page. PR #3 contains no trained model artifact or dataset.
 

@@ -11,9 +11,9 @@ anything else -> reject
 
 The default gate requires three consecutive matching results at confidence 0.70 or above. A result at exactly 0.70 qualifies. Low-confidence eligible results wait for more evidence; the server rejects an unfinished inspection after five seconds. Multiple items and malformed results reject. Validate this threshold against held-out prototype data before presenting accuracy claims.
 
-Grove Vision AI V2 runs the model. The recycling ESP32-C3 relays class, confidence, sequence and object count to the backend. The central server calls this policy, stores its terminal decision, and sends the outcome to the station and citizen website. The ESP32-C3 controls the chute only after receiving the server decision. Neither the server nor the website needs an image stream.
+Grove Vision AI V2 runs the model. The demonstrator's shared ESP32-C3 relays class, confidence, sequence and object count to the backend while independently forwarding Teensy fill telemetry. The central server calls this policy, stores its terminal decision, and sends the outcome to the station and citizen website. The ESP32-C3 controls the chute only after receiving the matching server decision. Neither the server nor the website needs an image stream.
 
-Both recycling bins also have independent fill sensors. The shared Teensy and PR #2 ESP32-C3 send those readings through the routing telemetry path; they never enter `RecyclingInspection`. Fill collection must remain available during a vision fault, and item decisions must remain available during a fill-sensor fault.
+Both recycling bins also have independent fill sensors. The Teensy sends those readings through the same C3 but a separate routing queue; they never enter `RecyclingInspection`. Software faults must be contained between tasks, although a shared ESP power loss or reset interrupts both streams.
 
 ## Integration Boundary
 

@@ -1,15 +1,22 @@
 # PR #3 Recycling Vision Review and Main Integration Contract
 
-Reviewed: 27 August 2026
+Initial review: 27 August 2026. Follow-up: 28 August 2026.
 
-- Pull request: [#3, Feature/recycling yolo detector](https://github.com/Rover-Panto/BinSight/pull/3)
-- Reviewed head: `ed6f8a83dca0869fea69eb40685a328133c93794`
+- Pull request: [#3, feat: add YOLO recycling detector](https://github.com/Rover-Panto/BinSight/pull/3)
+- Initial reviewed head: `ed6f8a83dca0869fea69eb40685a328133c93794`
+- Follow-up head: `819ff37b41a78208ba1624ad0060f8bec0358346`
 - Base `main`: `9fca9d47afb805f40034da970bb47d791ba8f0b4`
 - Review decision: **changes required before merge**
 
+## Follow-up Status
+
+PR #3 now isolates code under `recycling_vision/`, pins dependencies, removes the duplicate guides, removes paper from the eligible display set, adds generated-artifact ignore rules and supplies an image-free metadata class with three passing tests. The new guide states that main owns the acceptance decision. These changes resolve the corresponding scaffolding findings below; do not ask the contributor to repeat them.
+
+The branch still supplies no trained weights, dataset evidence, tested Grove export, SSCMA firmware or HTTP transport. Its dedicated-ESP wording is superseded by the owner's single-board requirement in [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md). The metadata validator needs strict field types and identifier/timestamp checks; its guide still includes commands for files that were renamed. See [the current cross-PR review](PR_REVIEW_2026-08-28.md) for evidence and assigned follow-up work. Main still owns QR sessions, the inference endpoint, durable decisions and citizen integration.
+
 ## Required Outcome
 
-Only the two recycling bins participate in the computer-vision return flow. Their fill sensors are independent and belong to the shared Teensy/PR #2 telemetry path. The OV5647 camera connects to Grove Vision AI V2, and Grove runs the deployed model locally. The dedicated PR #3 ESP32-C3 relays compact inference results only. The server makes the accept/reject decision and returns it to the C3 for chute feedback and to the website for session updates.
+Only the two recycling bins participate in the computer-vision return flow. Their fill sensors remain on the Teensy path. The OV5647 camera connects to Grove Vision AI V2, and Grove runs the deployed model locally. One shared ESP32-C3 receives Teensy fill frames over UART and compact Grove results over I2C. The server makes the accept/reject decision and returns it to that C3 for chute feedback and to the website for session updates.
 
 The citizen website must not open, stream or store camera images. During an active return session it waits for one terminal station event, then shows the detected container and whether the station accepted it. The eligible classes are:
 
@@ -21,9 +28,11 @@ The owner's server-side decision tree accepts those three material labels after 
 
 ## Does PR #3 Contain the Model?
 
-**No trained model artifact is present.** The branch contains `train_recycling.py`, `webcam_recycling.py`, `recycling_data.yaml`, an unpinned dependency list and two copies of the guide. It contains no `.pt`, `.onnx`, `.tflite`, `.pth`, `.bin` or dataset files. `weights/yolo11n.pt` is a configured base-weight path and `runs/recycling/yolo11n_recycling/weights/best.pt` is the expected training output; neither file is committed. Ask the contributor for the trained artifact, class map, training provenance and held-out metrics before calling it a supplied model.
+**No trained model artifact is present at the follow-up head.** The branch contains training and webcam scripts, a class-map YAML, pinned dependencies, metadata tests and an evaluation template under `recycling_vision/`. It contains no trained `.pt`, `.onnx` or `.tflite` file and no image dataset. A configured base-weight path or expected training-output path is not a supplied model. Request a licensed release artifact with checksum, class map, training provenance and held-out metrics; large weights and datasets need not be committed to Git.
 
-## Review Findings
+## Initial Findings at ed6f8a8
+
+The following findings document the original review. Apply the follow-up disposition above before assigning new work; the linked source lines intentionally refer to the earlier commit.
 
 ### [P1] The current display policy includes paper and broad material objects
 
@@ -91,7 +100,7 @@ Grove may return boxes and scores to the ESP32-C3 through SSCMA. The ESP32-C3 se
   "schema_version": 1,
   "event_id": "0191f4d8-7b92-7bce-9d2d-0af9157fd381",
   "station_id": "RRS-001",
-  "device_id": "recycling-relay-01",
+  "device_id": "shared-gateway-01",
   "boot_id": "boot-8dd78c",
   "sequence": 42,
   "session_id": "BS-1234",
@@ -112,7 +121,7 @@ The model's class map uses `plastic`, `metal`, `glass`, `paper` and `other`; unk
 The backend must enforce:
 
 - one stored record for each `event_id`, including retries;
-- monotonic sequence tracking per `device_id` and `boot_id`;
+- monotonic recognition sequence tracking per `device_id` and `boot_id`, in a namespace separate from fill events;
 - an active, unexpired `session_id` bound to the same `station_id`;
 - `accepted` only for `plastic`, `metal` or `glass` after the server computes the confidence/stability gate;
 - `valueCents = 20` only after the decision event has been stored;
@@ -120,9 +129,9 @@ The backend must enforce:
 - no image payload fields;
 - separate storage from general-waste fill telemetry and truck routing.
 
-### Fill-system boundary
+### Shared-gateway boundary
 
-PR #3 must not read, relay, validate or store fill levels. The one Teensy and PR #2 ESP32-C3 report all three demo bins, including both recycling bins, through the routing telemetry contract. PR #3 may use a stable recycling `bin_id` only to bind an inference to the correct return location. It must not require a current fill reading before inference, acceptance or payout.
+The physical C3 carries both streams, but the PR #3 recognition module must not parse, validate or depend on fill levels. The PR #2 module receives all three fill channels from Teensy and sends them through the routing contract. The recognition module may use a stable recycling `bin_id` only to bind an inference to the correct return location. Use independent queues, sequence spaces, health counters and endpoints; never require a current fill reading before inference, acceptance or payout.
 
 ## Implemented Server Decision Policy
 
@@ -140,7 +149,7 @@ decision = inspection.observe(
 
 The API layer must persist samples and the terminal decision, authenticate/bind the station and session, validate freshness and restore or interrupt active inspections after a server restart. The policy does not implement those transport or storage responsibilities. It supplies a proposed 20-sen value only for an accepted result; the backend must store the decision before crediting the session.
 
-The ESP32-C3 queues raw inference events through a network outage and acts on the matching server decision after reconnecting. A network timeout cannot become local acceptance. See `server/README.md` for the integration boundary.
+The ESP32-C3 may retain inference events for audit through a network outage, but reconnection must not revive an expired inspection. It executes a server command only for the matching active session/inspection, before command expiry and once per command ID. A network timeout cannot become local acceptance. See `server/README.md` for the integration boundary.
 
 ## Website Integration Contract
 
@@ -176,13 +185,13 @@ Updating `ItemEvent` requires a versioned citizen-data migration. Preserve exist
 
 ## Main Integration Order
 
-1. **Repair PR #3.** Rebase from current `main`; exclude paper from the accepted display policy; document the five-class map and its container-eligibility limits; remove the duplicate guide; isolate and pin dependencies; add ignore rules, model evaluation and the Grove export procedure.
-2. **Complete the PR #3 recycling device path.** Supply the Grove-compatible model artifact and the dedicated recycling ESP32-C3 relay. It reads SSCMA class/confidence results and sends the inference contract above. It does not read or relay fill data. PR #3 must not depend on or modify PR #1 or PR #2.
+1. **Finish the PR #3 scaffolding review.** Keep the completed class-policy, folder, dependency and ignore-rule fixes. Correct the renamed verification commands, validate metadata types/IDs/timestamps and align the guide with the single shared C3. Do not repeat already completed work or claim an untested export is reproducible.
+2. **Complete the PR #3 recycling module.** Supply the Grove-compatible model artifact and a Grove/SSCMA adapter that can be integrated into the single PR #2 gateway target. It reads class/confidence results over I2C and writes only to the recognition queue. Coordinate the module interface without taking ownership of the Teensy fill parser or routing endpoint.
 3. **Build the main-owned server endpoint.** Add authenticated `/api/v1/recycling/inferences`, QR-bound return-session endpoints, durable event storage and `server/recycling_policy.py`. Main owns the decision, session credit and citizen-facing result.
 4. **Integrate the citizen return flow in main.** Add a QR deep link such as `/return/start?station=RRS-001`, preserve it through login, create a station-bound session, wait for server decisions and keep a mock fallback for tests. Keep camera data out of the browser.
-5. **Run one end-to-end pilot.** User opens station QR -> main creates the return session -> Grove result -> PR #3 ESP32-C3 metadata relay -> main server confidence/stability gate -> stored decision -> website accept/reject -> exactly one RM0.20 credit for an accepted item.
+5. **Run one end-to-end pilot.** User opens station QR -> main creates the return session -> Grove result -> shared ESP32-C3 recognition queue -> main server confidence/stability gate -> stored decision -> website accept/reject -> exactly one RM0.20 credit for an accepted item, while fill telemetry continues.
 
-PR #1 and PR #2 form the separate three-bin fill/routing track and are not dependencies of recognition. Keep the PR #3 device work and main-owned server/citizen changes in reviewable commits with an explicit API version.
+PR #1 remains separate from recognition. PR #2 and PR #3 now share one embedded target, so agree the adapter interface and integration owner before editing the gateway firmware. Keep Grove/model work and main-owned server/citizen changes in reviewable commits with explicit API versions.
 
 ## Acceptance Checks
 
@@ -195,7 +204,7 @@ PR #1 and PR #2 form the separate three-bin fill/routing track and are not depen
 | V05 | Conflicting, multiple, missing and low-confidence results reach a bounded rejection without a payout. |
 | V06 | Holding one item in view cannot create a second event until the station re-arms. |
 | V07 | The deployed artifact is the recorded Grove-compatible integer Vela TFLite file and the class order matches the firmware. |
-| V08 | The ESP32-C3 obtains class, confidence and timing from Grove over the documented SSCMA I2C/UART link and runs no model. |
+| V08 | The shared ESP32-C3 obtains class, confidence and timing from Grove over documented SSCMA I2C while receiving Teensy telemetry over hardware UART; it runs no model. |
 | V09 | Network loss and lost acknowledgement replay the same event ID; the server stores and credits it once. |
 | V10 | The server computes acceptance from raw samples and rejects ineligible classes, malformed data, stale sessions and wrong stations. It does not trust an ESP32-supplied acceptance or stable-result count. |
 | V11 | The website receives decision metadata and displays no camera element, image, frame or stream. |
@@ -203,7 +212,7 @@ PR #1 and PR #2 form the separate three-bin fill/routing track and are not depen
 | V13 | Version 3 citizen returns and payouts survive the new event migration without relabelling old bottles as glass or plastic. |
 | V14 | Existing login, payout, report and attachment browser tests still pass. |
 | V15 | Held-out results report per-class precision, recall, confusion matrix, confidence threshold and failure examples under prototype lighting. |
-| V16 | PR #2 recycling fill reports continue through a PR #3 vision fault; PR #3 decisions continue through a fill-path fault; fill level never changes item acceptance or payout. |
+| V16 | The shared gateway contains a Grove fault and a Teensy/UART fault to their respective tasks; fill never changes item acceptance or payout. A whole-C3 reset is reported as a shared outage. |
 
 ## Verification Performed During Review
 

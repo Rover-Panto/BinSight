@@ -2,6 +2,8 @@
 
 Prepared: 27 August 2026
 
+Follow-up: 28 August 2026. PR #1 is now at `c256bd44a60d12628b9f0354879e1ad90a15ec1e` and has implemented much of this handoff. Do not rebuild its telemetry adapter, planner or approval store. Use [the current cross-PR review](PR_REVIEW_2026-08-28.md) to address the remaining defects and coordinate PR #4 as a candidate predictor behind one routing contract. Follow [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md) for the single-C3 requirement.
+
 Use this file as the implementation brief for Codex working on the routing system. Pair it with [the Claude hardware handoff](CLAUDE_HARDWARE_ROUTING_HANDOFF.md). This document requests future implementation; it does not claim that the integration or tests below already pass.
 
 ## 1. Instructions to Codex
@@ -34,12 +36,12 @@ BinSight has exactly two bin types:
 
 | Bin type | Routing-system treatment |
 | --- | --- |
-| General waste | One Teensy-controlled fill channel relayed by the shared PR #2 ESP32-C3. It has no vision model. |
-| Recycling return | Two Teensy-controlled fill channels use the same PR #2 relay and are valid routing inputs. The separate OV5647/Grove Vision AI V2 path and PR #3 ESP32-C3 produce recognition and return-session events, never fill observations. |
+| General waste | One Teensy-controlled fill channel relayed by the shared ESP32-C3. It has no vision model. |
+| Recycling return | Two Teensy-controlled fill channels use the same gateway and are valid routing inputs. OV5647/Grove Vision AI V2 also sends recognition metadata through that C3, but recognition and return-session events are never fill observations. |
 
 Accept validated fill observations from both bin types, but reject every recognition or return-session event at the route adapter. Preserve physical bin IDs, bin type, waste stream, schemas and provenance so the dashboard cannot display a classification as route telemetry or imply that the general-waste bin identifies materials.
 
-Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The demonstrator uses one Teensy to service one general-waste and two recycling fill channels, then one PR #2 ESP32-C3 to relay all three. Routing must preserve the three identities and waste streams even though they share a controller and network link. No second Teensy is included in the USD150 demo budget.
+Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOCAL_SOURCING.md). The demonstrator uses one Teensy for one general-waste and two recycling fill channels, then one ESP32-C3 for both fill and Grove-result delivery. Routing must preserve the three bin identities and reject recognition events even though both event types share the gateway identity and network link.
 
 ```text
 Bin sensors -> Teensy 4.1 -> Wi-Fi communications module
@@ -50,7 +52,7 @@ Bin sensors -> Teensy 4.1 -> Wi-Fi communications module
   -> Operator route preview, approval and mock truck dispatch
 ```
 
-Keep all fill sensing and RTOS scheduling on the single Teensy. Keep fill prediction and routing on the server. Recycling image inference runs locally on Grove Vision AI V2, while its separate PR #3 ESP32-C3 relays only inference results and station events. A laptop can serve as the prototype server; no paid hosting, public deployment or real truck connection belongs in this task.
+Keep all fill sensing and RTOS scheduling on the single Teensy. Keep fill prediction and routing on the server. Recycling image inference runs locally on Grove Vision AI V2; the shared ESP32-C3 relays its compact results through a separate queue and endpoint. A laptop can serve as the prototype server; no paid hosting, public deployment or real truck connection belongs in this task.
 
 ### Paired handoff responsibilities
 

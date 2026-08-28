@@ -6,19 +6,21 @@ BinSight is MON BLUE's smart waste-sensing system and citizen recycling hub. The
 
 The repository contains the responsive citizen hub, hardware and server integration contracts, and supporting tests. The frontend is a self-contained prototype with simulated authentication, station-detected returns, payouts, reports, automatic public-bin routing, support services, and local persistence.
 
-## System boundary
+## Target System Boundary
 
 | Bin type | Prototype hardware | Server use |
 | --- | --- | --- |
-| General waste | One fill-sensing channel on the shared Teensy 4.1 and PR #2 ESP32-C3 Wi-Fi relay | PR #2 integrates with PR #1 for fill history, prediction, collection priority and routing |
-| Recycling return | Two independent fill channels on the same Teensy/PR #2 relay, plus a separate OV5647/Grove Vision AI V2 recognition path and PR #3 ESP32-C3 relay | Fill enters PR #1 routing through PR #2; recognition enters `main` through PR #3 for QR sessions, decisions, simulated refunds and citizen UI |
+| General waste | One fill-sensing channel on the shared Teensy 4.1 and ESP32-C3 gateway | PR #2 integrates fill with PR #1 for history, prediction, collection priority and routing |
+| Recycling return | Two independent fill channels on the same Teensy, plus OV5647/Grove Vision AI V2 recognition through the same ESP32-C3 | Fill follows the PR #2/PR #1 route contract; recognition follows the PR #3/`main` session and decision contract |
 
-The single Teensy polls one fill sensor per physical bin and keeps a separate identity, calibration and health state for each channel. Its PR #2 ESP32-C3 relays all three fill streams. The PR #3 ESP32-C3 relays only compact recognition results from Grove; neither C3 runs the model. A vision fault must not stop recycling fill reporting, and fill level must not affect item acceptance or payout.
+The target design uses one Teensy to poll a fill sensor per physical bin with separate identity, calibration and health state. One ESP32-C3 receives those readings over UART, reads compact Grove recognition results over I2C, and sends both event types through independent queues. Grove runs the model; the laptop server handles routing and accept/reject decisions. Firmware must contain peripheral faults, but a shared C3 reset interrupts both paths. Fill level must not affect item acceptance or payout. This hardware integration remains under development.
 
 ## Repository contents
 
 - `docs/`: frontend reference, project state, admin integration, and data-preservation contracts
 - `docs/PR3_RECYCLING_VISION_REVIEW.md`: recycling-model review and Grove-to-website integration contract
+- `docs/PR_REVIEW_2026-08-28.md`: current PR changes, defects, duplicated work and integration order
+- `docs/SHARED_ESP32_GATEWAY.md`: one-board fill/recognition contract and firmware ownership
 - `BinSight_UI_Design_Language.txt`: citizen and admin interface rules
 - `server/`: central-server recycling decision policy and unit tests; HTTP integration remains pending
 - `web/`: React and TypeScript citizen hub prototype

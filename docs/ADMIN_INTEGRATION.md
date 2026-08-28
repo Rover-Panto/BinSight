@@ -4,7 +4,7 @@
 
 The admin area will let an authorised operator inspect fill status across the three-bin demonstrator, compare a fixed collection baseline with a priority route, review route stops, and track simulation KPIs. Keep resident tasks in the existing citizen shell.
 
-BinSight has two bin types across three physical bins. PR #2 produces fill telemetry for one general-waste and two recycling bins; all three are eligible routing inputs. PR #3 produces recycling item-classification and return-session events. Keep fill separate from vision decisions even when both refer to the same recycling bin.
+BinSight has two bin types across three physical bins. A single ESP32-C3 sends PR #2 fill telemetry for all three bins and PR #3 recycling-recognition events. Keep these as separate server contracts even though they share one gateway and may refer to the same recycling bin.
 
 Use `/admin` as the route prefix. Recommended routes:
 
