@@ -8,7 +8,7 @@ Use this file as the task brief for Claude Pro or Claude Code. It contains the r
 
 ## Coordination With the Routing Contributor
 
-Use this brief alongside [the Codex routing handoff](CODEX_ROUTING_INTEGRATION_HANDOFF.md). With both briefs in use, Claude owns hardware, USB/Wi-Fi transport, ingestion API/storage and producer-side fixes. Codex owns the `admin-portal/` adapter, prediction preparation, collection policy, planning lifecycle, operator UI and routing persistence.
+Use this brief alongside [the Codex routing handoff](CODEX_ROUTING_INTEGRATION_HANDOFF.md). Claude owns hardware, USB/Wi-Fi transport, ingestion API/storage and producer-side fixes. PR1 owns the `admin-portal/` consumer adapter, collection policy, planning lifecycle, operator UI and routing persistence. PR4 owns forecast features, training, calibration and inference. The owner-confirmed split requires PR1 to remove superseded model code after the replacement passes integration tests.
 
 Agree one event/route contract and shared fixtures before changing either side. Treat this brief's routing sections and Phase B as interface requirements to coordinate with Codex, not a second assignment to implement the same routing files. Choose one editor for each shared schema/document and exchange the tested producer/consumer versions. Do not change the other contributor's files or branch without agreement.
 
@@ -116,7 +116,8 @@ Use these ownership boundaries:
 | `hardware_pipeline/firmware/` | Teensy sensing, filtering, calibration, health and transport interface |
 | `hardware_pipeline/tools/` | USB development bridge and transport test utilities |
 | `hardware_pipeline/cloud_backend/` | Telemetry API, validation, persistence and ingestion acknowledgements |
-| `admin-portal/binsight/` | Server-side telemetry adapter, forecast features, collection policy and existing route engine |
+| `admin-portal/binsight/` | Telemetry/forecast consumer, validation and needed cache, collection policy and route engine; no duplicate learned predictor after PR4 integration |
+| `ml/` (PR4) | Forecast features, training, calibration, inference and model evaluation through the agreed PR1 consumer contract |
 | `admin-portal/app.py` | Operator workflow and route preview |
 | `docs/` | Shared contracts, ownership, migration, operation and verification records |
 | `web/` | Citizen app; no redesign or storage migration in this task |

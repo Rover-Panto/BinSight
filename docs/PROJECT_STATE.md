@@ -56,11 +56,13 @@ The admin implementation should use `/admin` as its route prefix and keep admin 
 
 | Track | Components | Integration target |
 | --- | --- | --- |
-| Fill sensing for all three bins | PR #2 Teensy sensing plus the fill module in the shared ESP32-C3 firmware | PR #1 prediction, routing and operations portal |
+| Fill sensing for all three bins | PR #2 Teensy sensing plus the fill module in the shared ESP32-C3 firmware | PR #4 forecasting and PR #1 routing/operations through the agreed telemetry contract |
 | Recycling recognition | PR #3 Grove model plus the SSCMA module in the shared ESP32-C3 firmware | `main` server, QR-bound return sessions, citizen portal and simulated payout |
-| Candidate overflow model | PR #4 training, evaluation and prediction adapter | PR #1's single routing-facing prediction contract; no independent dispatcher or citizen integration |
+| Fill/overflow forecasting | PR #4 model features, training, calibration, inference and forecast evaluation | PR #1's single prediction-consumer interface; no independent dispatcher or citizen integration |
 
 PR #2 owns the gateway shell, Teensy transport and fill queue. PR #3 owns the Grove/SSCMA adapter and recognition queue. A focused integration change combines those modules into one ESP firmware target without sending recognition into PR #1 or fill into the return-session decision. `main` still owns the inference endpoint, QR workflow and citizen return state.
+
+The owner confirmed PR #4 as the forecasting owner, not merely a fallback. PR #1 should remove its superseded training/prediction code after PR #4 satisfies the shared interface and integration tests. Retain required telemetry validation/cache code, routing simulation and historical data. Keep a named non-ML operational fallback for unavailable forecasts. See [the owner-confirmed split](PR_REVIEW_2026-08-28.md#owner-confirmed-split); the replacement is not yet implemented.
 
 ## Hardware sourcing baseline
 

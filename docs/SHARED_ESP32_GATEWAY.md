@@ -13,7 +13,7 @@ Camera -> Grove Vision AI V2 ------- I2C -----------+-> ONE ESP32-C3 -> Wi-Fi
                                                         |
                          main server decision ----------+-> LED/chute feedback
 
-Fill queue        -> PR2 telemetry ingestion -> PR1 forecast/routing/KPIs
+Fill queue        -> PR2 telemetry ingestion -> PR4 forecast -> PR1 routing/KPIs
 Recognition queue -> main return-session API -> server decision -> citizen portal
 ```
 
@@ -29,7 +29,7 @@ Recommended ownership:
 | PR3 | Grove/SSCMA I2C adapter, raw class/confidence events, recognition queue and station-feedback module |
 | Main integration | Assemble the modules into one target; implement authenticated sessions, inference API, durable decisions and citizen updates |
 | PR1 | Consume fill-derived prediction snapshots and plan routes; no recognition or payout logic |
-| PR4 | Candidate overflow predictor behind the routing contract, after data/evaluation corrections; no new gateway or dispatch service |
+| PR4 | Own fill/overflow features, training, calibration, inference and forecast evaluation; feed PR1 through one contract after the reviewed corrections; no new gateway or dispatch service |
 
 Agree the module interface before changing the shared entry point. Do not create separate PR2 and PR3 firmware images that each claim the same board. The network service must give both streams bounded service time; a slow HTTP request must not block sensor parsing or expiry checks.
 

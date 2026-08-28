@@ -2,9 +2,11 @@
 
 Prepared: 27 August 2026
 
-Follow-up: 28 August 2026. PR #1 is now at `c256bd44a60d12628b9f0354879e1ad90a15ec1e` and has implemented much of this handoff. Do not rebuild its telemetry adapter, planner or approval store. Use [the current cross-PR review](PR_REVIEW_2026-08-28.md) to address the remaining defects and coordinate PR #4 as a candidate predictor behind one routing contract. Follow [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md) for the single-C3 requirement.
+Follow-up: 28 August 2026. PR #1 is now at `c256bd44a60d12628b9f0354879e1ad90a15ec1e` and has implemented much of this handoff. The owner has confirmed **PR4 owns forecasting; PR1 owns routing and KPIs**. Use [the owner-confirmed split](PR_REVIEW_2026-08-28.md#owner-confirmed-split) to retain necessary client/validation/cache code and remove PR1's duplicate model paths after the tested PR4 replacement is connected. Do not rebuild the planner or approval store. Follow [SHARED_ESP32_GATEWAY.md](SHARED_ESP32_GATEWAY.md) for the single-C3 requirement.
 
 Use this file as the implementation brief for Codex working on the routing system. Pair it with [the Claude hardware handoff](CLAUDE_HARDWARE_ROUTING_HANDOFF.md). This document requests future implementation; it does not claim that the integration or tests below already pass.
+
+For the forecast replacement, use [PR1 and PR4 integration instructions](PR1_PR4_FORECAST_INTEGRATION.md). It specifies the provider contract, telemetry and simulation callers, validation gates and which PR1 code to remove after replacement.
 
 ## 1. Instructions to Codex
 
@@ -47,7 +49,8 @@ Read [the dated local hardware budget and sourcing baseline](HARDWARE_BUDGET_LOC
 Bin sensors -> Teensy 4.1 -> Wi-Fi communications module
   -> Wi-Fi network -> Central telemetry ingestion and storage
   -> Routing adapter and observation-quality checks
-  -> Historical features and prediction or named fallback policy
+  -> PR4 historical features and prediction
+  -> PR1 prediction validation or named non-ML operational fallback
   -> Existing collection rules and route engine
   -> Operator route preview, approval and mock truck dispatch
 ```
@@ -59,8 +62,9 @@ Keep all fill sensing and RTOS scheduling on the single Teensy. Keep fill predic
 | Owner | Scope |
 | --- | --- |
 | Claude / hardware contributor | `hardware_pipeline/firmware/`, three-channel fill sensing, USB/Wi-Fi delivery, ingestion API/storage, event acknowledgements, producer-side migrations and hardware setup. |
-| Codex / routing contributor | `admin-portal/binsight/`, route adapter/client, feature preparation, collection policy, planning lifecycle, routing persistence, operator UI and KPI provenance. |
-| Both contributors | One versioned interface specification, bin registry meanings, quality/time semantics, fixtures and an end-to-end acceptance run. Agree a single editor for each shared file. |
+| Codex / routing contributor (PR1) | `admin-portal/binsight/`, route/forecast consumer, validation and needed history cache, collection policy, planning lifecycle, routing persistence, operator UI and KPI provenance. Remove superseded forecasting code after the PR4 integration passes. |
+| Forecasting contributor (PR4) | `ml/`, model features, training, calibration, inference and forecast evaluation; one tested prediction interface for PR1's telemetry and simulation callers. |
+| Contributors together | One versioned interface specification, bin registry meanings, quality/time semantics, fixtures and an end-to-end acceptance run. Agree a single editor for each shared file. |
 
 The earlier Claude handoff includes routing interface requirements for context. With these two briefs in use, Codex owns the routing implementation. Do not have both agents create different adapters or competing schema definitions. Send producer-side API changes to the hardware contributor; do not alter the ingestion database directly from routing code.
 
@@ -157,17 +161,19 @@ Keep fill-sensor confidence separate from weight availability. Agreement between
 
 Carry uncertainty into required-stop selection, optional and co-located pickups, ordering, capacity estimates, map badges and exports. Test stale readings that still carry a true producer confidence flag. Repeated old data must not regain trust through replay, averaging or aggregation.
 
-### E. Support a named non-ML fallback and prepare prediction
+### E. Consume PR4 forecasts and retain a non-ML fallback
 
 The hardware currently supplies no overflow forecast. Add a supported forecast-unavailable state across schema validation, selection, sorting, UI, persistence and export. Do not use zero, infinity, NaN on the wire, or a large sentinel number to bypass validation. Keep finite measured values finite and invalid values rejected.
 
 Use a documented fill-threshold fallback until suitable history and a validated model exist. A fresh high-fill bin can require collection without a forecast. A missing forecast must not turn uncertain evidence into a low-risk claim. Low-confidence or stale evidence may require inspection alongside collection; do not automatically discard a credible critical warning. Define reasons and stable tie-breaking for unknown forecasts.
 
-Reuse the current forecasting code where appropriate, but inspect its assumptions. `make_feature_row()` treats observation positions as historical intervals; it cannot consume a burst of two-second readings as six-hour samples. Build time-windowed features using acquisition timestamps, account for gaps and collection resets, and choose a documented missing-feature policy. Do not infer household/site characteristics from a bin ID.
+PR4 owns model feature preparation, training, calibration, fitting, retraining and inference. Transfer or reuse sound existing PR1 forecast logic under that ownership where useful. PR1 consumes predictions through a thin validated interface; do not build another model inside the routing adapter. PR4 must use acquisition-time windows, account for gaps and collections, and support missing weight without fabricating measurements. Do not infer household/site characteristics from a bin ID.
 
-The existing model predicts growth over a horizon, not a measured future empty/full time. Document any conversion into time-to-overflow, uncertainty and zero-growth behavior. Keep cold-start, missing-model and model-error fallbacks explicit. A model trained on synthetic mass-derived fill is not automatically validated for irregular ultrasonic volume readings or null weight.
+Agree the forecast target before connecting callers: PR4 currently predicts time to 90% fill while PR1's sensor-history adapter predicts time to 100%. PR4 must provide the agreed target/horizons and document any time-to-overflow conversion, uncertainty and zero-growth behaviour. PR1 must preserve cold-start, missing-model and model-error states and enforce its operational fallback. Do not invent missing probabilities or silently reinterpret one threshold as another.
 
-Evaluate forecast changes with chronological holdouts and prevent training target windows from overlapping the holdout period. Keep latent simulator state and future values out of decision features. Compare against a simple baseline, record versioned metrics and avoid tuning against the reported holdout. Mark hardware validation pending until suitable prototype logs exist.
+PR4 must evaluate forecasts with chronological holdouts and prevent training target windows from overlapping the holdout period. PR1 retains paired route/KPI simulation and checks that it consumes only pre-decision evidence. Compare the integrated path against the preserved baseline without tuning against the reported holdout. Mark hardware validation pending until suitable prototype logs exist.
+
+After the interface, telemetry and simulation tests pass, retire PR1's active `forecast.py` model path and the forecast-specific parts of `pr2_forecasting.py`. Extract and keep any necessary input validation, cache and snapshot code. Update dependent callers, commands, imports and configuration; remove unused model-only dependencies and move relevant regression tests to PR4. Preserve historical results, database migrations and route/citizen records. Keep one non-ML fallback, not a parallel ML implementation. Record the files removed and the replacement test evidence in the PR.
 
 ### F. Reuse the route engine and protect the planning lifecycle
 
@@ -250,8 +256,8 @@ Commit focused regression tests and replay fixtures. Use an injected clock and d
 | C10 | Fresh high fill can trigger collection under the named fallback; missing or stale evidence does not become proof of low risk. |
 | C11 | Critical low-confidence evidence remains collection-relevant with review warnings; optional and sibling pickups obey quality rules. |
 | C12 | Startup failure, sustained blockage, emptying and large deposits have explicit replay outcomes; invalid samples do not create confident zero fill. |
-| C13 | Rapid or irregular samples use timestamp-based feature windows; gaps, collection resets and cold start follow the documented feature policy. |
-| C14 | Forecast training/holdout target windows do not overlap; future/latent data cannot enter controller features. |
+| C13 | PR4 feature tests cover rapid/irregular samples, gaps, collections and cold start; PR1 contract tests preserve their quality/status outputs. |
+| C14 | PR4 forecast training/holdout windows do not overlap; PR1's integrated simulation cannot use future/latent forecast evidence. |
 | C15 | Duplicate, same-second and rebooted-device events retain their identities; old replay never replaces a newer accepted observation. |
 | C16 | API authentication failures, timeouts, HTTP 503 and partial fetches create visible degraded states without fabricated complete snapshots. |
 | C17 | A captured input set reproduces the plan with pinned config/network/model assumptions and stable tie-breaking. |
