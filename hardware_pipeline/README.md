@@ -31,14 +31,17 @@ flowchart LR
     subgraph Teensy41["Teensy 4.1 — Edge (FreeRTOS, 3 prioritized tasks)"]
         T1["Task 1: Sensing\n(HIGH priority)\nultrasonic x2, buttons x3\nconfidence_flag, estimated_density"]
         T2["Task 2: Filter & Package\n(MEDIUM priority)\nmoving avg + sanity filter\nJSON schema packaging"]
-        T3["Task 3: Secure Transmit\n(LOW priority)\nframed JSON over USB serial"]
+        T3["Task 3: Secure Transmit\n(LOW priority)\nframed JSON, sent independently\nover USB serial AND ESP32 UART"]
         T1 -- "RawReading\n(queue)" --> T2
         T2 -- "PackagedReading\n(queue)" --> T3
     end
 
     T3 -- "USB serial\nBINSIGHT:&lt;json&gt;" --> BRIDGE["tools/serial_bridge.py\n(laptop)\nadds X-API-Key"]
+    T3 -- "UART (Serial3)\nBINSIGHT:&lt;json&gt;" --> ESP["ESP32 Gateway\n(added 2026-08-28)\nWi-Fi + adds X-API-Key"]
     BRIDGE -- "POST /api/v1/telemetry" --> API["FastAPI Cloud Backend\nvalidate (Pydantic) -> SQLite"]
+    ESP -- "POST /api/v1/telemetry" --> API
     API -- "GET /api/v1/bins/summary\nGET /api/v1/telemetry/{bin}/history" --> DASH["Streamlit Dashboard\nmetrics, charts, raw log"]
+    API -- "GET /api/v1/bins/summary\nGET /api/v1/telemetry/{bin}/history" --> ROUTE["Kai's routing system\n(reads via the same API)"]
     API -.future.-> ML["Cloud ML model\n(overflow risk)"]
     ML -.future.-> DASH
 ```
@@ -57,10 +60,11 @@ density sensor reading.
 
 ```
 hardware_pipeline/
-├── firmware/BinSight_Teensy41/   Teensy 4.1 Arduino/Teensyduino sketch
-├── cloud_backend/                 FastAPI ingestion & validation service
-├── dashboard/                     Streamlit live visualization app
-└── tools/serial_bridge.py         USB-serial -> HTTP bridge (laptop-side)
+├── firmware/BinSight_Teensy41/     Teensy 4.1 Arduino/Teensyduino sketch
+├── firmware/BinSight_ESP32_Gateway/  ESP32 Wi-Fi gateway sketch (added 2026-08-28)
+├── cloud_backend/                   FastAPI ingestion & validation service
+├── dashboard/                       Streamlit live visualization app
+└── tools/serial_bridge.py           USB-serial -> HTTP bridge (laptop-side)
 ```
 
 ## 1. Firmware (`firmware/BinSight_Teensy41/`)
@@ -146,6 +150,34 @@ Reads `BINSIGHT:<json>` framed lines from the Teensy's USB serial port and
 POSTs each one to `/api/v1/telemetry` with the `X-API-Key` header attached.
 Any other serial line (boot messages, Task 1's per-sample debug prints) is
 echoed to the console with a `[teensy]` prefix instead of being forwarded.
+A reading that fails to send due to a network error (not a schema
+rejection) is queued to `pending_readings.jsonl` and retried automatically
+on the next frame — see "Known fixes applied in this branch" below.
+
+## 5. ESP32 Wi-Fi Gateway (`firmware/BinSight_ESP32_Gateway/`) — added 2026-08-28
+
+An **additional**, independent path to the same cloud backend — not a
+replacement for the serial bridge above, which is untouched and keeps
+working with or without this board present.
+
+The Teensy's Task 3 now writes each reading to a second UART
+(`esp_link.h`/`.cpp`, Serial3) in parallel with the existing USB-serial
+write. A separate ESP32 dev board, wired to that UART, joins Wi-Fi and
+POSTs the same reading to the same `/api/v1/telemetry` endpoint with the
+same API key and schema — this is what lets the system run untethered
+from a laptop. See `SETUP_AND_WIRING_GUIDE.md` Part D for wiring and setup,
+and the sketch's own header comment for the full protocol/design notes.
+
+**Where routing fits in:** this gateway doesn't talk to Kai's routing
+system directly — it only gets readings into the shared cloud backend.
+The current assumption (stated in the sketch's header comment, worth
+confirming with Kai) is that the routing system reads bin state back out
+via the backend's existing `GET /api/v1/bins/summary` /
+`GET /api/v1/telemetry/{bin_id}/history` endpoints, the same way the
+dashboard does — i.e. no new integration point is needed on the firmware
+side. If routing actually needs a push-style delivery or a different
+schema, that changes this design and should be confirmed before relying
+on it.
 
 ## Data flow summary
 
@@ -154,15 +186,31 @@ echoed to the console with a `[teensy]` prefix instead of being forwarded.
 2. Task 2 drains the raw queue, smooths + sanity-checks the values, and
    packages a JSON payload matching the exact ingestion schema.
 3. Task 3 drains the packet queue and writes each one as a framed line to
-   USB serial, without ever blocking Tasks 1/2.
-4. `serial_bridge.py` on the laptop reads those frames and POSTs them to
-   the cloud backend with the API key attached.
-5. FastAPI validates and stores each reading in SQLite, idempotently.
-6. Streamlit polls the FastAPI query endpoints and renders the live view.
+   BOTH USB serial and the ESP32 UART link, independently, without ever
+   blocking Tasks 1/2.
+4. `serial_bridge.py` on the laptop reads USB frames and POSTs them to the
+   cloud backend with the API key attached; the ESP32 gateway does the
+   same for its own UART frames over Wi-Fi. Either path alone is enough
+   to get a reading to the backend.
+5. FastAPI validates and stores each reading in SQLite, idempotently (so
+   a reading that happens to arrive via both paths is stored once).
+6. Streamlit polls the FastAPI query endpoints and renders the live view;
+   the routing system reads the same endpoints to plan collection routes.
 
-## Known fix applied in this branch
+## Known fixes applied in this branch
 
-`cloud_backend/app/security.py`'s `verify_api_key` had its actual key
-comparison commented out, so any `X-API-Key` header value was accepted —
-device authentication wasn't actually enforced. Restored to a
-constant-time comparison against the provisioned key.
+- `cloud_backend/app/security.py`'s `verify_api_key` had its actual key
+  comparison commented out, so any `X-API-Key` header value was accepted —
+  device authentication wasn't actually enforced. Restored to a
+  constant-time comparison against the provisioned key.
+- `filters.h`'s fill-level filter could permanently freeze after a large
+  deposit or a bin collection (any single-sample jump bigger than
+  `MAX_FILL_PCT_JUMP_PER_SAMPLE` was held indefinitely, with no recovery
+  path). It now reacquires after a few consecutive sustained rejections
+  instead of freezing forever. A related bug fed a fabricated `0.0f` into
+  the filter on invalid readings instead of actually holding the last
+  good value — fixed alongside it.
+- `serial_bridge.py` used to silently drop a reading if the cloud backend
+  was unreachable (Wi-Fi/HTTP failure). Failed sends are now queued to
+  `pending_readings.jsonl` and retried automatically once the backend is
+  reachable again.

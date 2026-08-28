@@ -23,6 +23,12 @@
  * Transport: USB-Serial bridge — see network.h. No Ethernet/WiFi hardware
  * needed; tools/serial_bridge.py on the laptop forwards readings to the
  * cloud backend over HTTP.
+ *
+ * [Added 2026-08-28] Optional second transport: an ESP32 dev board wired
+ * over UART (see esp_link.h and firmware/BinSight_ESP32_Gateway/) can
+ * additionally forward each reading over Wi-Fi directly to the cloud
+ * backend, without a laptop in the loop. This is purely additive — the
+ * USB-serial path above is unaffected whether or not an ESP32 is present.
  * =========================================================================
  */
 
@@ -33,6 +39,7 @@
 #include "types.h"
 #include "sensors.h"
 #include "network.h"
+#include "esp_link.h"   // [Added 2026-08-28]
 #include "tasks.h"
 
 static TaskHandle_t h_task1, h_task2, h_task3;
@@ -66,6 +73,15 @@ void setup() {
   } else {
     Serial.println("WARNING: transport init failed — Task 3 will retry continuously.");
   }
+
+  // [Added 2026-08-28] Optional ESP32 Wi-Fi gateway link. Always
+  // initialized — if no ESP32 is wired up, Task 3's calls to
+  // EspLink::sendPacket() will just time out harmlessly, exactly like the
+  // USB path above behaves when no laptop bridge is listening.
+  Serial.println("Initializing ESP32 gateway link (Serial3)...");
+  EspLink::begin();
+  Serial.println("ESP32 gateway link ready — optional; only active once an ESP32 running "
+                  "BinSight_ESP32_Gateway.ino is wired up (see SETUP_AND_WIRING_GUIDE.md Part D).");
 
   Tasks_InitIPC();
 

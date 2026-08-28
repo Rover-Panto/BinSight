@@ -12,3 +12,8 @@ bin_telemetry_for_ml.csv
 # (added 2026-08-28 as part of the HTTP-failure fix) — runtime state, not
 # something to check in.
 pending_readings.jsonl
+
+# ESP32 gateway Wi-Fi/API credentials (added 2026-08-28 as part of the ESP
+# integration) — copy esp_config.example.h to esp_config.h locally; never
+# commit the real one.
+firmware/BinSight_ESP32_Gateway/esp_config.h

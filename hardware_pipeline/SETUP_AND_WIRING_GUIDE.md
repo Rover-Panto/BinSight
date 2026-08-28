@@ -263,3 +263,90 @@ script (#3) connected to the right COM port → is the Teensy's Serial
 Monitor closed (it can't be open in two places at once) → does
 `BINSIGHT_API_KEY` match exactly between `cloud_backend\.env` and
 `tools\.env`.
+
+---
+
+## Part D — [Added 2026-08-28] Optional ESP32 Wi-Fi Gateway
+
+This is an **additional** path, not a replacement for Part C — the laptop
+bridge (`serial_bridge.py`) keeps working exactly as before whether or not
+you wire up an ESP32. Add this once Parts A–C are working, so you have a
+known-good baseline to fall back to if something in this section doesn't
+behave.
+
+**What this gets you:** the Teensy forwards each reading to a second,
+independent board (an ESP32) over a direct wire, and that board pushes it
+to the cloud backend over Wi-Fi — no laptop/USB tether required for that
+path. See `firmware/BinSight_ESP32_Gateway/BinSight_ESP32_Gateway.ino` for
+the full design notes.
+
+### D.1 Parts needed
+
+- 1x ESP32 dev board (e.g. ESP32-WROOM-32 dev kit)
+- Its own USB cable, separate from the Teensy's
+- 3 jumper wires (TX, RX, GND) — **no resistors needed here**: unlike the
+  HC-SR04 sensors' 5V ECHO signal, the ESP32's GPIO pins are 3.3V logic,
+  same as the Teensy's, so they connect directly.
+
+### D.2 Wiring
+
+| Signal | Teensy 4.1 pin | ESP32 pin |
+|---|---|---|
+| Teensy TX3 → ESP32 RX | 14 | GPIO16 |
+| Teensy RX3 ← ESP32 TX | 15 | GPIO17 |
+| Ground | any GND | any GND |
+
+> **⚠️ Power the ESP32 from its own USB cable, not from the Teensy.**
+> Wi-Fi transmission draws current spikes up to ~500mA — trying to power
+> the ESP32 off the Teensy's 3.3V pin can brown out the Teensy itself.
+> Plug the ESP32 into its own USB port (on the same computer, a USB hub,
+> or any 5V USB power adapter) — just make sure its ground is still tied
+> to the Teensy's ground per the table above, or the UART link won't work
+> reliably.
+
+These pins are separate from everything wired in Part B (pins 2–8, 13) —
+you don't need to touch or re-check the existing sensor/button wiring.
+
+### D.3 Software setup
+
+1. In the Arduino IDE: **Tools → Board → Boards Manager**, search `esp32`,
+   install **esp32 by Espressif Systems** (if not already installed).
+2. Open `firmware/BinSight_ESP32_Gateway/BinSight_ESP32_Gateway.ino`.
+3. In that same folder, copy `esp_config.example.h` to `esp_config.h` and
+   fill in:
+   - `WIFI_SSID` / `WIFI_PASSWORD` — your Wi-Fi network.
+   - `BINSIGHT_API_KEY` — the **exact same value** already in
+     `cloud_backend\.env` and `tools\.env`.
+   - `CLOUD_BACKEND_URL` — your laptop's LAN IP (find it with `ipconfig`,
+     look for "IPv4 Address" under your Wi-Fi adapter), e.g.
+     `http://192.168.1.50:8000`. **This can't be `localhost`** — that
+     would mean the ESP32 itself, not your laptop.
+4. **Tools → Board** → select your ESP32 board (e.g. "ESP32 Dev Module").
+5. **Tools → Port** → select the ESP32's port (it'll be a different COM
+   port than the Teensy's).
+6. Click **Upload**.
+7. Open **Tools → Serial Monitor** for the ESP32 (115200 baud) — you
+   should see it connect to Wi-Fi and print its IP address.
+8. Re-flash the Teensy sketch too (it now includes `esp_link.h`) if you
+   haven't already picked up the latest firmware changes.
+
+### D.4 Bring-up checklist
+
+With both boards powered and the cloud backend (terminal #1) still
+running:
+
+- The Teensy's Serial Monitor should print `ESP32 gateway link ready`
+  during boot.
+- The ESP32's Serial Monitor should print `Wi-Fi connected, IP: ...`,
+  then start showing lines like `[gateway] flushed ...` (if it had
+  anything queued) — a steady stream with no `could not reach backend`
+  messages means it's working.
+- The dashboard should keep updating even if you **stop**
+  `serial_bridge.py` (terminal #3) — that confirms the ESP32 path is
+  independently getting data to the backend, not just riding along with
+  the laptop bridge.
+- If the ESP32 keeps printing `[gateway] could not reach backend`, double
+  check `CLOUD_BACKEND_URL` is your laptop's actual LAN IP (not
+  `localhost`) and that both devices are on the same Wi-Fi network —
+  guest Wi-Fi networks often block device-to-device traffic, which would
+  show up exactly as this symptom.

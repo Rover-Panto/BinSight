@@ -103,6 +103,24 @@
 #define NETWORK_MAX_RETRIES         3
 
 // ============================================================
+// ESP32 GATEWAY LINK (added 2026-08-28) — optional second transport
+// ============================================================
+// A separate ESP32 dev board, wired to the Teensy over UART, that owns
+// all Wi-Fi/HTTP communication with the cloud backend (see esp_link.h/
+// .cpp and firmware/BinSight_ESP32_Gateway/). This is purely ADDITIVE:
+// the USB-serial path above (network.h/.cpp, tools/serial_bridge.py)
+// is completely unchanged and keeps working with or without the ESP32
+// present — Task 3 just tries both transports independently.
+//
+// Uses Serial3 (RX3 = pin 15, TX3 = pin 14) so it doesn't collide with
+// the button pins already on Serial2's pins (7/8, see PIN MAP above).
+// See SETUP_AND_WIRING_GUIDE.md Part D for the Teensy<->ESP32 wiring.
+#define ESP_LINK_SERIAL           Serial3
+#define ESP_LINK_BAUD             115200
+#define ESP_LINK_ACK_WAIT_MS      500       // how long to wait for the ESP32's ACK/NACK/DOWN reply per packet
+#define ESP_LINK_ACK_TIMEOUT_MS   10000UL   // no reply from the ESP32 for this long -> EspLink::isConnected() reports down
+
+// ============================================================
 // DEBUG
 // ============================================================
 #define DEBUG_SERIAL_PRINTS         1   // 1 = Task 1 prints each sample for bring-up/testing

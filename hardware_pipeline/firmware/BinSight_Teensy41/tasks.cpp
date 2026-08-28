@@ -3,6 +3,7 @@
 #include "sensors.h"
 #include "filters.h"
 #include "network.h"
+#include "esp_link.h"   // [Added 2026-08-28] optional ESP32 Wi-Fi gateway path, see esp_link.h
 
 #include <ArduinoJson.h>   // Arduino Library Manager: "ArduinoJson" by Benoit Blanchon
 #include <TimeLib.h>       // Arduino Library Manager: "Time" — wall-clock timestamps
@@ -184,28 +185,58 @@ void Task2_FilterAndPackage(void *pvParameters) {
 // The only task allowed to block on I/O. Runs at the lowest priority so a
 // slow/degraded network link never steals CPU time from sensing or
 // packaging — it only runs when Task 1 and Task 2 have no work pending.
+//
+// [Added 2026-08-28] Each packet is now sent down TWO independent,
+// best-effort transports: the original USB-serial path (network.h, for
+// tools/serial_bridge.py on a laptop) and the new ESP32 Wi-Fi gateway
+// path (esp_link.h). They share no state and one failing has no effect
+// on the other — if only one of the two is actually present at demo
+// time (e.g. ESP32 not wired up yet, or no laptop plugged in), the
+// packet still gets through via whichever one is. This is why Task 3 is
+// the only task allowed to block: worst case, both transports exhaust
+// NETWORK_MAX_RETRIES with full backoff one after another, which can
+// take several seconds — acceptable here because it only delays Task 3's
+// own queue (bounded, drop-oldest-when-full, per Task 2 above), and can
+// never preempt or stall Task 1/Task 2's real-time sensing/filtering.
 void Task3_Transmit(void *pvParameters) {
   (void)pvParameters;
   TickType_t lastWake = xTaskGetTickCount();
 
-  uint8_t consecutiveFailures = 0;
+  uint8_t usbConsecutiveFailures = 0;
+  uint8_t espConsecutiveFailures = 0;
 
   for (;;) {
     PackagedReading packet;
     if (xQueueReceive(g_packetQueue, &packet, pdMS_TO_TICKS(TASK_COMM_PERIOD_MS)) == pdTRUE) {
-      TxResult result = TxResult::TX_NETWORK_DOWN;
-
+      // -- Path 1: USB-serial bridge (unchanged from before) --
+      TxResult usbResult = TxResult::TX_NETWORK_DOWN;
       for (uint8_t attempt = 0; attempt < NETWORK_MAX_RETRIES; attempt++) {
-        result = Network::sendPacket(packet);
-        if (result == TxResult::TX_OK) break;
+        usbResult = Network::sendPacket(packet);
+        if (usbResult == TxResult::TX_OK) break;
         vTaskDelay(pdMS_TO_TICKS(NETWORK_RETRY_BACKOFF_MS * (attempt + 1)));  // linear backoff
       }
-
-      if (result == TxResult::TX_OK) {
-        consecutiveFailures = 0;
+      if (usbResult == TxResult::TX_OK) {
+        usbConsecutiveFailures = 0;
       } else {
-        consecutiveFailures++;
-        debugPrint("[Task3] Transmission failed after retries");
+        usbConsecutiveFailures++;
+        debugPrint("[Task3] USB-serial transmission failed after retries");
+      }
+
+      // -- Path 2: ESP32 Wi-Fi gateway (new) --
+      TxResult espResult = TxResult::TX_NETWORK_DOWN;
+      for (uint8_t attempt = 0; attempt < NETWORK_MAX_RETRIES; attempt++) {
+        espResult = EspLink::sendPacket(packet);
+        if (espResult == TxResult::TX_OK) break;
+        vTaskDelay(pdMS_TO_TICKS(NETWORK_RETRY_BACKOFF_MS * (attempt + 1)));
+      }
+      if (espResult == TxResult::TX_OK) {
+        espConsecutiveFailures = 0;
+      } else {
+        espConsecutiveFailures++;
+        // Expected/benign if no ESP32 is wired up yet -- only worth
+        // investigating if it persists after the ESP32 is connected and
+        // flashed with BinSight_ESP32_Gateway.ino.
+        debugPrint("[Task3] ESP32 gateway transmission failed after retries");
       }
     }
 
