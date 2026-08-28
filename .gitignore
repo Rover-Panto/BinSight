@@ -17,6 +17,7 @@ weights/
 *.pth
 *.onnx
 *.tflite
+!recycling_vision/artifacts/yolo11n_recycling-8_best.pt
 
 # Frontend dependencies and builds
 node_modules/
