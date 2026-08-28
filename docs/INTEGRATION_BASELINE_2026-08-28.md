@@ -59,7 +59,20 @@ Local checks on the integration preparation tree:
 
 No browser layout changes were made. Browser tests covered return/payout, report submission and image persistence after reload. Reviewed the desktop report attachment, tablet home and mobile return captures. The visual test captures desktop/tablet/mobile through its desktop project; its separate mobile project deliberately skips that same capture test.
 
-The foundation GitHub workflow runs policy/fixture checks and citizen lint/unit/build/browser tests on an isolated runner. Its status is not evidence for the missing HTTP/session backend, the unmerged routing/provider connection or physical hardware. Do not claim those gates passed from this table.
+Both jobs in [foundation CI run 33165774817](https://github.com/Rover-Panto/BinSight/actions/runs/33165774817) passed at commit `f682befddc4d371c229cbea61057638e773e666e`: server policy/fixtures and citizen lint/unit/build/browser regression. GitHub completed the run on 28 August 2026 at 11:06 UTC. G01 remains partial in the candidate ledger because the coordinator must repeat regression checks after staging the contributor code.
+
+This success is not evidence for the missing HTTP/session backend, the unmerged routing/provider connection or physical hardware. Do not claim those gates passed from this table.
+
+## Contributor Handoffs Published
+
+Each comment names the component owner, completed work to retain, required changes, dependencies, test gates and the exact-head evidence requested before staging:
+
+- [PR1: routing, admin and PR4 consumer integration](https://github.com/Rover-Panto/BinSight/pull/1#issuecomment-5451752713), addressed to the PR author and latest contributor.
+- [PR2: three-channel sensing, ingestion and shared C3 shell](https://github.com/Rover-Panto/BinSight/pull/2#issuecomment-5451753256).
+- [PR3: Grove model, recognition module and main-owned return connection](https://github.com/Rover-Panto/BinSight/pull/3#issuecomment-5451753726).
+- [PR4: forecast-provider corrections and route integration](https://github.com/Rover-Panto/BinSight/pull/4#issuecomment-5451754205).
+
+Contributors should reply with their updated commit SHA and test evidence. The coordinator then reviews that revision before including it in a combined candidate. These comments do not approve a merge or change the PR base branches.
 
 ## Outstanding Owner Decisions and Main Work
 

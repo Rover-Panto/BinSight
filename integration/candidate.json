@@ -16,7 +16,7 @@
     {"id": "D3", "status": "pending", "question": "Shared station and QR session topology"}
   ],
   "gates": [
-    {"id": "G01", "level": "software", "status": "partial", "evidence": ["docs/INTEGRATION_BASELINE_2026-08-28.md: local foundation passed; rerun on combined candidate"]},
+    {"id": "G01", "level": "software", "status": "partial", "evidence": ["https://github.com/Rover-Panto/BinSight/actions/runs/33165774817", "docs/INTEGRATION_BASELINE_2026-08-28.md: local and CI foundation passed at f682bef; rerun on combined candidate"]},
     {"id": "G02", "level": "software", "status": "not_run", "evidence": []},
     {"id": "G03", "level": "software", "status": "not_run", "evidence": []},
     {"id": "G04", "level": "software", "status": "not_run", "evidence": []},
