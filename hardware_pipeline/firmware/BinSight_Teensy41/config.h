@@ -43,13 +43,22 @@
 // ============================================================
 // BIN GEOMETRY (for fill_pct calculation)
 // ============================================================
-#define BIN_EMPTY_DISTANCE_CM     80.0f   // ultrasonic distance reading when bin is empty
-#define BIN_FULL_DISTANCE_CM      8.0f    // ultrasonic distance reading when bin is full to the brim
+// [Changed 2026-08-28, revised same day] Sensor is mounted ~30cm above
+// the empty bin's bottom (raised from the earlier ~8cm/10cm-tall-bin
+// setup — see git history / PR comments for that first pass). "Full to
+// the brim" is set to 4cm: close enough to register as genuinely full,
+// but with a 2cm margin above the HC-SR04's ~2.0cm datasheet minimum
+// (US_VALID_MIN_CM below), which avoids the near-field reliability risk
+// the previous 2.5cm value had (readings get less stable very close to
+// the sensor). distanceToFillPct() in sensors.cpp needs no changes for
+// this — it's a generic linear map between these two constants, so
+// re-tuning bin geometry is always just a constants change here.
+// Re-measure and update both values for any different physical bin;
+// don't assume they transfer.
+#define BIN_EMPTY_DISTANCE_CM     30.0f   // ultrasonic distance reading when bin is empty
+#define BIN_FULL_DISTANCE_CM      4.0f    // ultrasonic distance reading when bin is full to the brim
 #define US_VALID_MIN_CM           2.0f    // HC-SR04 datasheet minimum
 #define US_VALID_MAX_CM           400.0f  // HC-SR04 datasheet maximum
-// [Removed 2026-08-28] US_SENSOR_DISAGREEMENT_CM no longer applies —
-// there's only one ultrasonic sensor now, so there's nothing to disagree
-// with. See computeConfidenceFlag() in sensors.cpp for the new definition.
 
 // ============================================================
 // PSEUDO-DENSITY MODEL
@@ -94,8 +103,10 @@
 // ============================================================
 // TRANSPORT — USB-Serial bridge (see network.cpp / network.h)
 // ============================================================
-// No Ethernet or WiFi hardware is assumed (the parts list is Teensy 4.1,
-// 2x ultrasonic, 3x buttons, breadboard, jumper wires only). Task 3
+// No Ethernet or WiFi hardware is required for this path (the parts list
+// is Teensy 4.1, 1x ultrasonic sensor, 3x buttons, breadboard, jumper
+// wires; an optional ESP32 Wi-Fi gateway is available separately, see
+// below). Task 3
 // streams each packaged JSON reading over the USB serial connection;
 // tools/serial_bridge.py on the laptop reads it and forwards to the
 // cloud backend over HTTP. The API key therefore lives in the bridge

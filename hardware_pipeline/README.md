@@ -234,3 +234,18 @@ on it.
   with a different heuristic (e.g. consistency across consecutive
   samples) rather than assuming this is a like-for-like swap. See
   `SETUP_AND_WIRING_GUIDE.md` Part B for the updated (simpler) wiring.
+
+- **2026-08-28 — rescaled for a small top-mounted demo bin (revised twice
+  same day).** `BIN_EMPTY_DISTANCE_CM` / `BIN_FULL_DISTANCE_CM` in
+  `config.h` moved from the original full-size-bin values (80.0 / 8.0),
+  to an initial small-demo-bin pass (8.0 / 2.5), to the current values:
+  **30.0 / 4.0** — sensor mounted ~30cm above the empty bottom, "full to
+  the brim" at 4cm. `sensors.cpp`'s `distanceToFillPct()` needed no
+  changes across any of these — it's a generic linear map between the two
+  constants, so re-tuning bin geometry is always just a config change.
+  The intermediate 2.5cm "full" value was flagged as too close to the
+  HC-SR04's ~2.0cm datasheet minimum sensing distance (only 0.5cm
+  margin, risking unstable near-field readings); the current 4cm value
+  keeps a safer 2cm margin above that minimum. Re-measure and update
+  both constants again for any different physical bin or mounting
+  height — don't assume these transfer.

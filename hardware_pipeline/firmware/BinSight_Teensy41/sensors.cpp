@@ -91,6 +91,12 @@ bool pollCalibrationRequest() {
   return false;
 }
 
+// [Verified 2026-08-28, unchanged through two bin-geometry revisions
+// this same day] This mapping is a generic linear interpolation between
+// BIN_EMPTY_DISTANCE_CM and BIN_FULL_DISTANCE_CM (config.h) — it has no
+// bin-size-specific logic of its own, so re-tuning for a different bin
+// (or a different sensor mounting height) is always just a two-constant
+// change in config.h, never an edit here.
 float distanceToFillPct(float distanceCm) {
   if (distanceCm < 0) return -1.0f;  // propagate "invalid" to caller
 
