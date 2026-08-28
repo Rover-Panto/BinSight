@@ -104,6 +104,10 @@ A completed service is a durable planning event. For six hours it supersedes del
 
 The bounded `four-bin-smoke` run contains two paired normal-scenario replications. It verified end-to-end execution with no routing fallbacks or unfinished trips. Mean wasted pickups fell from 197.5 to 39.5 and mean overflow incidents fell from 6 to 4, while mean distance increased from 766.0 km to 1,273.6 km and trips increased from 18 to 36. Two replications are not inferential evidence. The result shows that the current safety settings do not yet satisfy the distance objective, so dynamic routing remains demonstration/shadow-mode logic rather than a proven replacement for the fixed schedule.
 
+### Distance-coefficient tuning result
+
+A separate bounded tuning study screened emergency-fill thresholds, optional-route costs, batching gaps, sibling inclusion and two-/three-hour replanning. Development and confirmation seed blocks were disjoint. The untouched finalist (three-hour replanning with a 93% conservative emergency-fill threshold) lowered normal-demand distance by 5.3% and improved overflow/selectivity metrics, but increased high-demand distance by 5.0%, increased high-demand trips, and left unfinished horizon trips. Other candidates that lowered distance worsened overflow. No active configuration number was changed. Exact raw and summarized evidence is retained under `artifacts/distance-tuning/`.
+
 For an active route, the current leg is frozen. `PlanningService.replan_remaining_after_event()` uses the frozen destination as the start of a new suffix, excludes completed/current-service bins, applies residual mass and volume, and writes a separate draft referencing the active accepted plan. Operator acceptance remains required.
 
 ## Forecast validation
