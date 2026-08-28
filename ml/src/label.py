@@ -17,6 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 
 OVERFLOW_THRESHOLD_PCT = 90.0
+SERVICE_THRESHOLD_PCT = OVERFLOW_THRESHOLD_PCT  # Item 1: semantic alias
 
 RISK_BINS = [
     (0, 4, "Critical"),
@@ -33,27 +34,33 @@ def time_to_overflow_hours(row_time: pd.Timestamp, crossing_time: pd.Timestamp) 
 
 def label_cycle(g: pd.DataFrame) -> pd.DataFrame:
     """
-    Compute exact time-to-overflow target label for a single fill cycle.
+    Compute exact time-to-threshold target label for a single fill cycle.
     
     Identifies the exact timestamp when the bin crosses OVERFLOW_THRESHOLD_PCT (90%).
     For each row prior to the event, computes (crossing_timestamp - row_timestamp) in hours.
     Cycles that do not reach the threshold are marked with NaN (censored).
     
+    Also records the ``crossing_timestamp`` so that downstream consumers (e.g.
+    ``train.py``) can detect and purge rows whose label event falls after a
+    chronological split boundary, preventing label leakage.
+    
     Args:
         g: DataFrame containing rows for one (bin_id, cycle_id) pair.
         
     Returns:
-        DataFrame with 'time_to_overflow_hours' column added.
+        DataFrame with 'time_to_overflow_hours' and 'crossing_timestamp' columns.
     """
     g = g.sort_values("timestamp").copy()
     above = g["fill_pct"] >= OVERFLOW_THRESHOLD_PCT
     if not above.any():
         g["time_to_overflow_hours"] = np.nan  # censored: never reached threshold in this cycle
+        g["crossing_timestamp"] = pd.NaT
         return g
     crossing_time = g.loc[above, "timestamp"].iloc[0]
     g["time_to_overflow_hours"] = g["timestamp"].apply(lambda t: time_to_overflow_hours(t, crossing_time))
     # Rows AT/AFTER the crossing get label 0 (already overflowing) rather than negative
     g["time_to_overflow_hours"] = g["time_to_overflow_hours"].clip(lower=0)
+    g["crossing_timestamp"] = crossing_time
     return g
 
 

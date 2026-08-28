@@ -1,11 +1,15 @@
 """
 BinSight overflow-risk model: training + evaluation.
 
-Split strategy (Chronological Holdout):
+Split strategy (Chronological Holdout with Label-Leakage Purging):
   - Strict time-based chronological partition:
     - Train set: Day 1 to Day 60 (January 1 to March 1)
     - Validation set: Day 61 to Day 75 (March 1 to March 16) — used for model selection
     - Test holdout: Day 76 to Day 90 (March 16 to March 31) — untouched final evaluation
+  - Label-leakage purge: rows whose threshold-crossing event falls after their
+    split boundary are removed. This prevents validation information from leaking
+    into training (a feature timestamp before the split can have a label determined
+    by a crossing event after the split).
   - Model selection is performed strictly on the validation set.
   - Final metrics on the untouched test holdout are saved to `manifest.json`.
 
@@ -19,6 +23,7 @@ Run from anywhere: `python3 train.py` or `python3 src/train.py`.
 """
 import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
@@ -46,6 +51,9 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 TARGET = "time_to_overflow_hours"
 RANDOM_SEED = 42
 
+VAL_CUTOFF = pd.Timestamp("2026-03-01 00:00:00")
+TEST_CUTOFF = pd.Timestamp("2026-03-16 00:00:00")
+
 
 def chronological_split(df: pd.DataFrame):
     """
@@ -54,15 +62,33 @@ def chronological_split(df: pd.DataFrame):
     df = df.copy()
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     df = df.sort_values(["timestamp", "bin_id"]).reset_index(drop=True)
-    
-    val_cutoff = pd.Timestamp("2026-03-01 00:00:00")
-    test_cutoff = pd.Timestamp("2026-03-16 00:00:00")
-    
-    train_df = df[df["timestamp"] < val_cutoff].copy()
-    val_df = df[(df["timestamp"] >= val_cutoff) & (df["timestamp"] < test_cutoff)].copy()
-    test_df = df[df["timestamp"] >= test_cutoff].copy()
-    
+
+    train_df = df[df["timestamp"] < VAL_CUTOFF].copy()
+    val_df = df[(df["timestamp"] >= VAL_CUTOFF) & (df["timestamp"] < TEST_CUTOFF)].copy()
+    test_df = df[df["timestamp"] >= TEST_CUTOFF].copy()
+
     return train_df, val_df, test_df
+
+
+def purge_label_leakage(split_df: pd.DataFrame, boundary: pd.Timestamp) -> tuple:
+    """
+    Remove rows whose label (threshold-crossing event) occurs after ``boundary``.
+
+    A feature row may have a timestamp before the boundary while its
+    ``time_to_overflow_hours`` label is determined by a crossing event after it.
+    Including these rows leaks future information into the current split.
+
+    Returns:
+        (purged_df, purge_count)
+    """
+    if "crossing_timestamp" not in split_df.columns:
+        return split_df, 0
+
+    split_df = split_df.copy()
+    split_df["crossing_timestamp"] = pd.to_datetime(split_df["crossing_timestamp"])
+    leaked = split_df["crossing_timestamp"] > boundary
+    purge_count = int(leaked.sum())
+    return split_df[~leaked].copy(), purge_count
 
 
 def naive_baseline_predict(df: pd.DataFrame) -> np.ndarray:
@@ -103,9 +129,22 @@ def main():
     print("1. Loading labeled dataset and performing chronological split...")
     df = pd.read_csv(DATA_DIR / "labeled_dataset.csv")
     train_df, val_df, test_df = chronological_split(df)
-    print(f"   Train samples: {len(train_df):,} (Jan 01 - Mar 01)")
-    print(f"   Val samples  : {len(val_df):,} (Mar 01 - Mar 16) [Model Selection]")
-    print(f"   Test samples : {len(test_df):,} (Mar 16 - Mar 31) [Chronological Holdout]")
+    print(f"   Train samples (raw): {len(train_df):,} (Jan 01 - Mar 01)")
+    print(f"   Val samples (raw)  : {len(val_df):,} (Mar 01 - Mar 16)")
+    print(f"   Test samples (raw) : {len(test_df):,} (Mar 16 - Mar 31)")
+
+    # ── Label-leakage purge ────────────────────────────────────────────
+    train_df, train_purged = purge_label_leakage(train_df, VAL_CUTOFF)
+    val_df, val_purged = purge_label_leakage(val_df, TEST_CUTOFF)
+    print(f"\n   Label-leakage purge:")
+    print(f"     Train rows purged (crossing after val cutoff): {train_purged:,}")
+    print(f"     Val rows purged (crossing after test cutoff) : {val_purged:,}")
+    print(f"   Train samples (clean): {len(train_df):,}")
+    print(f"   Val samples (clean)  : {len(val_df):,}")
+    print(f"   Test samples         : {len(test_df):,} [Chronological Holdout]")
+
+    # Record training data cutoff (last observation timestamp in training set)
+    training_data_cutoff = str(train_df["timestamp"].max())
 
     X_train, y_train = train_df[FEATURE_COLUMNS], train_df[TARGET]
     X_val, y_val = val_df[FEATURE_COLUMNS], val_df[TARGET]
@@ -154,22 +193,34 @@ def main():
     manifest = {
         "model_name": best_name,
         "estimator_class": type(best_model).__name__,
-        "model_version": "1.1.0",
+        "model_version": "2.0.0",
+        "schema_version": "2.0",
         "sha256_checksum": sha256_hash,
         "selected_on": "validation_set",
+        "training_data_cutoff": training_data_cutoff,
+        "model_availability_after": training_data_cutoff,
+        "trained_at": datetime.now(timezone.utc).isoformat(),
         "split_strategy": {
-            "type": "chronological_holdout",
+            "type": "chronological_holdout_with_label_purge",
             "train_period": "2026-01-01 to 2026-03-01",
             "val_period": "2026-03-01 to 2026-03-16",
             "test_period": "2026-03-16 to 2026-03-31",
-            "train_samples": len(train_df),
-            "val_samples": len(val_df),
+            "train_samples_raw": len(train_df) + train_purged,
+            "train_samples_clean": len(train_df),
+            "train_label_leakage_purged": train_purged,
+            "val_samples_raw": len(val_df) + val_purged,
+            "val_samples_clean": len(val_df),
+            "val_label_leakage_purged": val_purged,
             "test_samples": len(test_df),
         },
         "target_definitions": {
-            "overflow_threshold_pct": OVERFLOW_THRESHOLD_PCT,
+            "target_column": TARGET,
+            "service_threshold_pct": OVERFLOW_THRESHOLD_PCT,
+            "supported_thresholds": [90.0],
             "risk_boundaries_hours": [4.0, 12.0, 24.0],
-            "risk_levels": ["Critical", "High", "Medium", "Low"]
+            "risk_levels": ["Critical", "High", "Medium", "Low"],
+            "estimate_type": "expected_hours_to_service_threshold",
+            "waste_type_aware": False,
         },
         "hyperparameters": best_params,
         "feature_columns": FEATURE_COLUMNS,
@@ -182,7 +233,8 @@ def main():
             "pandas": pd.__version__,
             "numpy": np.__version__,
             "joblib": joblib.__version__
-        }
+        },
+        "random_seed": RANDOM_SEED,
     }
 
     manifest_path = MODELS_DIR / "manifest.json"
