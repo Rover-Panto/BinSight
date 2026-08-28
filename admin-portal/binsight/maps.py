@@ -69,7 +69,12 @@ def _selection_state(selection: str) -> str:
         return "required"
     if value in {"inspection required", "inspection/data review required"}:
         return "inspection"
-    if value in {"co-located sibling", "efficient nearby pickup", "efficient pickup"}:
+    if value in {
+        "co-located sibling",
+        "efficient nearby pickup",
+        "efficient pickup",
+        "positive-value optional pickup",
+    }:
         return "optional"
     if value in {"completed", "service completed"}:
         return "completed"
@@ -424,21 +429,27 @@ def add_static_route_layers(
 
 
 def _add_legend(route_map: folium.Map, include_tracking: bool = False) -> None:
+    heading = "LIVE ROUTE REPLAY · SIMULATED" if include_tracking else "DISPATCH MAP · SIMULATED"
+    completed = (
+        "<br><span class='legend-shape' style='background:#7f919b'></span>0% Serviced · gauge empty"
+        if include_tracking
+        else "<br><span class='legend-shape' style='background:#55a879'></span>✓ Completed"
+    )
     tracking = (
-        "<br><span class='legend-line'></span> Current leg · serviced gauge resets to 0%"
+        "<br><span class='legend-line'></span> Current travel leg"
         "<br><span class='legend-shape' style='background:linear-gradient(to top,#f05a47 75%,#7f919b 75%)'></span>"
-        " Route-serviced fill: grey → red"
+        " Colored height + badge = selected-truck bin fill"
         if include_tracking
         else ""
     )
     legend = f"""
 <div class="ops-legend" role="note" aria-label="Map legend">
-  <b>DISPATCH MAP · SIMULATED</b><br>
+  <b>{heading}</b><br>
   <span class="legend-shape" style="background:#f05a47"></span>! Collection required &nbsp;
   <span class="legend-shape" style="background:#f2ad3f;transform:rotate(45deg)"></span>? Inspection<br>
   <span class="legend-shape" style="background:#23a6a0;border-radius:50%"></span>+ Efficient pickup &nbsp;
-  <span class="legend-shape" style="background:#7f919b"></span>· Can wait<br>
-  <span class="legend-shape" style="background:#55a879"></span>✓ Completed
+  <span class="legend-shape" style="background:#7f919b"></span>· Can wait
+  {completed}
   <br><b>D</b> Waste depot &nbsp; <b>R</b> Recycling facility
   {tracking}
 </div>

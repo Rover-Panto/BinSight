@@ -223,6 +223,10 @@ def test_tracking_map_has_controls_layers_reduced_motion_and_11_sites():
     assert "Simulated traffic intensity" in rendered
     assert "prefers-reduced-motion:reduce" in rendered
     assert "LOCAL SIMULATION" in rendered
+    assert "LIVE ROUTE REPLAY · SIMULATED" in rendered
+    assert "0% Serviced · gauge empty" in rendered
+    assert "Colored height + badge = selected-truck bin fill" in rendered
+    assert "✓ Completed" not in rendered
     assert "tracking-completed" in rendered
     assert "tracking-fill" in rendered
     assert "siteFillProfiles" in rendered

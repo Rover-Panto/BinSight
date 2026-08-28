@@ -47,7 +47,7 @@ def test_site_state_priority_and_all_bin_details_are_rendered():
     config, bins, rows = _inputs()
     rows[0]["selection"] = "Required"
     rows[4]["selection"] = "Inspection required"
-    rows[8]["selection"] = "Efficient nearby pickup"
+    rows[8]["selection"] = "Positive-value optional pickup"
     rows[12]["selection"] = "Completed"
     records = build_site_records(bins, rows, {str(bins.iloc[12]["bin_id"])})
     states = {record["site_id"]: record["state"] for record in records}
