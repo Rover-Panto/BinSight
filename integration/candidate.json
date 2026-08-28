@@ -17,7 +17,7 @@
     {"id": "D3", "status": "pending", "question": "Separate or split recycling demo, material-to-compartment map and QR session topology", "evidence": ["Owner expects one Grove per recycling bin in a future installation; demo layout not chosen; docs/RECYCLING_STATION_OPTIONS.md"]}
   ],
   "gates": [
-    {"id": "G01", "level": "software", "status": "partial", "evidence": ["https://github.com/Rover-Panto/BinSight/actions/runs/33165774817", "docs/INTEGRATION_BASELINE_2026-08-28.md: local and CI foundation passed at f682bef; rerun on combined candidate"]},
+    {"id": "G01", "level": "software", "status": "partial", "evidence": ["https://github.com/Rover-Panto/BinSight/actions/runs/33165774817", "https://github.com/Rover-Panto/BinSight/actions/runs/33167295593", "docs/INTEGRATION_BASELINE_2026-08-28.md: local and CI foundation passed at f682bef and 6fbf133; rerun on combined candidate"]},
     {"id": "G02", "level": "software", "status": "not_run", "evidence": []},
     {"id": "G03", "level": "software", "status": "not_run", "evidence": []},
     {"id": "G04", "level": "software", "status": "not_run", "evidence": []},

@@ -80,4 +80,13 @@ After the foundation handoff, the owner confirmed D1: a physical Teensy/ESP/Grov
 
 The candidate now declares `demo_mode: physical`. The readiness command requires H01/H02 by default; `--software-only` is a labelled preflight, not physical demo approval. Follow-up verification on this decision-update tree: integration tests **17 passed**, server-policy tests **16 passed**, and `git diff --check` passed. Both default and software-only `--require-ready` checks correctly returned exit 1 for the outstanding candidate work; the default included H01/H02. These results supplement, not replace, the earlier foundation evidence. Frontend files and stored records were not changed in this follow-up.
 
+Both jobs in [follow-up CI run 33167295593](https://github.com/Rover-Panto/BinSight/actions/runs/33167295593) passed at `6fbf13373244607fe1f3a76bfe913d9f7d25f7b0`: server policy/fixtures and citizen lint/unit/build/browser regression. Hardware and cross-service gates remain outstanding.
+
+The owner-decision update was posted to all four PRs with their responsibilities and links to the revised plan:
+
+- [PR1: minimal ticket controls, main-owned report backend and pending bin mapping](https://github.com/Rover-Panto/BinSight/pull/1#issuecomment-5451975656).
+- [PR2: physical demo evidence, three fill channels and the shared gateway](https://github.com/Rover-Panto/BinSight/pull/2#issuecomment-5451976409).
+- [PR3: deployed Grove evidence, configurable station identity and pending mechanics](https://github.com/Rover-Panto/BinSight/pull/3#issuecomment-5451979788).
+- [PR4: physical-data integration evidence with forecast ownership unchanged](https://github.com/Rover-Panto/BinSight/pull/4#issuecomment-5451980454).
+
 Remote PR1-4 heads still matched the captured revisions when publishing this decision update. No PR was merged or marked ready. Main integration still owns the return API, durable decision/credit storage, station/session authentication, shared report/attachment/status API, citizen client and migrations, safe runtime controls and combined gateway assembly. No camera stream, real payment service or public deployment was added.
