@@ -31,10 +31,13 @@
 #define US1_TRIG_PIN             2
 #define US1_ECHO_PIN             3
 
-// Push buttons — manual waste-type injection (there is no load cell, so a
-// human operator classifies what was just dropped in during testing/demo).
-#define BTN_HEAVY_WET_PIN         6   // e.g. food waste, liquids
-#define BTN_DRY_RECYCLABLE_PIN    7   // e.g. paper, plastic, cardboard
+// Push button — bin re-calibration only.
+// [Removed 2026-08-28] The two manual waste-type buttons (heavy/wet on
+// pin 6, dry/recyclable on pin 7) and the density baseline they drove are
+// gone — see the PSEUDO-DENSITY MODEL section below for why, and
+// sensors.cpp/estimateDensity() for the resulting single-baseline model.
+// Pins 6 and 7 are now free for other use (e.g. a future vision-model
+// wet/dry signal, if that's how that gets wired in).
 #define BTN_CALIBRATE_RESET_PIN   8   // long-press: re-zero "empty bin" baseline
 
 // Status LED (onboard or external) — reflects overall system health.
@@ -60,18 +63,39 @@
 #define US_VALID_MIN_CM           2.0f    // HC-SR04 datasheet minimum
 #define US_VALID_MAX_CM           400.0f  // HC-SR04 datasheet maximum
 
+// [Added 2026-08-28] Bin cross-section, used only by estimateWeightProxy()
+// in sensors.cpp to convert the sensed fill height into a volume for the
+// weight-proxy estimate. Measured bin: round, 22cm diameter, ~35cm total
+// physical height. Assumes a ROUND bin (area = pi * r^2) — if your bin is
+// rectangular, change the area formula in estimateWeightProxy() to
+// width * depth instead, and swap this for BIN_WIDTH_CM/BIN_DEPTH_CM.
+//
+// Note the 35cm total physical height is intentionally NOT used for the
+// fill-height-to-volume conversion — that reuses BIN_EMPTY_DISTANCE_CM /
+// BIN_FULL_DISTANCE_CM above (the sensor's own calibrated span, currently
+// 30cm/4cm -> 26cm of usable range) so "100% full" means the same thing
+// for the weight estimate as it already does for fill_pct, rather than
+// introducing a second height reference that could quietly disagree with
+// the first.
+#define BIN_DIAMETER_CM           22.0f
+
 // ============================================================
 // PSEUDO-DENSITY MODEL
 // ============================================================
 // Baseline "density" units are an arbitrary relative scale (NOT kg/L —
 // clearly labeled as an estimate/proxy throughout, since there is no load
-// cell). Button presses bias the baseline; fast fill-rate deltas nudge it
-// further, simulating compaction / heavy wet waste arriving quickly.
-#define DENSITY_BASELINE_UNCLASSIFIED   1.2f
-#define DENSITY_BASELINE_HEAVY_WET      3.0f
-#define DENSITY_BASELINE_DRY_RECYCLABLE 0.6f
+// cell). Fast fill-rate deltas nudge the baseline upward, simulating
+// compaction / heavy waste arriving quickly.
+//
+// [Removed 2026-08-28] The manual heavy-wet / dry-recyclable button
+// classification (and its two separate baselines) is gone — estimateDensity()
+// now always starts from the single DENSITY_BASELINE below rather than
+// picking a baseline by button-injected waste type. If/when a real signal
+// (e.g. a vision-model wet/dry classification) replaces this, wire its
+// output back into estimateDensity() the same way the button hint used to
+// feed it, rather than re-adding buttons.
+#define DENSITY_BASELINE                1.2f
 #define DENSITY_FILL_RATE_GAIN          0.08f   // scales %/s fill-rate delta into the estimate
-#define DENSITY_CLASSIFICATION_HOLD_MS  8000UL  // how long a button press biases the estimate
 
 // ============================================================
 // RTOS TASK PRIORITIES  (higher number == higher priority)
@@ -104,8 +128,9 @@
 // TRANSPORT — USB-Serial bridge (see network.cpp / network.h)
 // ============================================================
 // No Ethernet or WiFi hardware is required for this path (the parts list
-// is Teensy 4.1, 1x ultrasonic sensor, 3x buttons, breadboard, jumper
-// wires; an optional ESP32 Wi-Fi gateway is available separately, see
+// is Teensy 4.1, 1x ultrasonic sensor, 1x button [changed 2026-08-28 from
+// 3x — see PIN MAP above], breadboard, jumper wires; an optional ESP32
+// Wi-Fi gateway is available separately, see
 // below). Task 3
 // streams each packaged JSON reading over the USB serial connection;
 // tools/serial_bridge.py on the laptop reads it and forwards to the
@@ -126,7 +151,7 @@
 // present — Task 3 just tries both transports independently.
 //
 // Uses Serial3 (RX3 = pin 15, TX3 = pin 14) so it doesn't collide with
-// the button pins already on Serial2's pins (7/8, see PIN MAP above).
+// the calibrate button already on Serial2's pin (8, see PIN MAP above).
 // See SETUP_AND_WIRING_GUIDE.md Part D for the Teensy<->ESP32 wiring.
 #define ESP_LINK_SERIAL           Serial3
 #define ESP_LINK_BAUD             115200

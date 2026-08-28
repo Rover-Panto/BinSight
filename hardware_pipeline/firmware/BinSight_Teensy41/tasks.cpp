@@ -65,8 +65,11 @@ void Task1_Sensing(void *pvParameters) {
       fillRateDelta = (fillPct - lastFillPct) / elapsedSec;
     }
 
-    WasteTypeHint hint = Sensors::pollWasteClassification();
-    float density = Sensors::estimateDensity(fillRateDelta, hint);
+    // [Removed 2026-08-28] WasteTypeHint hint = Sensors::pollWasteClassification()
+    // — the two manual waste-type buttons are gone; estimateDensity() now
+    // takes just the fill-rate delta. See config.h's PSEUDO-DENSITY MODEL
+    // section.
+    float density = Sensors::estimateDensity(fillRateDelta);
 
 #if DEBUG_SERIAL_PRINTS
     // Verbose per-sample bring-up/testing output. Written through the
@@ -77,8 +80,9 @@ void Task1_Sensing(void *pvParameters) {
       Serial.print("[Task1] US1=");  Serial.print(us1, 1);
       Serial.print("cm fill=");        Serial.print(fillPct, 1);
       Serial.print("% density=");       Serial.print(density, 2);
-      Serial.print(" conf=");            Serial.print(confidence);
-      Serial.print(" hint=");             Serial.println((int)hint);
+      // [Removed 2026-08-28] " hint=" field — no more button-injected
+      // waste-type classification to print.
+      Serial.print(" conf=");            Serial.println(confidence);
       xSemaphoreGive(g_serialMutex);
     }
 #endif
@@ -98,7 +102,8 @@ void Task1_Sensing(void *pvParameters) {
     reading.fill_pct_raw      = fillPct;
     reading.estimated_density = density;
     reading.confidence_flag   = confidence;
-    reading.waste_hint        = hint;
+    // [Removed 2026-08-28] reading.waste_hint — field no longer exists on
+    // RawReading (types.h), button classification removed.
 
     // Non-blocking send: if Task 2 has fallen behind and the queue is
     // full, drop the oldest raw sample rather than ever blocking Task 1.
@@ -151,6 +156,14 @@ void Task2_FilterAndPackage(void *pvParameters) {
           : fillFilter.lastOutput();  // hold last good value (no fabricated sample)
       float smoothedDensity = densityFilter.process(raw.estimated_density, 5.0f);
 
+      // [Added 2026-08-28] Weight PROXY from the smoothed fill % and
+      // density proxy — computed from the already-filtered values above
+      // (not raw.*) so it benefits from the same jump-rejection/holding
+      // behavior as fill_pct and estimated_density. See the loud
+      // disclaimer on estimateWeightProxy() in sensors.cpp: this is a
+      // relative signal, NOT a calibrated kg figure.
+      float weightProxy = Sensors::estimateWeightProxy(smoothedFill, smoothedDensity);
+
       // Wall-clock timestamp: TimeLib's now() must be synced at boot
       // (e.g. via NTP once the network is up, or a battery-backed RTC —
       // see setup() in the .ino). Formatted as ISO-8601 UTC to match the
@@ -159,12 +172,17 @@ void Task2_FilterAndPackage(void *pvParameters) {
       snprintf(timestampBuf, sizeof(timestampBuf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
                year(), month(), day(), hour(), minute(), second());
 
+      // [Changed 2026-08-28] Added estimated_weight_proxy. Still well
+      // within StaticJsonDocument<256>/PackagedReading::json[256] — a
+      // fully-populated line with all 6 fields is ~165 bytes. Re-check
+      // this budget if more fields get added later.
       StaticJsonDocument<256> doc;
-      doc["timestamp"]          = timestampBuf;
-      doc["bin_id"]              = BIN_ID;
-      doc["fill_pct"]            = serialized(String(smoothedFill, 1));
-      doc["estimated_density"]   = serialized(String(smoothedDensity, 2));
-      doc["confidence_flag"]     = raw.confidence_flag;
+      doc["timestamp"]              = timestampBuf;
+      doc["bin_id"]                  = BIN_ID;
+      doc["fill_pct"]                = serialized(String(smoothedFill, 1));
+      doc["estimated_density"]       = serialized(String(smoothedDensity, 2));
+      doc["confidence_flag"]         = raw.confidence_flag;
+      doc["estimated_weight_proxy"]  = serialized(String(weightProxy, 2));
 
       PackagedReading packet{};
       packet.length = serializeJson(doc, packet.json, sizeof(packet.json));

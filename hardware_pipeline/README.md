@@ -20,8 +20,9 @@ labeled placeholder where it will plug in.
 > **No Ethernet/WiFi hardware assumed** (for the USB-serial path — an
 > optional ESP32 Wi-Fi gateway is available too, see below). The available
 > parts list is Teensy 4.1, 1x ultrasonic sensor per bin **(changed
-> 2026-08-28 from 2x — see "Known changes" below)**, 3x push buttons,
-> breadboard, jumper wires. `tools/serial_bridge.py` bridges the Teensy's
+> 2026-08-28 from 2x — see "Known changes" below)**, 1x push button
+> (calibrate/reset) **(changed 2026-08-28 from 3x — see "Known changes"
+> below)**, breadboard, jumper wires. `tools/serial_bridge.py` bridges the Teensy's
 > USB-serial telemetry stream to the cloud backend over HTTP, so no extra
 > hardware is required. See `SETUP_AND_WIRING_GUIDE.md` for full step-by-step
 > instructions, including the wiring diagram and safety notes.
@@ -31,7 +32,7 @@ labeled placeholder where it will plug in.
 ```mermaid
 flowchart LR
     subgraph Teensy41["Teensy 4.1 — Edge (FreeRTOS, 3 prioritized tasks)"]
-        T1["Task 1: Sensing\n(HIGH priority)\nultrasonic x1, buttons x3\nconfidence_flag, estimated_density"]
+        T1["Task 1: Sensing\n(HIGH priority)\nultrasonic x1, button x1 (calibrate)\nconfidence_flag, estimated_density"]
         T2["Task 2: Filter & Package\n(MEDIUM priority)\nmoving avg + sanity filter\nJSON schema packaging"]
         T3["Task 3: Secure Transmit\n(LOW priority)\nframed JSON, sent independently\nover USB serial AND ESP32 UART"]
         T1 -- "RawReading\n(queue)" --> T2
@@ -51,12 +52,16 @@ flowchart LR
 ## Why a "pseudo-density" proxy
 
 There is no physical load cell (budget/time constraint). `estimated_density`
-is derived on-device from the ultrasonic fill-rate delta plus a manual
-waste-type classification (heavy/wet vs. dry/recyclable) injected via push
-button. It is a relative engineering proxy, not a calibrated kg/L
-measurement — this is stated in the firmware comments, the API schema
-docstrings, and the dashboard caption so it's never mistaken for a real
-density sensor reading.
+is derived on-device from a fixed baseline plus the ultrasonic fill-rate
+delta (fast fill = nudges the estimate up, modeling compaction/heavy waste
+arriving quickly). **[Changed 2026-08-28]** Earlier revisions picked the
+baseline from a manual waste-type classification (heavy/wet vs.
+dry/recyclable) injected via two push buttons — that's been removed (see
+"Known changes" below); `estimateDensity()` now always starts from the
+single `DENSITY_BASELINE` constant in `config.h`. It is a relative
+engineering proxy, not a calibrated kg/L measurement — this is stated in
+the firmware comments, the API schema docstrings, and the dashboard
+caption so it's never mistaken for a real density sensor reading.
 
 ## Repository layout
 
@@ -87,7 +92,7 @@ so a slow/degraded transport (Task 3) can never stall sensing (Task 1):
 
 | Task | Priority | Period | Responsibility |
 |---|---|---|---|
-| 1. Sensing | High (3) | 200 ms | Poll 1x ultrasonic + 3x buttons, compute `confidence_flag` and `estimated_density` |
+| 1. Sensing | High (3) | 200 ms | Poll 1x ultrasonic + 1x calibrate button, compute `confidence_flag` and `estimated_density` |
 | 2. Filter & Package | Medium (2) | 500 ms | Moving-average + sanity filter, package into the JSON schema with timestamp + `bin_id` |
 | 3. Secure Transmit | Low (1) | 2000 ms | Frame + write JSON over USB serial for `tools/serial_bridge.py` to forward |
 
@@ -249,3 +254,35 @@ on it.
   keeps a safer 2cm margin above that minimum. Re-measure and update
   both constants again for any different physical bin or mounting
   height — don't assume these transfer.
+
+- **2026-08-28 — added `estimated_weight_proxy`.** A relative weight
+  proxy (`estimated_density x sensed volume`, where volume is the fill
+  height derived from the calibrated `BIN_EMPTY_DISTANCE_CM`/
+  `BIN_FULL_DISTANCE_CM` span times the bin's cross-section area from the
+  new `BIN_DIAMETER_CM` constant) computed in `sensors.cpp`'s
+  `estimateWeightProxy()`, added to Task 2's JSON payload, and threaded
+  through the cloud schema/model/CRUD (`estimated_weight_proxy`, a
+  required `NOT NULL` column — see `models.py`'s module docstring for the
+  SQLite migration gotcha this creates for an existing `binsight.db`) and
+  a new dashboard chart/table column. **Not a calibrated kg figure** —
+  same "relative proxy" caveat as `estimated_density`, documented at every
+  layer.
+
+- **2026-08-28 — removed the manual waste-type buttons and the density
+  baseline they drove.** The two Heavy/Wet (pin 6) and Dry/Recyclable
+  (pin 7) push buttons, the `WasteTypeHint` enum, `RawReading.waste_hint`,
+  and `pollWasteClassification()` are all gone from the firmware.
+  `estimateDensity()` no longer takes a classification hint — it always
+  starts from the single `DENSITY_BASELINE` constant in `config.h` (the
+  two old per-classification baselines and `DENSITY_CLASSIFICATION_HOLD_MS`
+  are removed too) and applies the same fill-rate-delta adjustment as
+  before. Only the Calibrate/Reset button (pin 8) remains; pins 6/7 are
+  free. No cloud-side changes needed — `waste_hint` was never part of the
+  JSON payload/schema, so nothing downstream of the firmware is affected.
+  **Trade-off:** the density estimate no longer has any real-world signal
+  distinguishing heavy/wet from dry/light waste — it's now purely a
+  fixed-baseline-plus-fill-rate estimate, which is a strictly weaker proxy
+  than before for bins that see a real mix of waste types. If a wet/dry
+  signal is wanted again later (e.g. from a vision-model classifier),
+  `estimateDensity()` and `config.h`'s baseline constants are the place to
+  wire it back in.

@@ -125,8 +125,15 @@ close, but don't run the script yet.
 > second sensor and its divider are no longer used by the firmware —
 > you can leave them wired (harmless, just unused) or remove them.
 
-From your kit: Teensy 4.1, 1x HC-SR04 ultrasonic sensor, 3x push buttons,
-breadboard, jumper wires (mostly male-male).
+> **[Changed 2026-08-28]** The two manual waste-type buttons (Heavy/Wet,
+> Dry/Recyclable) are gone too — the firmware no longer reads pins 6/7 or
+> uses them to bias the density estimate (see `config.h`'s PSEUDO-DENSITY
+> MODEL comment). Only the Calibrate/Reset button (pin 8) remains. If
+> you already wired the two removed buttons, they're just unused now —
+> safe to leave in place or remove.
+
+From your kit: Teensy 4.1, 1x HC-SR04 ultrasonic sensor, 1x push button
+(Calibrate/Reset), breadboard, jumper wires (mostly male-male).
 
 **You'll also need 2 resistors that aren't in the original kit list** — see
 the safety note below for why. Any of these combinations work (±10% is
@@ -148,16 +155,15 @@ values in any basic resistor kit or electronics starter pack.
 |---|---|
 | Ultrasonic TRIG | 2 |
 | Ultrasonic ECHO (via divider) | 3 |
-| Button 1 — Heavy/Wet | 6 |
-| Button 2 — Dry/Recyclable | 7 |
-| Button 3 — Calibrate/Reset (long-press) | 8 |
+| Button — Calibrate/Reset (long-press) | 8 |
 | Status LED | 13 (Teensy's built-in LED — no wiring needed) |
 | 5V supply for sensor | VIN |
 | Ground | GND |
 
-> Pins 4 and 5 (the old ultrasonic #2 TRIG/ECHO) are free now — available
-> if you need them for something else later (e.g. the ESP32 gateway link
-> in Part D uses 14/15, unrelated to these).
+> Pins 4 and 5 (the old ultrasonic #2 TRIG/ECHO) and pins 6 and 7 (the old
+> Heavy/Wet and Dry/Recyclable buttons, removed 2026-08-28) are all free
+> now — available if you need them for something else later (e.g. the
+> ESP32 gateway link in Part D uses 14/15, unrelated to these).
 
 ### B.3 Voltage divider (build this once)
 
@@ -186,12 +192,13 @@ Unplug the Teensy from USB before wiring anything.
    - GND → blue (−) rail
    - TRIG → Teensy pin 2 (direct wire)
    - ECHO → build the divider from B.3, with the Teensy-pin end going to **pin 3**
-5. **Buttons** (all 3 wired the same way — internal pull-ups are enabled in firmware, so no extra resistor is needed per button):
-   - Button 1: one leg → pin 6, opposite leg → blue (−) rail
-   - Button 2: one leg → pin 7, opposite leg → blue (−) rail
-   - Button 3: one leg → pin 8, opposite leg → blue (−) rail
+5. **Calibrate/Reset button** (internal pull-up is enabled in firmware, so no extra resistor is needed):
+   - One leg → pin 8, opposite leg → blue (−) rail
+   - [Changed 2026-08-28] The two Heavy/Wet (pin 6) and Dry/Recyclable
+     (pin 7) buttons from earlier revisions of this guide are no longer
+     used by the firmware — skip wiring them if starting fresh.
 6. **Double-check before powering on:**
-   - No wire connects the red (5V) rail directly to any Teensy signal pin (2–8) — only to the sensor's VCC pin and through the resistor divider.
+   - No wire connects the red (5V) rail directly to any Teensy signal pin (2, 3, or 8) — only to the sensor's VCC pin and through the resistor divider.
    - The ECHO line goes through the divider, not straight to the Teensy.
    - Everything shares one common ground (blue rail ↔ Teensy GND).
 
@@ -216,18 +223,20 @@ Bin ID: bin_01
 Initializing serial-bridge transport...
 Serial-bridge transport ready — run tools/serial_bridge.py on the host.
 Starting scheduler — control now passes to RTOS tasks.
-[Task1] US1=45.2cm fill=48.4% density=1.20 conf=1 hint=0
-[Task1] US1=45.1cm fill=48.6% density=1.20 conf=1 hint=0
+[Task1] US1=45.2cm fill=48.4% density=1.20 conf=1
+[Task1] US1=45.1cm fill=48.6% density=1.20 conf=1
 ...
 ```
+
+> [Changed 2026-08-28] The debug line no longer prints a `hint=` field —
+> see the button removal note above. If you're comparing against an older
+> firmware build's output, that's the only line-format difference.
 
 Work through this checklist:
 
 - **Wave your hand in front of the sensor** — `fill=` should rise as your hand gets closer, fall as it moves away.
 - **Point the sensor at nothing in range** (e.g. off the edge of a table, or cover it entirely) — `conf=` should drop to `0` (the reading is out of range/timed out). Point it back at a surface within range and confirm `conf=1` returns. Note: as of the 2026-08-28 single-sensor change, this only catches an outright invalid reading — it can no longer catch a plausible-but-wrong reading the way the old two-sensor disagreement check could.
-- **Press Button 1 (Heavy/Wet)** — `hint=` should change to `1`, and `density=` should jump toward ~3.0, holding for about 8 seconds before decaying back.
-- **Press Button 2 (Dry/Recyclable)** — `hint=` should change to `2`, `density=` should drop toward ~0.6.
-- **Hold Button 3 for 2+ seconds** — you should see a one-time `[Task1] Calibration requested` message.
+- **Hold the Calibrate/Reset button for 2+ seconds** — you should see a one-time `[Task1] Calibration requested` message.
 - **Status LED (pin 13, built into the board)** should be solid on whenever `conf=1`, and turn off when `conf=0`.
 
 Once wiring checks out, close the Serial Monitor (the serial port can only be held open by one program at a time) and move to Part C.
