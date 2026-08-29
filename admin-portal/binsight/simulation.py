@@ -1,0 +1,1387 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field, replace
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+import numpy as np
+import pandas as pd
+import simpy
+
+from .config import Config
+from .demand import DemandContext, DemandScenario
+from .district import BinSpec
+from .dispatch import build_dispatch_plan_with_deadline_reserve, validate_snapshot
+from .forecast import ForecastBundle, make_feature_row
+from .fleet import (
+    GENERAL_STREAM,
+    RECYCLING_FACILITY,
+    RECYCLING_STREAM,
+    WASTE_DEPOT,
+    assign_route_vehicles,
+    trip_limit_for_stream,
+    vehicle_limit_for_stream,
+)
+from .fuel import calculate_idle_fuel, calculate_leg_fuel, leg_travel_minutes
+from .observations import generate_sensor_noise_scenario, observe_sensors
+from .multiday import optimize_multiday_pickups
+from .routing import (
+    RoutePlan,
+    greedy_proxy_distance_m,
+    incremental_proxy_distance_m,
+    select_capacity_feasible,
+    solve_routes,
+)
+
+
+_greedy_proxy_distance_m = greedy_proxy_distance_m
+_incremental_proxy_distance_m = incremental_proxy_distance_m
+
+
+@dataclass(frozen=True)
+class SimulationScenario:
+    name: str = "normal_patterned"
+    demand: DemandScenario = field(default_factory=DemandScenario)
+    traffic_multiplier: float = 1.0
+    sensor_missing_probability: float | None = None
+    sensor_outlier_probability: float | None = None
+    truck_capacity_multiplier: float = 1.0
+
+
+@dataclass
+class PolicyResult:
+    policy: str
+    replication: int
+    metrics: dict[str, float | int | str]
+    route_events: list[dict]
+    final_fill_kg: np.ndarray
+    regime_metrics: list[dict[str, float | int | str]] = field(default_factory=list)
+
+
+def _time_to_overflow_hours(
+    fill_pct: np.ndarray,
+    predicted_growth_upper_pct: np.ndarray,
+    forecast_horizon_hours: float,
+) -> np.ndarray:
+    current = np.asarray(fill_pct, dtype=float)
+    growth = np.maximum(0.0, np.asarray(predicted_growth_upper_pct, dtype=float))
+    remaining = np.maximum(0.0, 100.0 - current)
+    rate_per_hour = growth / max(float(forecast_horizon_hours), 1e-9)
+    result = np.full(current.shape, np.inf, dtype=float)
+    result[current >= 100.0] = 0.0
+    growing = (current < 100.0) & (rate_per_hour > 1e-9)
+    result[growing] = remaining[growing] / rate_per_hour[growing]
+    return result
+
+
+def _risk_levels(
+    fill_pct: np.ndarray,
+    time_to_overflow_hours: np.ndarray,
+    config: Config,
+) -> np.ndarray:
+    levels = np.full(len(fill_pct), "low", dtype=object)
+    medium = (
+        (fill_pct >= config.operations.smart_include_current_trigger_pct)
+        | (time_to_overflow_hours <= config.operations.smart_sibling_include_time_to_overflow_hours)
+    )
+    high = (
+        (fill_pct >= config.operations.smart_dispatch_current_trigger_pct)
+        | (time_to_overflow_hours <= config.operations.smart_dispatch_time_to_overflow_hours)
+    )
+    critical = (
+        (fill_pct >= config.operations.smart_emergency_current_trigger_pct)
+        | (time_to_overflow_hours <= 0.0)
+    )
+    levels[medium] = "medium"
+    levels[high] = "high"
+    levels[critical] = "critical"
+    return levels
+
+
+def _interval_service_due(hour: int, interval_days: int, decision_hour: int) -> bool:
+    first = interval_days * 24 + decision_hour
+    interval = interval_days * 24
+    return hour >= first and (hour - first) % interval == 0
+
+
+def fixed_service_due(hour: int, config: Config) -> bool:
+    return _interval_service_due(
+        hour,
+        config.operations.fixed_interval_days,
+        config.operations.decision_hour,
+    )
+
+
+def _json_number(value: float) -> float | None:
+    return float(value) if np.isfinite(value) else None
+
+
+def run_policy(
+    policy: str,
+    replication: int,
+    bins: list[BinSpec],
+    config: Config,
+    distance_matrix_m: np.ndarray,
+    duration_matrix_s: np.ndarray,
+    arrivals_kg: np.ndarray,
+    sensor_seed: int,
+    forecaster: ForecastBundle | None = None,
+    scenario: SimulationScenario | None = None,
+    demand_context: DemandContext | None = None,
+    destination_matrices: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
+    destination_return_legs: dict[str, tuple[float, float]] | None = None,
+) -> PolicyResult:
+    if policy not in {"fixed", "smart"}:
+        raise ValueError("policy must be 'fixed' or 'smart'")
+    if policy == "smart" and forecaster is None:
+        raise ValueError("smart policy requires a trained forecaster")
+    active_scenario = scenario or SimulationScenario()
+    horizon_hours = config.operations.horizon_days * 24
+    horizon_minutes = horizon_hours * 60
+    if arrivals_kg.shape != (horizon_hours, len(bins)):
+        raise ValueError("arrivals_kg has the wrong shape")
+    if demand_context is not None and (
+        demand_context.current_event_intensity.shape != arrivals_kg.shape
+        or demand_context.known_event_intensity_48h.shape != arrivals_kg.shape
+        or demand_context.known_event_intensity_168h.shape != arrivals_kg.shape
+        or len(demand_context.regime_labels) != horizon_hours
+    ):
+        raise ValueError("Demand context must align with the arrival matrix")
+    expected_shape = (len(bins) + 1, len(bins) + 1)
+    if distance_matrix_m.shape != expected_shape or duration_matrix_s.shape != expected_shape:
+        raise ValueError("Road distance and duration matrices must contain depot plus every bin")
+    active_destination_matrices = dict(destination_matrices or {})
+    active_destination_matrices.setdefault(
+        "waste_depot", (distance_matrix_m, duration_matrix_s)
+    )
+    for destination_id, matrices in active_destination_matrices.items():
+        if matrices[0].shape != expected_shape or matrices[1].shape != expected_shape:
+            raise ValueError(
+                f"Destination matrices for {destination_id} must contain depot plus every bin"
+            )
+    destination_return_legs = dict(destination_return_legs or {})
+    for destination_id, (distance_m, duration_s) in destination_return_legs.items():
+        if destination_id not in active_destination_matrices:
+            raise ValueError(f"Return leg has no destination matrix: {destination_id}")
+        if distance_m < 0 or duration_s < 0:
+            raise ValueError("Destination return distance and duration cannot be negative")
+
+    env = simpy.Environment()
+    capacities = np.array([item.capacity_kg for item in bins], dtype=float)
+    bins_table = pd.DataFrame([asdict(item) for item in bins])
+    reference_epoch = datetime.fromisoformat(config.demand.reference_start_utc).astimezone(
+        timezone.utc
+    )
+    start_absolute_hour = (
+        int(demand_context.absolute_hours[0]) if demand_context is not None else 0
+    )
+    simulation_epoch = reference_epoch + timedelta(hours=start_absolute_hour)
+    hidden_mass = np.zeros(len(bins), dtype=float)
+    observed_history: list[list[tuple[float, float]]] = [[] for _ in bins]
+    last_valid_fill = np.full(len(bins), np.nan, dtype=float)
+    last_valid_weight = np.full(len(bins), np.nan, dtype=float)
+    last_valid_hour = np.full(len(bins), np.nan, dtype=float)
+    last_collection_feature_hour = np.full(len(bins), np.nan, dtype=float)
+    observation_count = horizon_hours // config.waste.sensor_interval_hours + 1
+    sensor_scenario = generate_sensor_noise_scenario(
+        config,
+        sensor_seed,
+        observation_count,
+        len(bins),
+        missing_probability=active_scenario.sensor_missing_probability,
+        outlier_probability=active_scenario.sensor_outlier_probability,
+    )
+    route_events: list[dict[str, Any]] = []
+    # Both policies start from the same empty district. Optional dynamic work
+    # must accrue a full consolidation interval before its first departure;
+    # emergency/service constraints can still override this clock.
+    last_optional_dispatch_hour = 0.0
+    # The two specialized trucks operate independently.  A busy general-waste
+    # truck must not prevent the recycling truck from receiving a dispatch (or
+    # vice versa), while a second departure for the same physical truck remains
+    # unavailable until that truck returns.
+    active_vehicle_ids: set[str] = set()
+    trips_by_day: dict[tuple[int, str], int] = {}
+    warmup_minute = config.operations.analysis_warmup_days * 24 * 60
+    effective_truck_capacity = (
+        config.operations.truck_capacity_kg * active_scenario.truck_capacity_multiplier
+    )
+
+    metric_names = (
+        "overflow_incidents",
+        "overflow_bin_hours",
+        "overflow_spilled_kg",
+        "distance_km",
+        "travel_time_hours",
+        "service_time_hours",
+        "depot_unloading_time_hours",
+        "turnaround_time_hours",
+        "collection_trips",
+        "collection_stops",
+        "wasted_pickups",
+        "collected_kg",
+        "sum_collection_fill_pct",
+        "unserved_required_bins",
+        "inspection_events",
+        "base_driving_fuel_l",
+        "traffic_fuel_penalty_l",
+        "payload_fuel_penalty_l",
+        "collection_idle_fuel_l",
+        "depot_idle_fuel_l",
+        "routing_fallbacks",
+        "forecast_driven_dispatches",
+        "capacity_constrained_decisions",
+        "dispatch_limit_blocks",
+        "sensor_uncertainty_decisions",
+    )
+    totals = {name: 0.0 for name in metric_names}
+    post_warmup = {name: 0.0 for name in metric_names}
+    regime_totals = {
+        label: {name: 0.0 for name in metric_names}
+        for label in ("quiet", "normal", "surge")
+    }
+    material_names = tuple(sorted({item.material_type for item in bins}))
+    overflow_bin_hours_by_material = {name: 0.0 for name in material_names}
+    overflow_incidents_by_material = {name: 0.0 for name in material_names}
+    overflow_spilled_kg_by_material = {name: 0.0 for name in material_names}
+    overflow_started_minute = np.full(len(bins), np.nan, dtype=float)
+
+    def record(name: str, value: float, at_minute: float | None = None) -> None:
+        moment = env.now if at_minute is None else at_minute
+        totals[name] += float(value)
+        regime_hour = min(horizon_hours - 1, max(0, int(float(moment) // 60)))
+        regime_label = (
+            demand_context.regime_labels[regime_hour]
+            if demand_context is not None
+            else "normal"
+        )
+        regime_totals[regime_label][name] += float(value)
+        if moment >= warmup_minute:
+            post_warmup[name] += float(value)
+
+    def close_overflow_exposure(
+        bin_index: int,
+        end_minute: float,
+    ) -> None:
+        """Accrue exact bin-time at capacity, split across analysis periods."""
+        start_minute = float(overflow_started_minute[bin_index])
+        if not np.isfinite(start_minute) or end_minute <= start_minute:
+            overflow_started_minute[bin_index] = np.nan
+            return
+
+        material = bins[bin_index].material_type
+        cursor = start_minute
+        while cursor < end_minute - 1e-9:
+            next_hour_boundary = (int(cursor // 60) + 1) * 60.0
+            segment_end = min(float(end_minute), next_hour_boundary)
+            duration_hours = (segment_end - cursor) / 60.0
+            totals["overflow_bin_hours"] += duration_hours
+            overflow_bin_hours_by_material[material] += duration_hours
+
+            regime_hour = min(horizon_hours - 1, max(0, int(cursor // 60)))
+            regime_label = (
+                demand_context.regime_labels[regime_hour]
+                if demand_context is not None
+                else "normal"
+            )
+            regime_totals[regime_label]["overflow_bin_hours"] += duration_hours
+
+            post_start = max(cursor, float(warmup_minute))
+            if segment_end > post_start:
+                post_warmup["overflow_bin_hours"] += (
+                    segment_end - post_start
+                ) / 60.0
+            cursor = segment_end
+
+        overflow_started_minute[bin_index] = np.nan
+
+    def timeline_event(event: dict[str, Any], status: str, **details: Any) -> None:
+        event["timeline"].append(
+            {
+                "status": status,
+                "simulation_minute": round(float(env.now), 3),
+                "simulation_hour": round(float(env.now) / 60.0, 4),
+                "day": int(env.now // 1440) + 1,
+            }
+            | details
+        )
+
+    def conservative_observations(batch, hour: float) -> tuple[np.ndarray, np.ndarray, list[list[str]]]:
+        upper_fill = batch.upper_fill_pct.copy()
+        upper_weight = batch.upper_weight_kg.copy()
+        review_reasons: list[list[str]] = [[] for _ in bins]
+        for index in range(len(bins)):
+            review_reasons[index].extend(batch.quality_flags[index])
+            fused_missing = not np.isfinite(batch.fill_pct[index])
+            has_last_valid = np.isfinite(last_valid_fill[index])
+            if not batch.confidence_flag[index] and has_last_valid:
+                age = max(0.0, hour - last_valid_hour[index])
+                retained_margin = (
+                    config.sensor.low_confidence_margin_pct
+                    if fused_missing
+                    else config.sensor.single_sensor_margin_pct
+                )
+                aged_fill = min(
+                    150.0,
+                    last_valid_fill[index]
+                    + age * config.sensor.conservative_growth_pct_per_hour
+                    + retained_margin,
+                )
+                if fused_missing:
+                    upper_fill[index] = aged_fill
+                    derived_weight = aged_fill / 100.0 * capacities[index]
+                    upper_weight[index] = (
+                        max(last_valid_weight[index], derived_weight)
+                        if np.isfinite(last_valid_weight[index])
+                        else derived_weight
+                    )
+                else:
+                    upper_fill[index] = max(upper_fill[index], aged_fill)
+                    if np.isfinite(last_valid_weight[index]):
+                        upper_weight[index] = (
+                            max(upper_weight[index], last_valid_weight[index])
+                            if np.isfinite(upper_weight[index])
+                            else last_valid_weight[index]
+                        )
+                review_reasons[index].append("last valid reading retained conservatively")
+            elif fused_missing:
+                # No reading is not evidence of a full bin. Preserve the unsafe state
+                # as an inspection requirement without fabricating a collection load.
+                upper_fill[index] = np.nan
+                upper_weight[index] = np.nan
+                review_reasons[index].append("no valid reading available; inspection required")
+        return (
+            np.clip(upper_fill, 0.0, 150.0),
+            np.clip(upper_weight, 0.0, config.operations.crane_lift_limit_kg),
+            review_reasons,
+        )
+
+    def predict_smart_state(
+        hour: int,
+        batch,
+        upper_fill: np.ndarray,
+    ):
+        model_fill = batch.fill_pct.copy()
+        model_weight = batch.weight_kg.copy()
+        for index in range(len(bins)):
+            if not np.isfinite(model_fill[index]):
+                model_fill[index] = (
+                    observed_history[index][-1][1] if observed_history[index] else upper_fill[index]
+                )
+            if not np.isfinite(model_weight[index]):
+                model_weight[index] = model_fill[index] / 100.0 * capacities[index]
+        feature_hour = (
+            int(demand_context.absolute_hours[hour])
+            if demand_context is not None
+            else hour
+        )
+        feature_rows = []
+        for index, item in enumerate(bins):
+            feature_rows.append(
+                make_feature_row(
+                    item,
+                    float(model_fill[index]),
+                    float(model_weight[index]),
+                    bool(batch.confidence_flag[index]),
+                    observed_history[index],
+                    feature_hour,
+                    last_collection_hour=(
+                        float(last_collection_feature_hour[index])
+                        if np.isfinite(last_collection_feature_hour[index])
+                        else None
+                    ),
+                    current_event_intensity=(
+                        float(demand_context.current_event_intensity[hour, index])
+                        if demand_context is not None
+                        else 0.0
+                    ),
+                    known_event_intensity_48h=(
+                        float(demand_context.known_event_intensity_48h[hour, index])
+                        if demand_context is not None
+                        else 0.0
+                    ),
+                    known_event_intensity_168h=(
+                        float(demand_context.known_event_intensity_168h[hour, index])
+                        if demand_context is not None
+                        else 0.0
+                    ),
+                    calendar_timestamp=reference_epoch + timedelta(hours=feature_hour),
+                )
+            )
+        predicted_mean, predicted_upper = forecaster.predict(pd.DataFrame(feature_rows))
+        overflow_probability_6h = (
+            forecaster.predict_overflow_probability_6h(pd.DataFrame(feature_rows))
+            if hasattr(forecaster, "predict_overflow_probability_6h")
+            else np.full(len(feature_rows), np.nan, dtype=float)
+        )
+        overflow_probability_48h = (
+            forecaster.predict_overflow_probability_48h(pd.DataFrame(feature_rows))
+            if hasattr(forecaster, "predict_overflow_probability_48h")
+            else np.full(len(feature_rows), np.nan, dtype=float)
+        )
+        time_to_overflow = _time_to_overflow_hours(
+            upper_fill,
+            predicted_upper,
+            config.operations.forecast_horizon_hours,
+        )
+        risk = _risk_levels(upper_fill, time_to_overflow, config)
+        return (
+            np.asarray(predicted_mean),
+            np.asarray(predicted_upper),
+            time_to_overflow,
+            risk,
+            overflow_probability_6h,
+            overflow_probability_48h,
+        )
+
+    def execute_travel_leg(
+        route_event: dict[str, Any],
+        *,
+        trip_number: int,
+        status: str,
+        origin_id: str,
+        destination_id: str,
+        distance_m: float,
+        osrm_duration_s: float,
+        payload_kg: float,
+    ):
+        travel_minutes, traffic, duration_source = leg_travel_minutes(
+            distance_m,
+            osrm_duration_s,
+            config,
+            env.now,
+            active_scenario.traffic_multiplier,
+        )
+        timeline_event(
+            route_event,
+            status,
+            trip_number=trip_number,
+            origin=origin_id,
+            destination=destination_id,
+            next_stop=destination_id,
+            travel_minutes=round(travel_minutes, 3),
+            distance_km=round(distance_m / 1000.0, 4),
+            traffic=traffic.label,
+            duration_source=duration_source,
+            payload_kg=round(payload_kg, 3),
+        )
+        leg_fuel = calculate_leg_fuel(
+            distance_m / 1000.0,
+            payload_kg,
+            effective_truck_capacity,
+            traffic.fuel_multiplier,
+            config,
+        )
+        yield env.timeout(travel_minutes)
+        record("distance_km", distance_m / 1000.0)
+        record("travel_time_hours", travel_minutes / 60.0)
+        record("base_driving_fuel_l", leg_fuel.base_driving_l)
+        record("traffic_fuel_penalty_l", leg_fuel.traffic_penalty_l)
+        record("payload_fuel_penalty_l", leg_fuel.payload_penalty_l)
+
+    def execute_vehicle_routes(
+        plan: RoutePlan,
+        route_event: dict[str, Any],
+        route_positions: list[int],
+        completed_bins: list[int],
+    ):
+        for vehicle_trip_sequence, route_position in enumerate(route_positions):
+            trip_number = route_position + 1
+            route = plan.routes[route_position]
+            has_next_vehicle_trip = vehicle_trip_sequence < len(route_positions) - 1
+            unload_destination_id = (
+                plan.route_destinations[route_position]
+                if route_position < len(plan.route_destinations)
+                else "waste_depot"
+            )
+            route_distance_matrix, route_duration_matrix = active_destination_matrices[
+                unload_destination_id
+            ]
+            route_stream = (
+                RECYCLING_STREAM
+                if unload_destination_id == RECYCLING_FACILITY
+                else GENERAL_STREAM
+            )
+            route_base_id = (
+                config.pilot.recycling_facility_id
+                if unload_destination_id == RECYCLING_FACILITY
+                else "DEPOT"
+            )
+            start_day = int(env.now // 1440)
+            trip_key = (start_day, unload_destination_id)
+            if trips_by_day.get(trip_key, 0) >= trip_limit_for_stream(
+                route_stream, config.operations
+            ):
+                next_day = (start_day + 1) * 1440
+                timeline_event(
+                    route_event,
+                    "WAITING_DAILY_TRIP_LIMIT",
+                    trip_number=trip_number,
+                    resume_minute=next_day,
+                )
+                yield env.timeout(next_day - env.now)
+                start_day += 1
+                trip_key = (start_day, unload_destination_id)
+            trips_by_day[trip_key] = trips_by_day.get(trip_key, 0) + 1
+            record("collection_trips", 1)
+            payload_kg = 0.0
+            timeline_event(
+                route_event,
+                "DISPATCHED",
+                trip_number=trip_number,
+                payload_kg=0.0,
+                payload_capacity_kg=effective_truck_capacity,
+            )
+            for origin, destination in zip(route[:-1], route[1:]):
+                origin_location = 0 if origin == -1 else origin + 1
+                destination_location = 0 if destination == -1 else destination + 1
+                distance_m = float(
+                    route_distance_matrix[origin_location, destination_location]
+                )
+                osrm_duration = float(
+                    route_duration_matrix[origin_location, destination_location]
+                )
+                next_stop_id = (
+                    route_base_id if destination == -1 else bins[destination].bin_id
+                )
+                status = (
+                    "RETURNING_TO_RECYCLING_FACILITY"
+                    if destination == -1 and unload_destination_id == RECYCLING_FACILITY
+                    else ("RETURNING_TO_DEPOT" if destination == -1 else "EN_ROUTE")
+                )
+
+                if (
+                    destination == -1
+                    and unload_destination_id != "waste_depot"
+                    and unload_destination_id in destination_return_legs
+                ):
+                    return_distance_m, return_duration_s = destination_return_legs[
+                        unload_destination_id
+                    ]
+                    unload_distance_m = max(0.0, distance_m - return_distance_m)
+                    unload_duration_s = max(0.0, osrm_duration - return_duration_s)
+                    facility_id = config.pilot.recycling_facility_id
+                    yield from execute_travel_leg(
+                        route_event,
+                        trip_number=trip_number,
+                        status="EN_ROUTE_TO_UNLOAD",
+                        origin_id="DEPOT" if origin == -1 else bins[origin].bin_id,
+                        destination_id=facility_id,
+                        distance_m=unload_distance_m,
+                        osrm_duration_s=unload_duration_s,
+                        payload_kg=payload_kg,
+                    )
+                    timeline_event(
+                        route_event,
+                        "UNLOADING",
+                        trip_number=trip_number,
+                        unload_destination=unload_destination_id,
+                        unload_destination_id=facility_id,
+                        payload_kg=round(payload_kg, 3),
+                        duration_minutes=config.operations.depot_unload_minutes,
+                    )
+                    unload_fuel = calculate_idle_fuel(
+                        config.operations.depot_unload_minutes,
+                        config.operations.depot_idle_l_per_hour,
+                    )
+                    yield env.timeout(config.operations.depot_unload_minutes)
+                    record(
+                        "depot_unloading_time_hours",
+                        config.operations.depot_unload_minutes / 60.0,
+                    )
+                    record("depot_idle_fuel_l", unload_fuel)
+                    payload_kg = 0.0
+                    yield from execute_travel_leg(
+                        route_event,
+                        trip_number=trip_number,
+                        status="RETURNING_TO_DEPOT",
+                        origin_id=facility_id,
+                        destination_id="DEPOT",
+                        distance_m=return_distance_m,
+                        osrm_duration_s=return_duration_s,
+                        payload_kg=payload_kg,
+                    )
+                    if (
+                        has_next_vehicle_trip
+                        and config.operations.turnaround_minutes > 0
+                    ):
+                        timeline_event(
+                            route_event,
+                            "TURNAROUND",
+                            trip_number=trip_number,
+                            duration_minutes=config.operations.turnaround_minutes,
+                        )
+                        yield env.timeout(config.operations.turnaround_minutes)
+                        record(
+                            "turnaround_time_hours",
+                            config.operations.turnaround_minutes / 60.0,
+                        )
+                    timeline_event(
+                        route_event,
+                        "TRIP_COMPLETE",
+                        trip_number=trip_number,
+                        bins_completed=len(completed_bins),
+                    )
+                    continue
+
+                yield from execute_travel_leg(
+                    route_event,
+                    trip_number=trip_number,
+                    status=status,
+                    origin_id=route_base_id if origin == -1 else bins[origin].bin_id,
+                    destination_id=next_stop_id,
+                    distance_m=distance_m,
+                    osrm_duration_s=osrm_duration,
+                    payload_kg=payload_kg,
+                )
+
+                if destination == -1:
+                    timeline_event(
+                        route_event,
+                        "UNLOADING",
+                        trip_number=trip_number,
+                        unload_destination=unload_destination_id,
+                        payload_kg=round(payload_kg, 3),
+                        duration_minutes=config.operations.depot_unload_minutes,
+                    )
+                    unload_fuel = calculate_idle_fuel(
+                        config.operations.depot_unload_minutes,
+                        config.operations.depot_idle_l_per_hour,
+                    )
+                    yield env.timeout(config.operations.depot_unload_minutes)
+                    record(
+                        "depot_unloading_time_hours",
+                        config.operations.depot_unload_minutes / 60.0,
+                    )
+                    record("depot_idle_fuel_l", unload_fuel)
+                    payload_kg = 0.0
+                    if (
+                        has_next_vehicle_trip
+                        and config.operations.turnaround_minutes > 0
+                    ):
+                        timeline_event(
+                            route_event,
+                            "TURNAROUND",
+                            trip_number=trip_number,
+                            duration_minutes=config.operations.turnaround_minutes,
+                        )
+                        yield env.timeout(config.operations.turnaround_minutes)
+                        record(
+                            "turnaround_time_hours",
+                            config.operations.turnaround_minutes / 60.0,
+                        )
+                    timeline_event(
+                        route_event,
+                        "TRIP_COMPLETE",
+                        trip_number=trip_number,
+                        bins_completed=len(completed_bins),
+                    )
+                    continue
+
+                timeline_event(
+                    route_event,
+                    "ARRIVED",
+                    trip_number=trip_number,
+                    bin_id=bins[destination].bin_id,
+                    payload_kg=round(payload_kg, 3),
+                )
+                timeline_event(
+                    route_event,
+                    "COLLECTING",
+                    trip_number=trip_number,
+                    bin_id=bins[destination].bin_id,
+                    duration_minutes=config.operations.service_minutes_per_bin,
+                )
+                service_fuel = calculate_idle_fuel(
+                    config.operations.service_minutes_per_bin,
+                    config.operations.service_idle_l_per_hour,
+                )
+                yield env.timeout(config.operations.service_minutes_per_bin)
+                record("service_time_hours", config.operations.service_minutes_per_bin / 60.0)
+                record("collection_idle_fuel_l", service_fuel)
+                actual_mass = float(hidden_mass[destination])
+                if payload_kg + actual_mass > effective_truck_capacity + 1e-9:
+                    record("unserved_required_bins", 1)
+                    timeline_event(
+                        route_event,
+                        "COLLECTION_BLOCKED_CAPACITY",
+                        trip_number=trip_number,
+                        bin_id=bins[destination].bin_id,
+                        payload_kg=round(payload_kg, 3),
+                        bin_mass_kg=round(actual_mass, 3),
+                    )
+                    continue
+                fill_at_completion_pct = 100.0 * actual_mass / capacities[destination]
+                close_overflow_exposure(destination, float(env.now))
+                hidden_mass[destination] = 0.0
+                # A completed collection is stronger evidence than delayed or
+                # missing pre-collection telemetry. Reset the digital service
+                # state so the same old reading cannot trigger another truck.
+                completed_hour = float(env.now) / 60.0
+                completed_feature_hour = start_absolute_hour + completed_hour
+                last_valid_fill[destination] = 0.0
+                last_valid_weight[destination] = 0.0
+                last_valid_hour[destination] = completed_hour
+                observed_history[destination].clear()
+                observed_history[destination].append((completed_hour, 0.0))
+                observed_history[destination][-1] = (completed_feature_hour, 0.0)
+                last_collection_feature_hour[destination] = completed_feature_hour
+                payload_kg += actual_mass
+                completed_bins.append(destination)
+                record("collection_stops", 1)
+                record("collected_kg", actual_mass)
+                record("sum_collection_fill_pct", fill_at_completion_pct)
+                record(
+                    "wasted_pickups",
+                    float(fill_at_completion_pct < config.operations.wasted_pickup_threshold_pct),
+                )
+                timeline_event(
+                    route_event,
+                    "COLLECTION_COMPLETE",
+                    trip_number=trip_number,
+                    bin_id=bins[destination].bin_id,
+                    collected_kg=round(actual_mass, 3),
+                    payload_kg=round(payload_kg, 3),
+                    bins_completed=len(completed_bins),
+                )
+    def execute_active_vehicle(
+        vehicle_id: str,
+        plan: RoutePlan,
+        route_event: dict[str, Any],
+        route_positions: list[int],
+        completed_bins: list[int],
+    ):
+        try:
+            yield from execute_vehicle_routes(
+                plan,
+                route_event,
+                route_positions,
+                completed_bins,
+            )
+        finally:
+            active_vehicle_ids.discard(vehicle_id)
+
+    def execute_plan(plan: RoutePlan, route_event: dict[str, Any]):
+        completed_bins: list[int] = []
+        routes_by_vehicle: dict[str, list[int]] = {}
+        for route_position in range(len(plan.routes)):
+            vehicle_id = (
+                plan.route_vehicle_ids[route_position]
+                if route_position < len(plan.route_vehicle_ids)
+                else f"UNASSIGNED-{route_position + 1:02d}"
+            )
+            routes_by_vehicle.setdefault(vehicle_id, []).append(route_position)
+        processes = [
+            env.process(
+                execute_active_vehicle(
+                    vehicle_id,
+                    plan,
+                    route_event,
+                    route_positions,
+                    completed_bins,
+                )
+            )
+            for vehicle_id, route_positions in routes_by_vehicle.items()
+        ]
+        if processes:
+            yield simpy.events.AllOf(env, processes)
+        route_event["completed"] = True
+        route_event["completed_minute"] = round(float(env.now), 3)
+
+    def dispatch(hour: int, batch) -> None:
+        nonlocal last_optional_dispatch_hour
+        decision_day = int(env.now // 1440)
+        active_general = sum(
+            vehicle_id.startswith("GENERAL-") for vehicle_id in active_vehicle_ids
+        )
+        active_recycling = sum(
+            vehicle_id.startswith("RECYCLING-") for vehicle_id in active_vehicle_ids
+        )
+        remaining_trips_by_stream = {
+            GENERAL_STREAM: max(
+                0,
+                min(
+                    vehicle_limit_for_stream(GENERAL_STREAM, config.operations)
+                    - active_general,
+                    trip_limit_for_stream(GENERAL_STREAM, config.operations)
+                    - trips_by_day.get((decision_day, WASTE_DEPOT), 0),
+                ),
+            ),
+            RECYCLING_STREAM: max(
+                0,
+                min(
+                    vehicle_limit_for_stream(RECYCLING_STREAM, config.operations)
+                    - active_recycling,
+                    trip_limit_for_stream(RECYCLING_STREAM, config.operations)
+                    - trips_by_day.get((decision_day, RECYCLING_FACILITY), 0),
+                ),
+            ),
+        }
+        if not any(remaining_trips_by_stream.values()):
+            record("dispatch_limit_blocks", 1)
+            return
+        if policy == "fixed" and not fixed_service_due(hour, config):
+            return
+        upper_fill, upper_weight, review_reasons = conservative_observations(batch, hour)
+        severe_sensor_failure = np.asarray(batch.missing_flag, dtype=bool) | np.array(
+            [
+                any("outlier" in str(flag).lower() for flag in flags)
+                for flags in batch.quality_flags
+            ],
+            dtype=bool,
+        )
+        degraded_sensor_mode = (
+            policy == "smart"
+            and float(np.mean(severe_sensor_failure))
+            >= config.operations.sensor_degraded_fraction_threshold
+        )
+        degraded_service_due = _interval_service_due(
+            hour,
+            config.operations.sensor_degraded_fixed_interval_days,
+            config.operations.decision_hour,
+        )
+        if degraded_sensor_mode and not degraded_service_due:
+            review_indices = [
+                index for index, reasons in enumerate(review_reasons) if reasons
+            ]
+            record("inspection_events", len(review_indices))
+            record("sensor_uncertainty_decisions", float(bool(review_indices)))
+            return
+        route_weights = np.where(
+            np.isfinite(upper_weight), np.minimum(upper_weight, capacities), capacities
+        )
+        predicted_mean = np.zeros(len(bins), dtype=float)
+        predicted_upper = np.zeros(len(bins), dtype=float)
+        time_to_overflow = np.full(len(bins), np.inf, dtype=float)
+        risk = np.full(len(bins), "fixed", dtype=object)
+        required_set: set[int]
+        unserved_required: list[int]
+        snapshot_rows: list[dict[str, Any]]
+
+        if policy == "fixed" or degraded_sensor_mode:
+            review_indices = [index for index, reasons in enumerate(review_reasons) if reasons]
+            record("inspection_events", len(review_indices))
+            record("sensor_uncertainty_decisions", float(bool(review_indices)))
+            selected = list(range(len(bins)))
+            stream_groups: dict[str, list[int]] = {}
+            for index, item in enumerate(bins):
+                stream_groups.setdefault(item.waste_stream, []).append(index)
+            stream_plans: list[RoutePlan] = []
+            fixed_unserved: set[int] = set()
+            for stream in sorted(stream_groups):
+                stream_selected = stream_groups[stream]
+                stream_destinations = {
+                    bins[index].destination_id for index in stream_selected
+                }
+                if len(stream_destinations) != 1:
+                    raise ValueError("A fixed waste stream cannot mix unload destinations")
+                stream_destination = next(iter(stream_destinations))
+                if stream_destination not in active_destination_matrices:
+                    raise ValueError(
+                        f"No road matrix is configured for {stream_destination}"
+                    )
+                stream_distance_matrix, _ = active_destination_matrices[
+                    stream_destination
+                ]
+                stream_trip_limit = max(
+                    0,
+                    trip_limit_for_stream(stream, config.operations)
+                    - trips_by_day.get((decision_day, stream_destination), 0),
+                )
+                if stream_trip_limit <= 0:
+                    fixed_unserved.update(stream_selected)
+                    continue
+                capacity_selected, rejected = select_capacity_feasible(
+                    stream_selected,
+                    route_weights,
+                    effective_truck_capacity,
+                    stream_trip_limit,
+                )
+                fixed_unserved.update(rejected)
+                if not capacity_selected:
+                    continue
+                stream_plan = solve_routes(
+                    capacity_selected,
+                    route_weights,
+                    stream_distance_matrix,
+                    effective_truck_capacity,
+                    stream_trip_limit,
+                    config.operations.route_solver_milliseconds,
+                )
+                stream_plan = replace(
+                    stream_plan,
+                    route_destinations=[stream_destination] * len(stream_plan.routes),
+                )
+                stream_plans.append(stream_plan)
+                served_in_stream = set(stream_plan.served_bin_indices)
+                fixed_unserved.update(set(capacity_selected) - served_in_stream)
+            plan = RoutePlan(
+                routes=[route for item in stream_plans for route in item.routes],
+                distance_m=sum(item.distance_m for item in stream_plans),
+                served_bin_indices=[
+                    index for item in stream_plans for index in item.served_bin_indices
+                ],
+                solver_method="stream_separated_fixed:" + "+".join(
+                    sorted({item.solver_method for item in stream_plans})
+                ),
+                dropped_bin_indices=sorted(fixed_unserved),
+                dispatch_reason="fixed_due_service",
+                route_destinations=[
+                    destination
+                    for item in stream_plans
+                    for destination in item.route_destinations
+                ],
+            )
+            plan = assign_route_vehicles(plan, config.operations)
+            capacity_selected = list(plan.served_bin_indices)
+            required_set = set(capacity_selected)
+            unserved_required = sorted(set(selected) - required_set | fixed_unserved)
+            record("unserved_required_bins", len(unserved_required))
+            record(
+                "capacity_constrained_decisions", float(bool(unserved_required))
+            )
+            if not capacity_selected:
+                return
+            served = set(plan.served_bin_indices)
+            snapshot_rows = []
+            for index, item in enumerate(bins):
+                selection = "Required" if index in served else "Unserved required"
+                snapshot_rows.append(
+                    {
+                        "bin_id": item.bin_id,
+                        "site_id": item.site_id,
+                        "fill_pct": _json_number(batch.fill_pct[index]),
+                        "weight_kg": _json_number(batch.weight_kg[index]),
+                        "time_to_overflow_hours": None,
+                        "risk_level": "fixed",
+                        "confidence_flag": bool(batch.confidence_flag[index]),
+                        "conservative_upper_fill_pct": _json_number(upper_fill[index]),
+                        "selection": selection,
+                        "selection_reason": selection.lower(),
+                        "collection_state": selection,
+                    }
+                )
+        else:
+            (
+                predicted_mean,
+                predicted_upper,
+                time_to_overflow,
+                risk,
+                overflow_probability_6h,
+                overflow_probability_48h,
+            ) = predict_smart_state(hour, batch, upper_fill)
+            # An upper forecast based on a failed/outlier observation is not an
+            # independent critical signal. Keep it explicit as unavailable and
+            # request inspection; a later valid observation or an upstream
+            # explicitly critical event can still require collection.
+            unreliable = ~np.asarray(batch.confidence_flag, dtype=bool)
+            time_to_overflow[unreliable] = np.nan
+            risk[unreliable] = "unknown"
+            overflow_probability_6h[unreliable] = np.nan
+            overflow_probability_48h[unreliable] = np.nan
+            decision_time = simulation_epoch + timedelta(hours=hour)
+            forecast_status = [
+                (
+                    "unavailable"
+                    if unreliable[index]
+                    else ("available" if np.isfinite(value) else "stable_no_overflow")
+                )
+                for index, value in enumerate(time_to_overflow)
+            ]
+            snapshot = pd.DataFrame(
+                {
+                    "schema_version": "2.0",
+                    "timestamp": decision_time.isoformat(),
+                    "observed_at": decision_time.isoformat(),
+                    "decision_at": decision_time.isoformat(),
+                    "snapshot_id": f"SIM-{active_scenario.name}-{replication}-{hour}",
+                    "event_id": [
+                        f"SIM:{active_scenario.name}:{replication}:{hour}:{item.bin_id}"
+                        for item in bins
+                    ],
+                    "clock_status": "synchronized",
+                    "source_mode": "synthetic",
+                    "bin_id": [item.bin_id for item in bins],
+                    "fill_pct": batch.fill_pct,
+                    "weight_kg": batch.weight_kg,
+                    "time_to_overflow_hours": [
+                        _json_number(value) for value in time_to_overflow
+                    ],
+                    "risk_level": risk,
+                    "overflow_probability_next_opportunity": overflow_probability_6h,
+                    "overflow_probability_48h": overflow_probability_48h,
+                    "confidence_flag": batch.confidence_flag,
+                    "forecast_status": forecast_status,
+                    "forecast_method": "growth-q90-v2",
+                    "model_version": "simulation-forecast-bundle",
+                    "quality_flags": [tuple(flags) for flags in batch.quality_flags],
+                }
+            )
+            normalized = validate_snapshot(
+                snapshot,
+                [item.bin_id for item in bins],
+                config.operations.crane_lift_limit_kg,
+                now_utc=decision_time,
+                stale_after_hours=config.sensor.stale_after_hours,
+                future_tolerance_minutes=config.sensor.future_tolerance_minutes,
+            )
+            history: dict[str, dict[str, Any]] = {}
+            for index, item in enumerate(bins):
+                row: dict[str, Any] = {}
+                if np.isfinite(last_valid_fill[index]):
+                    observed_at = (
+                        simulation_epoch + timedelta(hours=float(last_valid_hour[index]))
+                    ).isoformat()
+                    row["fill"] = {
+                        "value": float(last_valid_fill[index]),
+                        "observed_at": observed_at,
+                    }
+                if np.isfinite(last_valid_weight[index]):
+                    observed_at = (
+                        simulation_epoch + timedelta(hours=float(last_valid_hour[index]))
+                    ).isoformat()
+                    row["weight"] = {
+                        "value": float(last_valid_weight[index]),
+                        "observed_at": observed_at,
+                    }
+                if row:
+                    history[item.bin_id] = row
+            decision_config = replace(
+                config,
+                operations=replace(
+                    config.operations,
+                    truck_capacity_kg=effective_truck_capacity,
+                ),
+            )
+            optional_window_open = (
+                hour - last_optional_dispatch_hour
+                >= config.operations.smart_min_dispatch_gap_hours
+            )
+            multi_day_plan = optimize_multiday_pickups(
+                normalized,
+                bins_table,
+                decision_config,
+                active_destination_matrices,
+            )
+            dispatch_plan = build_dispatch_plan_with_deadline_reserve(
+                normalized,
+                bins_table,
+                distance_matrix_m,
+                decision_config,
+                history,
+                duration_matrix_s,
+                optional_dispatch_allowed=optional_window_open,
+                destination_matrices=active_destination_matrices,
+                trip_limits_by_stream=remaining_trips_by_stream,
+                scheduled_bin_indices=multi_day_plan.day_zero_bin_indices,
+            )
+            dispatch_plan = replace(
+                dispatch_plan,
+                multi_day_plan=multi_day_plan.to_dict(),
+            )
+            record("inspection_events", len(dispatch_plan.review_bin_indices))
+            record(
+                "sensor_uncertainty_decisions",
+                float(bool(dispatch_plan.review_bin_indices)),
+            )
+            record("unserved_required_bins", len(dispatch_plan.unserved_required_bin_indices))
+            record(
+                "capacity_constrained_decisions",
+                float(bool(dispatch_plan.unserved_required_bin_indices)),
+            )
+            if not dispatch_plan.route_plan.routes:
+                return
+            plan = dispatch_plan.route_plan
+            capacity_selected = list(plan.served_bin_indices)
+            required_set = set(dispatch_plan.required_bin_indices)
+            unserved_required = list(dispatch_plan.unserved_required_bin_indices)
+            snapshot_rows = [
+                row | {"selection_reason": row["reason"]}
+                for row in dispatch_plan.audit_rows
+            ]
+            if plan.routes and any(
+                np.isfinite(time_to_overflow[index])
+                for index in plan.served_bin_indices
+            ):
+                record("forecast_driven_dispatches", 1)
+            if optional_window_open:
+                last_optional_dispatch_hour = hour
+
+        record(
+            "routing_fallbacks",
+            float(
+                "deterministic_fallback" in plan.solver_method
+                or "value_infeasible" in plan.solver_method
+            ),
+        )
+        uses_smart_plan = policy == "smart" and not degraded_sensor_mode
+        route_event = {
+            "hour": hour,
+            "dispatch_minute": round(float(env.now), 3),
+            "day": int(env.now // 1440) + 1,
+            "policy": policy,
+            "scenario": active_scenario.name,
+            "distance_km": plan.distance_m / 1000.0,
+            "trip_count": len(plan.routes),
+            "route_solver_method": plan.solver_method,
+            "routes": [
+                (
+                    [
+                        config.pilot.recycling_facility_id
+                        if route_position < len(plan.route_destinations)
+                        and plan.route_destinations[route_position]
+                        == RECYCLING_FACILITY
+                        else "DEPOT"
+                    ]
+                    + [bins[index].bin_id for index in route if index != -1]
+                    + (
+                        [config.pilot.recycling_facility_id]
+                        if route_position < len(plan.route_destinations)
+                        and plan.route_destinations[route_position]
+                        == RECYCLING_FACILITY
+                        else ["DEPOT"]
+                    )
+                )
+                for route_position, route in enumerate(plan.routes)
+            ],
+            "route_destinations": list(plan.route_destinations),
+            "route_vehicle_types": list(plan.route_vehicle_types),
+            "route_vehicle_ids": list(plan.route_vehicle_ids),
+            "route_bin_indices": plan.routes,
+            "served_bins": [bins[index].bin_id for index in plan.served_bin_indices],
+            "required_bins": [bins[index].bin_id for index in required_set],
+            "candidate_bin_count": len(
+                set(dispatch_plan.selected_bin_indices)
+                | set(dispatch_plan.deferred_bin_indices or [])
+            ) if uses_smart_plan else len(capacity_selected),
+            "unserved_required_bins": [bins[index].bin_id for index in unserved_required],
+            "snapshot_rows": snapshot_rows,
+            "multi_day_plan": (
+                dispatch_plan.multi_day_plan if uses_smart_plan else None
+            ),
+            "predicted_growth_mean_pct": {
+                bins[index].bin_id: float(predicted_mean[index]) for index in capacity_selected
+            },
+            "predicted_growth_upper_pct": {
+                bins[index].bin_id: float(predicted_upper[index]) for index in capacity_selected
+            },
+            "timeline": [],
+            "completed": False,
+            "decision_drivers": {
+                "forecast": bool(
+                    uses_smart_plan
+                    and any(
+                        np.isfinite(time_to_overflow[index])
+                        for index in plan.served_bin_indices
+                    )
+                ),
+                "route_capacity": bool(unserved_required),
+                "sensor_uncertainty": bool(
+                    policy == "smart"
+                    and any(
+                        row.get("collection_state") == "Inspection/data review required"
+                        or "review" in str(row.get("reason", "")).lower()
+                        for row in snapshot_rows
+                    )
+                ),
+            },
+        }
+        route_events.append(route_event)
+        dispatched_vehicle_ids = set(plan.route_vehicle_ids)
+        if dispatched_vehicle_ids & active_vehicle_ids:
+            raise RuntimeError("A route was assigned to a truck that is already active")
+        active_vehicle_ids.update(dispatched_vehicle_ids)
+        route_event["active_vehicle_ids"] = sorted(dispatched_vehicle_ids)
+        env.process(execute_plan(plan, route_event))
+
+    def waste_process():
+        for hour in range(horizon_hours):
+            unconstrained = hidden_mass + arrivals_kg[hour]
+            crossed = (hidden_mass < capacities) & (unconstrained > capacities)
+            spilled = np.maximum(unconstrained - capacities, 0)
+            record("overflow_incidents", float(crossed.sum()))
+            record("overflow_spilled_kg", float(spilled.sum()))
+            for index, item in enumerate(bins):
+                if crossed[index]:
+                    overflow_incidents_by_material[item.material_type] += 1.0
+                if spilled[index] > 0:
+                    overflow_spilled_kg_by_material[item.material_type] += float(
+                        spilled[index]
+                    )
+            if active_vehicle_ids and route_events and np.any(spilled > 0):
+                # An event can contain both specialized trucks.  Record the
+                # overflow once on each still-active dispatch event rather than
+                # assuming the most recently created event owns the only truck.
+                active_events = []
+                for event in route_events:
+                    event_vehicle_ids = set(event.get("active_vehicle_ids", ()))
+                    if event_vehicle_ids & active_vehicle_ids:
+                        active_events.append(event)
+                for active_event in active_events:
+                    current_status = (
+                        active_event["timeline"][-1]["status"]
+                        if active_event["timeline"]
+                        else "DISPATCHED"
+                    )
+                    timeline_event(
+                        active_event,
+                        "OVERFLOW_DETECTED",
+                        truck_status=current_status,
+                        active_vehicle_ids=sorted(
+                            set(active_event.get("active_vehicle_ids", ()))
+                            & active_vehicle_ids
+                        ),
+                        affected_bins=[
+                            bins[index].bin_id
+                            for index in np.flatnonzero(spilled > 0)
+                        ],
+                        spilled_kg=round(float(spilled.sum()), 3),
+                    )
+            hidden_mass[:] = np.minimum(unconstrained, capacities)
+            overflowing = hidden_mass >= capacities
+            newly_overflowing = overflowing & ~np.isfinite(overflow_started_minute)
+            overflow_started_minute[newly_overflowing] = float(env.now)
+            yield env.timeout(60)
+
+    def observation_process():
+        interval = config.waste.sensor_interval_hours
+        sensor_index = 0
+        for hour in range(0, horizon_hours, interval):
+            target_minute = hour * 60
+            if env.now < target_minute:
+                yield env.timeout(target_minute - env.now)
+            # Waste and observations can share an hour boundary. A zero-duration
+            # event lets the already-scheduled hourly arrival run first without
+            # advancing simulation time, so decisions see all data available at
+            # that timestamp and never peek ahead.
+            yield env.timeout(0)
+            batch = observe_sensors(
+                hidden_mass,
+                capacities,
+                sensor_scenario,
+                sensor_index,
+                hour,
+                config,
+            )
+            should_decide = (
+                policy == "fixed" and hour % 24 == config.operations.decision_hour
+            ) or (
+                policy == "smart"
+            )
+            if should_decide:
+                dispatch(hour, batch)
+            for index in range(len(bins)):
+                observed = batch.fill_pct[index]
+                if np.isfinite(observed):
+                    feature_hour = (
+                        float(demand_context.absolute_hours[hour])
+                        if demand_context is not None
+                        else float(hour)
+                    )
+                    observed_history[index].append((feature_hour, float(observed)))
+                if (
+                    batch.confidence_flag[index]
+                    and np.isfinite(batch.fill_pct[index])
+                ):
+                    last_valid_fill[index] = batch.fill_pct[index]
+                    last_valid_hour[index] = hour
+                if batch.confidence_flag[index] and np.isfinite(batch.weight_kg[index]):
+                    last_valid_weight[index] = batch.weight_kg[index]
+                    if not np.isfinite(last_valid_hour[index]):
+                        last_valid_hour[index] = hour
+            sensor_index += 1
+
+    env.process(waste_process())
+    env.process(observation_process())
+    env.run(until=horizon_minutes)
+    for index in np.flatnonzero(np.isfinite(overflow_started_minute)):
+        close_overflow_exposure(int(index), float(horizon_minutes))
+
+    def assembled(source: dict[str, float], suffix: str = "") -> dict[str, float]:
+        stops = source["collection_stops"]
+        trips = source["collection_trips"]
+        driving = (
+            source["base_driving_fuel_l"]
+            + source["traffic_fuel_penalty_l"]
+            + source["payload_fuel_penalty_l"]
+        )
+        total_fuel = driving + source["collection_idle_fuel_l"] + source["depot_idle_fuel_l"]
+        return {
+            f"overflow_incidents{suffix}": source["overflow_incidents"],
+            f"overflow_bin_hours{suffix}": source["overflow_bin_hours"],
+            f"overflow_spilled_kg{suffix}": source["overflow_spilled_kg"],
+            f"distance_km{suffix}": source["distance_km"],
+            f"travel_time_hours{suffix}": source["travel_time_hours"],
+            f"service_time_hours{suffix}": source["service_time_hours"],
+            f"depot_unloading_time_hours{suffix}": source["depot_unloading_time_hours"],
+            f"turnaround_time_hours{suffix}": source["turnaround_time_hours"],
+            f"idling_time_hours{suffix}": source["service_time_hours"] + source["depot_unloading_time_hours"],
+            f"collection_trips{suffix}": trips,
+            f"collection_stops{suffix}": stops,
+            f"wasted_pickups{suffix}": source["wasted_pickups"],
+            f"collected_kg{suffix}": source["collected_kg"],
+            f"mean_fill_at_collection_pct{suffix}": source["sum_collection_fill_pct"] / stops if stops else 0.0,
+            f"truck_utilization_pct{suffix}": 100.0 * source["collected_kg"] / (trips * effective_truck_capacity) if trips else 0.0,
+            f"unserved_required_bins{suffix}": source["unserved_required_bins"],
+            f"inspection_events{suffix}": source["inspection_events"],
+            f"base_driving_fuel_l{suffix}": source["base_driving_fuel_l"],
+            f"traffic_fuel_penalty_l{suffix}": source["traffic_fuel_penalty_l"],
+            f"payload_fuel_penalty_l{suffix}": source["payload_fuel_penalty_l"],
+            f"driving_fuel_l{suffix}": driving,
+            f"collection_idle_fuel_l{suffix}": source["collection_idle_fuel_l"],
+            f"depot_idle_fuel_l{suffix}": source["depot_idle_fuel_l"],
+            f"fuel_l{suffix}": total_fuel,
+            f"co2_kg{suffix}": total_fuel * config.operations.diesel_co2_kg_per_l,
+            f"routing_fallbacks{suffix}": source["routing_fallbacks"],
+            f"forecast_driven_dispatches{suffix}": source[
+                "forecast_driven_dispatches"
+            ],
+            f"capacity_constrained_decisions{suffix}": source[
+                "capacity_constrained_decisions"
+            ],
+            f"dispatch_limit_blocks{suffix}": source["dispatch_limit_blocks"],
+            f"sensor_uncertainty_decisions{suffix}": source[
+                "sensor_uncertainty_decisions"
+            ],
+        }
+
+    metrics: dict[str, float | int | str] = {
+        "policy": policy,
+        "scenario": active_scenario.name,
+        "replication": replication,
+        **assembled(totals),
+        **assembled(post_warmup, "_post_warmup"),
+        "uncollected_kg_at_horizon": float(hidden_mass.sum()),
+        "unfinished_trip_count": len(active_vehicle_ids),
+        "analysis_warmup_days": config.operations.analysis_warmup_days,
+    }
+    for material in material_names:
+        metrics[f"overflow_bin_hours_{material}"] = overflow_bin_hours_by_material[
+            material
+        ]
+        metrics[f"overflow_incidents_{material}"] = overflow_incidents_by_material[
+            material
+        ]
+        metrics[f"overflow_spilled_kg_{material}"] = overflow_spilled_kg_by_material[
+            material
+        ]
+    regime_rows = []
+    for regime, values in regime_totals.items():
+        assembled_values = assembled(values)
+        regime_rows.append(
+            {
+                "scenario": active_scenario.name,
+                "policy": policy,
+                "replication": replication,
+                "demand_regime": regime,
+                **assembled_values,
+            }
+        )
+    return PolicyResult(
+        policy,
+        replication,
+        metrics,
+        route_events,
+        hidden_mass.copy(),
+        regime_rows,
+    )

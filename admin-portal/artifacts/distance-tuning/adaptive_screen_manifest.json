@@ -1,0 +1,52 @@
+{
+  "phase": "adaptive_screen",
+  "replications": 2,
+  "scenarios": [
+    "normal_patterned",
+    "high_demand_seasonal"
+  ],
+  "candidates": {
+    "legacy_v2": {
+      "operations": {
+        "adaptive_dispatch_enabled": false,
+        "deadline_aware_emergency_enabled": false,
+        "route_post_optimization_enabled": false
+      },
+      "waste": {}
+    },
+    "solver_500ms": {
+      "operations": {
+        "adaptive_dispatch_enabled": false,
+        "deadline_aware_emergency_enabled": false,
+        "route_post_optimization_enabled": false,
+        "route_solver_milliseconds": 500
+      },
+      "waste": {}
+    },
+    "solver_1000ms": {
+      "operations": {
+        "adaptive_dispatch_enabled": false,
+        "deadline_aware_emergency_enabled": false,
+        "route_post_optimization_enabled": false,
+        "route_solver_milliseconds": 1000
+      },
+      "waste": {}
+    },
+    "solver_2000ms": {
+      "operations": {
+        "adaptive_dispatch_enabled": false,
+        "deadline_aware_emergency_enabled": false,
+        "route_post_optimization_enabled": false,
+        "route_solver_milliseconds": 2000
+      },
+      "waste": {}
+    }
+  },
+  "seed_offsets": {
+    "arrival": 2510000,
+    "sensor": 2520000
+  },
+  "model_path": "artifacts\\four-bin-smoke\\fill_forecaster.joblib",
+  "purpose": "development screen",
+  "inference_scope": "bounded model-based matched-seed comparison; not field causality"
+}

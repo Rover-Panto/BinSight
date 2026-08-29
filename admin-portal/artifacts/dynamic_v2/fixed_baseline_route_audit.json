@@ -1,0 +1,179 @@
+{
+  "baseline_definition": "Fixed three-day service timing and all-bin service intent; a fresh capacitated shortest-distance road route is solved for each dispatch.",
+  "fairness": {
+    "same_osrm_distance_matrix_as_dynamic": true,
+    "same_osrm_duration_matrix_as_dynamic": true,
+    "same_vehicle_mass_and_trip_limits_as_dynamic": true,
+    "same_arrivals_and_sensor_noise_within_each_pair": true,
+    "fixed_has_reoptimized_path_each_dispatch": true
+  },
+  "limitations": [
+    "OR-Tools returns a feasible heuristic route; this is not an exact global-optimality certificate.",
+    "The fixed comparator adapts route order and capacity assignment, but not collection timing or all-bin service intent.",
+    "Declared stress scenarios are bounded tests, not proof against every possible disruption.",
+    "The network matrix is a cached OSM/OSRM snapshot and does not prove live road availability."
+  ],
+  "matrix": {
+    "location_count_including_depot": 45,
+    "finite_nonnegative": true,
+    "zero_diagonal": true,
+    "directed_distance_matrix": true,
+    "directed_duration_matrix": true
+  },
+  "representative_replication_checks": {
+    "normal_patterned": {
+      "dispatches": 9,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "high_demand_seasonal": {
+      "dispatches": 9,
+      "trips": 25,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "event_heavy": {
+      "dispatches": 9,
+      "trips": 18,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "persistent_multi_day_surge": {
+      "dispatches": 9,
+      "trips": 21,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "localized_surge": {
+      "dispatches": 9,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "gradual_upward_trend": {
+      "dispatches": 9,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "abrupt_behavior_change": {
+      "dispatches": 9,
+      "trips": 22,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "traffic_disruption": {
+      "dispatches": 9,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "sensor_failure": {
+      "dispatches": 9,
+      "trips": 19,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "reduced_truck_capacity": {
+      "dispatches": 9,
+      "trips": 25,
+      "planned_stops": 396,
+      "unserved_required_stops": 0,
+      "collection_blocked_capacity_events": 0,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    },
+    "combined_demand_operational_stress": {
+      "dispatches": 9,
+      "trips": 30,
+      "planned_stops": 382,
+      "unserved_required_stops": 14,
+      "collection_blocked_capacity_events": 3,
+      "route_solver_methods": {
+        "stream_separated_fixed:ortools": 9
+      },
+      "all_dispatches_on_fixed_schedule": true,
+      "off_schedule_hours": [],
+      "all_routes_start_and_end_at_depot": true,
+      "routes_with_duplicate_stops": 0
+    }
+  }
+}

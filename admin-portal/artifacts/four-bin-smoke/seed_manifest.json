@@ -1,0 +1,56 @@
+[
+  {
+    "scenario": "normal_patterned",
+    "replication": 0,
+    "arrival_seed": 8722026,
+    "sensor_seed": 8732026,
+    "demand_scenario": {
+      "name": "normal_patterned",
+      "calendar_start_day": 0,
+      "demand_multiplier": 1.0,
+      "event_intensity_multiplier": 1.0,
+      "event_frequency_multiplier": 1,
+      "trend_per_year": null,
+      "shared_surge_windows": [],
+      "local_surge_windows": [],
+      "local_surge_bin_ids": [],
+      "change_point_day": null,
+      "change_point_multiplier": 1.0,
+      "change_point_bin_ids": [],
+      "add_unannounced_event": false
+    },
+    "traffic_multiplier": 1.0,
+    "sensor_missing_probability": null,
+    "sensor_outlier_probability": null,
+    "truck_capacity_multiplier": 1.0,
+    "policies_share_arrivals_and_sensor_noise": true,
+    "arrival_matrix_sha256": "6d37143d5c5e75873c188b205837a94306b1c1cfe1b5ab0038dd91fa6c925c15"
+  },
+  {
+    "scenario": "normal_patterned",
+    "replication": 1,
+    "arrival_seed": 8722127,
+    "sensor_seed": 8732129,
+    "demand_scenario": {
+      "name": "normal_patterned",
+      "calendar_start_day": 0,
+      "demand_multiplier": 1.0,
+      "event_intensity_multiplier": 1.0,
+      "event_frequency_multiplier": 1,
+      "trend_per_year": null,
+      "shared_surge_windows": [],
+      "local_surge_windows": [],
+      "local_surge_bin_ids": [],
+      "change_point_day": null,
+      "change_point_multiplier": 1.0,
+      "change_point_bin_ids": [],
+      "add_unannounced_event": false
+    },
+    "traffic_multiplier": 1.0,
+    "sensor_missing_probability": null,
+    "sensor_outlier_probability": null,
+    "truck_capacity_multiplier": 1.0,
+    "policies_share_arrivals_and_sensor_noise": true,
+    "arrival_matrix_sha256": "6ceb174e00d1d55403ce23d9c08e1708bc9efdeaabc11c10d8c2cbbbfddcb775"
+  }
+]

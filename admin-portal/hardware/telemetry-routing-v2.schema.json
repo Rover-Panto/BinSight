@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://binsight.local/contracts/telemetry-routing-v2.schema.json",
+  "title": "BinSight telemetry-to-routing decision envelope",
+  "type": "object",
+  "required": ["schema_version", "snapshot_id", "decision_at", "source_mode", "events"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "2.1"},
+    "snapshot_id": {"type": "string", "minLength": 1},
+    "decision_at": {"type": "string", "format": "date-time"},
+    "source_mode": {"enum": ["hardware", "replay", "synthetic", "legacy"]},
+    "partial": {"type": "boolean"},
+    "next_cursor": {"type": ["string", "null"]},
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_id", "event_kind", "device_id", "boot_id", "sequence", "hardware_bin_id", "bin_type",
+          "observed_at", "received_at", "clock_status", "fill_pct", "weight_kg",
+          "fill_confidence", "quality_flags", "forecast_status",
+          "time_to_overflow_hours", "risk_level", "forecast_method",
+          "calibration_version"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "event_id": {"type": "string", "minLength": 1},
+          "device_id": {"type": "string", "minLength": 1},
+          "boot_id": {"type": "string", "minLength": 1},
+          "sequence": {"type": "integer", "minimum": 0},
+          "hardware_bin_id": {"type": "string", "minLength": 1},
+          "event_kind": {"const": "fill_observation"},
+          "bin_type": {"enum": ["general_waste", "recycling_return"]},
+          "observed_at": {"type": ["string", "null"], "format": "date-time"},
+          "received_at": {"type": "string", "format": "date-time"},
+          "clock_status": {"enum": ["synchronized", "unsynchronized", "ambiguous"]},
+          "fill_pct": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+          "weight_kg": {"type": ["number", "null"], "minimum": 0, "maximum": 1500},
+          "fill_confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "quality_flags": {"type": "array", "items": {"type": "string"}},
+          "forecast_status": {"enum": ["available", "unavailable", "cold_start", "model_error", "stable_no_overflow"]},
+          "time_to_overflow_hours": {"type": ["number", "null"], "minimum": 0},
+          "risk_level": {"enum": ["unknown", "low", "medium", "high", "critical"]},
+          "forecast_method": {"type": "string", "minLength": 1},
+          "model_version": {"type": ["string", "null"]},
+          "calibration_version": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

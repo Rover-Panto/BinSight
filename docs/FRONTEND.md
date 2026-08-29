@@ -1,6 +1,6 @@
 # Frontend Reference
 
-Last verified: 17 August 2026
+Last verified: 27 August 2026
 
 ## Stack
 
@@ -32,6 +32,8 @@ The frontend lives under `web/`. It is a local demonstration with simulated iden
 | `web/tests/` | Browser workflows and visual checks |
 
 Admin pages belong under `web/src/admin/` and use a separate shell and store. See [ADMIN_INTEGRATION.md](ADMIN_INTEGRATION.md).
+
+The current operator implementation remains the independent Streamlit service on port 8501. It now displays source mode, observation age, forecast availability, data-quality warnings, trip-value inputs and immutable plan lifecycle. This does not add a React citizen route, shared browser storage or citizen navigation item.
 
 ## Citizen navigation
 

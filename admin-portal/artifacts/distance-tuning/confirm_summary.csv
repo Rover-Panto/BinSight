@@ -1,0 +1,5 @@
+scenario,candidate,overflow_incidents,overflow_bin_hours,overflow_spilled_kg,distance_km,collection_trips,collection_stops,wasted_pickups,fuel_l,unserved_required_bins,uncollected_kg_at_horizon,unfinished_trip_count,routing_fallbacks
+high_demand_seasonal,current_90,17.5,201.25,581.0585609297009,1794.3112500000004,48.75,468.25,44.5,1084.877957906607,0.0,10721.042466362325,0.0,0.0
+high_demand_seasonal,three_hour_fill_93,14.0,202.0,544.2273472716533,1884.7512500000003,52.75,465.5,37.75,1151.472504451218,0.0,9217.474356117778,0.5,0.0
+normal_patterned,three_hour_fill_93,3.0,33.0,88.40530760027266,1340.29725,38.75,318.5,29.75,814.8691946863001,0.0,9261.213797553908,0.5,0.0
+normal_patterned,current_90,5.5,113.25,206.9382575349257,1415.2859999999996,40.5,333.25,35.0,848.4925039252983,0.0,6616.379767106637,0.0,0.0

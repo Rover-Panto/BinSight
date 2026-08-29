@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://binsight.local/schemas/esp32-telemetry-1.1.json",
+  "title": "BinSight three-bin ESP32 telemetry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "controller_id",
+    "boot_id",
+    "sequence",
+    "captured_at_utc",
+    "firmware_version",
+    "bins"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1"},
+    "controller_id": {"type": "string", "pattern": "^[A-Z0-9][A-Z0-9_-]{2,31}$"},
+    "boot_id": {"type": "string", "pattern": "^[A-Z0-9][A-Z0-9_-]{2,31}$"},
+    "sequence": {"type": "integer", "minimum": 0},
+    "captured_at_utc": {"type": "string", "format": "date-time"},
+    "firmware_version": {"type": "string", "minLength": 1, "maxLength": 32},
+    "wifi_rssi_dbm": {"type": "number", "minimum": -130, "maximum": 0},
+    "bins": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["channel", "bin_id", "ultrasonic_distance_mm", "pressure_adc"],
+        "properties": {
+          "channel": {"type": "integer", "minimum": 1, "maximum": 3},
+          "bin_id": {"type": "string", "pattern": "^[A-Z0-9][A-Z0-9_-]{2,31}$"},
+          "ultrasonic_distance_mm": {
+            "type": ["number", "null"],
+            "minimum": 20,
+            "maximum": 10000
+          },
+          "pressure_adc": {"type": ["number", "null"], "minimum": 0, "maximum": 4095}
+        },
+        "anyOf": [
+          {"properties": {"ultrasonic_distance_mm": {"type": "number"}}},
+          {"properties": {"pressure_adc": {"type": "number"}}}
+        ]
+      }
+    }
+  }
+}

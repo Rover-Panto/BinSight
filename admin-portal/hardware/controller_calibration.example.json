@@ -1,0 +1,36 @@
+{
+  "controller_id": "ESP32-001",
+  "calibration_status": "PLACEHOLDER_REQUIRES_PHYSICAL_TARE_AND_KNOWN_MASS_TESTS",
+  "channels": [
+    {
+      "bin_id": "UGB-001",
+      "controller_channel": 1,
+      "bin_capacity_kg": 540.0,
+      "ultrasonic_empty_distance_mm": 2200.0,
+      "ultrasonic_full_distance_mm": 250.0,
+      "pressure_tare_adc": 300.0,
+      "pressure_full_adc": 3300.0,
+      "pressure_full_scale_kg": 540.0
+    },
+    {
+      "bin_id": "UGB-002",
+      "controller_channel": 2,
+      "bin_capacity_kg": 540.0,
+      "ultrasonic_empty_distance_mm": 2200.0,
+      "ultrasonic_full_distance_mm": 250.0,
+      "pressure_tare_adc": 300.0,
+      "pressure_full_adc": 3300.0,
+      "pressure_full_scale_kg": 540.0
+    },
+    {
+      "bin_id": "UGB-003",
+      "controller_channel": 3,
+      "bin_capacity_kg": 540.0,
+      "ultrasonic_empty_distance_mm": 2200.0,
+      "ultrasonic_full_distance_mm": 250.0,
+      "pressure_tare_adc": 300.0,
+      "pressure_full_adc": 3300.0,
+      "pressure_full_scale_kg": 540.0
+    }
+  ]
+}

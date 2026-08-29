@@ -15,11 +15,27 @@ Use `/admin` as the route prefix. Recommended routes:
 | `/admin/kpis` | KPI definitions, comparison windows, and trends |
 | `/admin/reports` | Citizen reports relevant to operations |
 
+## Phase 1 independent-service boundary
+
+The first collaborator integration keeps the existing Streamlit portal under `admin-portal/` and serves it at `http://127.0.0.1:8501/`. The React citizen frontend continues at `http://127.0.0.1:5173/`. This is a temporary monorepo boundary, not the final `/admin` deployment architecture.
+
+- Either application can start, stop, test, and build without the other.
+- No citizen route, mobile-navigation item, store type, or persistence migration is changed.
+- No cross-application API, iframe, proxy, authentication handoff, or shared browser storage is introduced.
+- The existing `/admin` route plan remains the target for a later authenticated gateway or React admin shell.
+- Streamlit outputs must continue to identify simulations and mock truck dispatches accurately.
+
+The competition simulation keeps underground-bin IDs `UGB-001` through `UGB-033`. The versioned registry explicitly maps physical `PILOT-BIN-##` hardware IDs to canonical routing IDs without renaming historical simulation records. Physical controller topology and simulated co-located service grouping are separate profiles.
+
+The telemetry-routing 2.1 contract preserves event kind, bin type/waste stream, event/boot identity, per-bin acquisition time, receipt time, source mode, channel availability, quality, forecast status and decision provenance. Live API controls remain gated; fixtures and recorded replay use the same normalization path as the future API client. Legacy 2.0 remains general-waste-fill only.
+
+Validated `fill_observation` events from the one general-waste and two recycling bins may enter overflow prediction and routing. Recycling-return recognition/session events have separate IDs, contracts and storage and are rejected by event kind. General-waste bins do not identify materials, and fill does not decide recycling acceptance. Route trips keep incompatible waste streams separate.
+
 Do not add admin links to the citizen mobile navigation. Use a separate admin shell and a role gate. A mock role is acceptable for the prototype, but the interface must label it as simulated access.
 
 ## Code boundary
 
-Place admin code under `web/src/admin/`:
+For a future integrated React admin shell, place admin code under `web/src/admin/`:
 
 ```text
 web/src/admin/
@@ -112,7 +128,7 @@ Use these definitions:
 | Overflow incidents | Count of bins that reached the overflow threshold during the comparison window |
 | Unnecessary trips | Stops where the bin remained below the agreed collection threshold |
 | Route distance | Sum of simulated route-leg distance in kilometres |
-| Fuel use | Modelled litres based on route distance and the documented vehicle assumption |
+| Fuel use | Modelled litres from base driving, traffic, payload, collection-idle, and depot-idle components |
 | CO2 | Modelled kilograms from fuel use and the documented emission factor |
 | Contamination | Rejected recycling items divided by inspected recycling items |
 | Sensing energy | Estimated watt-hours used by the sensing schedule during the window |
@@ -121,9 +137,13 @@ Do not present proposal targets as measured results. The admin UI may show targe
 
 ## Route comparison
 
-The fixed baseline represents the same bins, depot, vehicle assumptions, and time window as the priority route. A comparison is invalid when either route uses a different service area or input window.
+The fixed baseline represents the same bins, depot, vehicle assumptions, and time window as the priority route. A comparison is invalid when either route uses a different service area or input window. The fixed service interval and all-bin intent are fixed, but the road path is re-solved at each departure; it is a strong heuristic comparator, not a universally perfect or proven-global-optimal path.
 
-The priority score should expose its input fields. At minimum, record fill level, time-to-overflow or risk, confidence, report urgency, and data freshness. Do not label a route as optimal unless the implementation proves optimality for the stated objective and constraints. `Priority route` is the safe default label.
+The priority decision exposes fill, weight/availability, forecast status, time-to-overflow/risk, confidence, age, uncertainty, retained-value provenance, probability before the next opportunity, avoided-loss value, low-fill service cost, decision reason and selection category. Preserve collection required, inspection required and no collection required; collection and inspection may both be true. Optional stops may be labelled `Defer – wait or merge` when their benefit does not cover route cost. `Dynamic priority route` is the safe label; it is not a proof of global optimality.
+
+Plans move through `DRAFT`, `ACCEPTED`, `COMPLETED` or `CANCELLED`. A new draft never overwrites an accepted route. One accepted plan can produce at most one local mock dispatch. Active-route events freeze the current leg and create a separately auditable suffix proposal.
+
+The current mock tracking view replays saved simulation timestamps and road geometry. It is not GPS and must never be presented as a live vehicle feed. A future driver integration needs authenticated route versioning, acknowledgement, GPS freshness, cancellation, and operator override contracts.
 
 ## Pull request evidence
 
@@ -135,3 +155,4 @@ The admin pull request must include:
 - a browser test covering the admin route comparison
 - confirmation that citizen login, returns, reports, image attachments, and payout tests still pass
 - updates to `PROJECT_STATE.md` and `DATA_PRESERVATION.md`
+- the telemetry-routing contract, registry version and live-integration gate status

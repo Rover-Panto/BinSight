@@ -1,0 +1,53 @@
+{
+  "phase": "screen",
+  "replications": 2,
+  "scenarios": [
+    "normal_patterned",
+    "high_demand_seasonal"
+  ],
+  "candidates": {
+    "current_90": {
+      "operations": {},
+      "waste": {}
+    },
+    "three_hour_fill_93_gap_96": {
+      "operations": {
+        "smart_emergency_current_trigger_pct": 93,
+        "uncertain_service_trigger_pct": 93,
+        "next_planning_opportunity_hours": 3.0,
+        "smart_min_dispatch_gap_hours": 96,
+        "smart_optional_min_central_fill_pct": 50,
+        "route_fixed_cost_m_equivalent": 25000,
+        "minimum_route_value_m": 5000
+      },
+      "waste": {
+        "sensor_interval_hours": 3
+      }
+    },
+    "three_hour_fill_93_strict": {
+      "operations": {
+        "smart_emergency_current_trigger_pct": 93,
+        "uncertain_service_trigger_pct": 93,
+        "next_planning_opportunity_hours": 3.0,
+        "smart_include_current_trigger_pct": 60,
+        "smart_include_predicted_trigger_pct": 90,
+        "smart_min_dispatch_gap_hours": 120,
+        "smart_optional_min_central_fill_pct": 50,
+        "smart_sibling_include_current_pct": 60,
+        "smart_sibling_include_time_to_overflow_hours": 48,
+        "route_fixed_cost_m_equivalent": 35000,
+        "minimum_route_value_m": 10000
+      },
+      "waste": {
+        "sensor_interval_hours": 3
+      }
+    }
+  },
+  "seed_offsets": {
+    "arrival": 2110000,
+    "sensor": 2120000
+  },
+  "model_path": "artifacts\\four-bin-smoke\\fill_forecaster.joblib",
+  "purpose": "development screen",
+  "inference_scope": "bounded model-based matched-seed comparison; not field causality"
+}

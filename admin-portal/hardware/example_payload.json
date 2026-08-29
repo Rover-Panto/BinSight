@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.1",
+  "controller_id": "ESP32-001",
+  "boot_id": "BOOT-DEMO-0001",
+  "sequence": 1,
+  "captured_at_utc": "2026-08-03T02:00:00Z",
+  "firmware_version": "0.2.0",
+  "wifi_rssi_dbm": -58,
+  "bins": [
+    {
+      "channel": 1,
+      "bin_id": "UGB-001",
+      "ultrasonic_distance_mm": 1100.0,
+      "pressure_adc": 1850.0
+    },
+    {
+      "channel": 2,
+      "bin_id": "UGB-002",
+      "ultrasonic_distance_mm": 1500.0,
+      "pressure_adc": 1325.0
+    },
+    {
+      "channel": 3,
+      "bin_id": "UGB-003",
+      "ultrasonic_distance_mm": 700.0,
+      "pressure_adc": 2500.0
+    }
+  ]
+}

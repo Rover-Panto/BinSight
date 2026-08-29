@@ -23,9 +23,21 @@ Check `git status --short` before editing. Do not delete, stage, or reformat fil
 
 Keep citizen and admin state separate. Changes to `web/src/model.ts`, `web/src/store.tsx`, storage keys, or migrations require an explanation and migration coverage in the pull request.
 
+Keep fill and recognition domains separate. The shared Teensy/PR #2 ESP32-C3 reports independently identified fill for one general-waste and two recycling bins; all three may enter routing. The OV5647/Grove Vision AI V2 and PR #3 ESP32-C3 produce recycling recognition/session events, which must never enter routing. Do not adapt classification into fill, use fill to decide item acceptance, or combine incompatible waste streams in one truck trip.
+
+Treat the 11 three-bin simulation groups as service topology. Physical controller topology belongs to the explicit three-channel pilot registry and must not be inferred from simulation names or row positions.
+
 Use simulated data. Label route output, KPI values, payouts, service status, and access control accurately.
 
 ## Required checks
+
+Run from `admin-portal/` for routing, sensor, simulation, firmware-contract, report, or admin UI changes:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+When maps/tracking or route input changes, run both `scripts/qa_dispatch_ui.js` and `scripts/qa_maps_tracking.js` against the local Streamlit service.
 
 Run from `web/`:
 
@@ -52,4 +64,6 @@ Code and documentation should describe the same behavior at merge time.
 
 ## Publishing work
 
-Commit each completed, verified change and push it to the contributor's remote branch. Do not leave finished work only in a local checkout. Contributors still use pull requests for merging into `main`; pushing a feature branch does not bypass review.
+Every completed implementation update must include its affected documentation and tests in the same commit. Stage explicit intended paths, inspect the staged diff, use a descriptive commit message, and push the active feature branch unless the task owner explicitly asks for a local-only change. Never preserve a known-stale result claim merely to avoid changing a report.
+
+Do not leave finished work only in a local checkout. Contributors still use pull requests for merging into `main`; pushing a feature branch does not bypass review.

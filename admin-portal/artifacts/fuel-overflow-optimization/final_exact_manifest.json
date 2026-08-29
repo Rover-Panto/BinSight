@@ -1,0 +1,36 @@
+{
+  "phase": "final_exact",
+  "replications": 2,
+  "scenarios": [
+    "normal_patterned",
+    "high_demand_seasonal",
+    "event_heavy",
+    "persistent_multi_day_surge",
+    "localized_surge",
+    "gradual_upward_trend",
+    "abrupt_behavior_change",
+    "traffic_disruption",
+    "sensor_failure",
+    "reduced_truck_capacity",
+    "combined_demand_operational_stress"
+  ],
+  "policies": {
+    "fixed_baseline": {},
+    "current_6h": {}
+  },
+  "fleets": {
+    "g1_r1": {
+      "general_waste_truck_count": 1,
+      "recycling_truck_count": 1
+    }
+  },
+  "seed_offsets": {
+    "arrival": 5110000,
+    "sensor": 5120000
+  },
+  "model_path": "artifacts/dynamic_v4/fill_forecaster.joblib",
+  "model_sha256": "fbc4f83352b00a1c9595083e225428cb9c65a6f0b069a7781a82b13cb3240944",
+  "horizon_days": 30,
+  "metric_definition": "overflow_bin_hours is aggregate overflow exposure; two bins overflowing for 30 minutes equal one bin-hour",
+  "inference_scope": "bounded matched-seed simulation search; field validation remains required"
+}
