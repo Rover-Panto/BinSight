@@ -1,0 +1,13 @@
+# Keep the dataset path relative to this YAML so the project works on any machine.
+# Every image must have a matching .txt annotation. Class IDs are 0-4 in this order.
+path: dataset
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: plastic
+  1: metal
+  2: glass
+  3: paper
+  4: other
