@@ -1,0 +1,19 @@
+﻿# Local virtual environments (root .gitignore already covers these; kept
+# here too so this subtree is self-documenting on its own).
+.venv/
+__pycache__/
+
+# Local SQLite database and generated exports — never commit.
+*.db
+*.sqlite3
+bin_telemetry_for_ml.csv
+
+# serial_bridge.py's on-disk retry queue for readings that failed to send
+# (added 2026-08-28 as part of the HTTP-failure fix) — runtime state, not
+# something to check in.
+pending_readings.jsonl
+
+# ESP32 gateway Wi-Fi/API credentials (added 2026-08-28 as part of the ESP
+# integration) — copy esp_config.example.h to esp_config.h locally; never
+# commit the real one.
+firmware/BinSight_ESP32_Gateway/esp_config.h
