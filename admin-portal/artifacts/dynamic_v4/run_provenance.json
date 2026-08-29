@@ -1,0 +1,316 @@
+{
+  "study_type": "terminating 30-day stochastic simulation with patterned demand, persistent regimes and operational stress scenarios",
+  "comparison": "paired common-random-number fixed vs smart policies",
+  "paired_replications_per_scenario": 2,
+  "scenario_count": 11,
+  "total_policy_runs": 44,
+  "parallel_workers": 4,
+  "scenarios": [
+    {
+      "name": "normal_patterned",
+      "demand": {
+        "name": "normal_patterned",
+        "calendar_start_day": 0,
+        "demand_multiplier": 1.0,
+        "event_intensity_multiplier": 1.0,
+        "event_frequency_multiplier": 1,
+        "trend_per_year": null,
+        "shared_surge_windows": [],
+        "local_surge_windows": [],
+        "local_surge_bin_ids": [],
+        "change_point_day": null,
+        "change_point_multiplier": 1.0,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": false
+      },
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "high_demand_seasonal",
+      "demand": {
+        "name": "high_demand_seasonal",
+        "calendar_start_day": 334,
+        "demand_multiplier": 1.45,
+        "event_intensity_multiplier": 1.0,
+        "event_frequency_multiplier": 1,
+        "trend_per_year": null,
+        "shared_surge_windows": [],
+        "local_surge_windows": [],
+        "local_surge_bin_ids": [],
+        "change_point_day": null,
+        "change_point_multiplier": 1.0,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": false
+      },
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "event_heavy",
+      "demand": {
+        "name": "event_heavy",
+        "calendar_start_day": 60,
+        "demand_multiplier": 1.0,
+        "event_intensity_multiplier": 1.5,
+        "event_frequency_multiplier": 2,
+        "trend_per_year": null,
+        "shared_surge_windows": [],
+        "local_surge_windows": [],
+        "local_surge_bin_ids": [],
+        "change_point_day": null,
+        "change_point_multiplier": 1.0,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": true
+      },
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "persistent_multi_day_surge",
+      "demand": {
+        "name": "persistent_multi_day_surge",
+        "calendar_start_day": 0,
+        "demand_multiplier": 1.0,
+        "event_intensity_multiplier": 1.0,
+        "event_frequency_multiplier": 1,
+        "trend_per_year": null,
+        "shared_surge_windows": [
+          [
+            7,
+            16,
+            1.55
+          ]
+        ],
+        "local_surge_windows": [],
+        "local_surge_bin_ids": [],
+        "change_point_day": null,
+        "change_point_multiplier": 1.0,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": false
+      },
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "localized_surge",
+      "demand": {
+        "name": "localized_surge",
+        "calendar_start_day": 0,
+        "demand_multiplier": 1.0,
+        "event_intensity_multiplier": 1.0,
+        "event_frequency_multiplier": 1,
+        "trend_per_year": null,
+        "shared_surge_windows": [],
+        "local_surge_windows": [
+          [
+            9,
+            20,
+            1.8
+          ]
+        ],
+        "local_surge_bin_ids": [
+          "UGB-001",
+          "UGB-002",
+          "UGB-003",
+          "UGB-004",
+          "UGB-005",
+          "UGB-006"
+        ],
+        "change_point_day": null,
+        "change_point_multiplier": 1.0,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": false
+      },
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "gradual_upward_trend",
+      "demand": {
+        "name": "gradual_upward_trend",
+        "calendar_start_day": 0,
+        "demand_multiplier": 1.0,
+        "event_intensity_multiplier": 1.0,
+        "event_frequency_multiplier": 1,
+        "trend_per_year": 1.2,
+        "shared_surge_windows": [],
+        "local_surge_windows": [],
+        "local_surge_bin_ids": [],
+        "change_point_day": null,
+        "change_point_multiplier": 1.0,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": false
+      },
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "abrupt_behavior_change",
+      "demand": {
+        "name": "abrupt_behavior_change",
+        "calendar_start_day": 0,
+        "demand_multiplier": 1.0,
+        "event_intensity_multiplier": 1.0,
+        "event_frequency_multiplier": 1,
+        "trend_per_year": null,
+        "shared_surge_windows": [],
+        "local_surge_windows": [],
+        "local_surge_bin_ids": [],
+        "change_point_day": 12,
+        "change_point_multiplier": 1.45,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": false
+      },
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "traffic_disruption",
+      "demand": {
+        "name": "traffic_disruption",
+        "calendar_start_day": 0,
+        "demand_multiplier": 1.0,
+        "event_intensity_multiplier": 1.0,
+        "event_frequency_multiplier": 1,
+        "trend_per_year": null,
+        "shared_surge_windows": [],
+        "local_surge_windows": [],
+        "local_surge_bin_ids": [],
+        "change_point_day": null,
+        "change_point_multiplier": 1.0,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": false
+      },
+      "traffic_multiplier": 1.35,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "sensor_failure",
+      "demand": {
+        "name": "sensor_failure",
+        "calendar_start_day": 0,
+        "demand_multiplier": 1.0,
+        "event_intensity_multiplier": 1.0,
+        "event_frequency_multiplier": 1,
+        "trend_per_year": null,
+        "shared_surge_windows": [],
+        "local_surge_windows": [],
+        "local_surge_bin_ids": [],
+        "change_point_day": null,
+        "change_point_multiplier": 1.0,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": false
+      },
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": 0.18,
+      "sensor_outlier_probability": 0.08,
+      "truck_capacity_multiplier": 1.0
+    },
+    {
+      "name": "reduced_truck_capacity",
+      "demand": {
+        "name": "reduced_truck_capacity",
+        "calendar_start_day": 0,
+        "demand_multiplier": 1.0,
+        "event_intensity_multiplier": 1.0,
+        "event_frequency_multiplier": 1,
+        "trend_per_year": null,
+        "shared_surge_windows": [],
+        "local_surge_windows": [],
+        "local_surge_bin_ids": [],
+        "change_point_day": null,
+        "change_point_multiplier": 1.0,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": false
+      },
+      "traffic_multiplier": 1.0,
+      "sensor_missing_probability": null,
+      "sensor_outlier_probability": null,
+      "truck_capacity_multiplier": 0.65
+    },
+    {
+      "name": "combined_demand_operational_stress",
+      "demand": {
+        "name": "combined_demand_operational_stress",
+        "calendar_start_day": 334,
+        "demand_multiplier": 1.2,
+        "event_intensity_multiplier": 1.4,
+        "event_frequency_multiplier": 2,
+        "trend_per_year": null,
+        "shared_surge_windows": [
+          [
+            6,
+            17,
+            1.45
+          ]
+        ],
+        "local_surge_windows": [
+          [
+            10,
+            23,
+            1.5
+          ]
+        ],
+        "local_surge_bin_ids": [
+          "UGB-001",
+          "UGB-002",
+          "UGB-003",
+          "UGB-004",
+          "UGB-005",
+          "UGB-006"
+        ],
+        "change_point_day": 18,
+        "change_point_multiplier": 1.25,
+        "change_point_bin_ids": [],
+        "add_unannounced_event": true
+      },
+      "traffic_multiplier": 1.35,
+      "sensor_missing_probability": 0.18,
+      "sensor_outlier_probability": 0.08,
+      "truck_capacity_multiplier": 0.65
+    }
+  ],
+  "base_seed": 7112026,
+  "artifact_set": "dynamic_v4",
+  "policy_version": "dynamic-trip-value-v4",
+  "config_sha256": "e861b78ca1b98be770632938cabe4679db3a3a901fdadb6bd8e78cc1f48addfa",
+  "forecast_model_version": "hist-gradient-boosting-multihorizon-q90-overflow-v3",
+  "telemetry_contract_version": "2.1",
+  "registry_version": "pilot-registry-2026-08-28",
+  "road_network_version": "subang-jaya-osrm-v1",
+  "distance_matrix_sha256": "0d2eb3fa0654a019290e9b0c1df7c61b3a7e88bac57b9596a994dd3e602a2cb8",
+  "duration_matrix_sha256": "db7176163e28460f6b2058a35c82ff7a9cc171a9737ea09ea816fbd7989dbd08",
+  "simulation_time_unit": "minute",
+  "horizon_hours": 720,
+  "warm_up": "Raw metrics use all 30 days; post-warm-up metrics exclude the first 3 days for both policies",
+  "inference_scope": "Monte Carlo uncertainty under configured assumptions, not real-world causality",
+  "road_backend": "OSRM table/route services over OpenStreetMap data",
+  "packages": {
+    "simpy": "4.1.2",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.17.0",
+    "pandas": "2.3.3",
+    "numpy": "2.3.5",
+    "ortools": "9.14.6206",
+    "requests": "2.32.5",
+    "folium": "0.20.0",
+    "streamlit": "1.49.1"
+  }
+}

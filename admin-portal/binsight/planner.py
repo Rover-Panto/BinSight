@@ -13,7 +13,13 @@ import numpy as np
 import pandas as pd
 
 from .config import Config
-from .dispatch import DispatchPlan, POLICY_VERSION, build_dispatch_plan, validate_snapshot
+from .dispatch import (
+    DispatchPlan,
+    POLICY_VERSION,
+    build_dispatch_plan,
+    build_dispatch_plan_with_deadline_reserve,
+    validate_snapshot,
+)
 from .multiday import optimize_multiday_pickups
 from .planning_store import PlanningStore
 from .routing import RoutePlan
@@ -206,7 +212,7 @@ class PlanningService:
             self.config,
             planning_matrices,
         )
-        plan = build_dispatch_plan(
+        plan = build_dispatch_plan_with_deadline_reserve(
             normalized,
             self.bins,
             self.distance_matrix_m,

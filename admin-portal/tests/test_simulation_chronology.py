@@ -264,6 +264,41 @@ def test_overflow_bin_hours_aggregate_simultaneous_overflow_exposure():
     assert result.metrics["overflow_bin_hours"] == 2.0
 
 
+def test_overflow_exposure_uses_exact_duration_for_each_bin():
+    config = _config(horizon_days=2, truck_capacity_kg=200.0, service_minutes=30.0)
+    bins = [
+        _bin(0),
+        replace(
+            _bin(1),
+            bin_type="recycling_plastic",
+            waste_stream="dry_recycling",
+            material_type="plastic_cups",
+            destination_id="recycling_facility",
+        ),
+    ]
+    distance, duration = _matrices(2, 0.0)
+    distance.fill(0.0)
+    arrivals = np.zeros((48, 2), dtype=float)
+    arrivals[30, :] = 101.0
+
+    result = run_policy(
+        "fixed",
+        0,
+        bins,
+        config,
+        distance,
+        duration,
+        arrivals,
+        142,
+        destination_matrices={"recycling_facility": (distance, duration)},
+    )
+
+    # Both trucks complete service after 30 minutes: 2 bins x 0.5 hour.
+    assert result.metrics["overflow_bin_hours"] == pytest.approx(1.0)
+    assert result.metrics["overflow_bin_hours_mixed_general_waste"] == pytest.approx(0.5)
+    assert result.metrics["overflow_bin_hours_plastic_cups"] == pytest.approx(0.5)
+
+
 def test_daily_trip_limit_is_shared_by_morning_and_evening_decisions():
     config = _config(horizon_days=1, max_daily_trips=1)
     bins = [_bin(0)]
@@ -390,6 +425,44 @@ def test_completed_collection_resets_history_before_missing_followup_reading():
 
     assert result.metrics["collection_trips"] == 1
     assert result.metrics["wasted_pickups"] == 0
+
+
+def test_sensor_degraded_mode_uses_the_fixed_safety_schedule():
+    base = _config(horizon_days=4)
+    config = replace(
+        base,
+        sensor=replace(
+            base.sensor,
+            missing_probability=1.0,
+            outlier_probability=0.0,
+        ),
+        operations=replace(
+            base.operations,
+            fixed_interval_days=3,
+            sensor_degraded_fraction_threshold=0.15,
+            sensor_degraded_fixed_interval_days=2,
+        ),
+    )
+    bins = [_bin(0)]
+    distance, duration = _matrices(1, 60.0)
+    arrivals = np.zeros((96, 1), dtype=float)
+    arrivals[0, 0] = 95.0
+
+    result = run_policy(
+        "smart",
+        0,
+        bins,
+        config,
+        distance,
+        duration,
+        arrivals,
+        170,
+        forecaster=ZeroGrowthForecaster(),
+    )
+
+    assert result.metrics["collection_trips"] == 1
+    assert result.route_events[0]["dispatch_minute"] == pytest.approx(54 * 60)
+    assert result.final_fill_kg[0] == pytest.approx(0.0)
 
 
 def test_paired_policies_receive_identical_sensor_noise(monkeypatch):

@@ -184,7 +184,10 @@ class OperationsConfig:
     smart_max_dispatch_distance_km: float
     smart_dispatch_time_to_overflow_hours: float
     smart_emergency_current_trigger_pct: float
+    smart_plastic_required_trigger_pct: float
     uncertain_service_trigger_pct: float
+    sensor_degraded_fraction_threshold: float
+    sensor_degraded_fixed_interval_days: int
     smart_emergency_time_to_overflow_hours: float
     smart_sibling_include_current_pct: float
     smart_sibling_include_time_to_overflow_hours: float
@@ -198,6 +201,7 @@ class OperationsConfig:
     truck_capacity_kg: float
     crane_lift_limit_kg: float
     max_daily_trips: int
+    max_daily_trips_per_stream: int
     general_waste_truck_count: int
     recycling_truck_count: int
     recycling_compartment_count: int
@@ -484,6 +488,12 @@ def validate_config(config: Config) -> None:
         raise ValueError("smart_decision_hours must contain sensor-aligned hours in 0..23")
     if o.max_daily_trips < 1 or o.max_daily_trips > 20:
         raise ValueError("max_daily_trips must be in 1..20")
+    if o.max_daily_trips_per_stream < 1 or o.max_daily_trips_per_stream > 20:
+        raise ValueError("max_daily_trips_per_stream must be in 1..20")
+    if not 1 <= o.sensor_degraded_fixed_interval_days <= o.fixed_interval_days:
+        raise ValueError(
+            "sensor_degraded_fixed_interval_days must be in 1..fixed_interval_days"
+        )
     if not 1 <= o.general_waste_truck_count <= 10:
         raise ValueError("general_waste_truck_count must be in 1..10")
     if not 1 <= o.recycling_truck_count <= 10:
@@ -520,6 +530,14 @@ def validate_config(config: Config) -> None:
         )
     if not (
         o.smart_dispatch_current_trigger_pct
+        <= o.smart_plastic_required_trigger_pct
+        <= 100
+    ):
+        raise ValueError(
+            "Plastic required-service threshold must be between normal dispatch and 100"
+        )
+    if not (
+        o.smart_dispatch_current_trigger_pct
         <= o.uncertain_service_trigger_pct
         <= o.smart_emergency_current_trigger_pct
     ):
@@ -545,6 +563,7 @@ def validate_config(config: Config) -> None:
         "sensor.missing_probability": s.missing_probability,
         "stress.sensor_failure_probability": stress.sensor_failure_probability,
         "stress.sensor_outlier_probability": stress.sensor_outlier_probability,
+        "operations.sensor_degraded_fraction_threshold": o.sensor_degraded_fraction_threshold,
     }
     for name, value in probabilities.items():
         if not 0 <= value <= 1:

@@ -28,7 +28,10 @@ def trip_limit_for_stream(stream: str, operations: OperationsConfig) -> int:
         trucks = operations.general_waste_truck_count
     else:
         raise ValueError(f"No specialized fleet is configured for waste stream {stream}")
-    return trucks * operations.max_daily_trips
+    return min(
+        trucks * operations.max_daily_trips,
+        operations.max_daily_trips_per_stream,
+    )
 
 
 def vehicle_limit_for_stream(stream: str, operations: OperationsConfig) -> int:

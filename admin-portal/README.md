@@ -15,7 +15,7 @@ The portal is decision support, not an autonomous municipal dispatch system. Sit
 - Prize-collecting OR-Tools routes over cached OSRM road distance and duration matrices. Emergency/service-level stops are mandatory; optional pickups are accepted only when their avoided-overflow value exceeds fixed-trip, distance, time, service and low-fill costs. Mass, compacted volume, route duration and daily trip limits are enforced.
 - Exactly two independent specialized vehicles: one general-waste truck based at the waste depot and one three-compartment recycling truck based at the recycling facility. Either truck can dispatch while the other is active; no surge vehicle is created.
 - Route-arrival deadlines include travel and all earlier stop-service time, so equal-deadline bins trigger an earlier departure instead of an extra truck. A three-day rolling optimizer assigns due work to days before same-day road ordering.
-- Minute-level SimPy execution with travel, per-bin service, unloading, turnaround, traffic, payload-dependent fuel, and overflow during an active trip.
+- Minute-level SimPy execution with travel, per-bin service, unloading, turnaround, traffic, payload-dependent fuel, and overflow during an active trip. Aggregate overflow exposure uses exact event times and adds every bin's duration at capacity (two bins for 30 minutes = 60 bin-minutes = 1 bin-hour).
 - A fair fixed baseline whose first collection occurs after its configured interval, plus a three-day common warm-up report for both policies.
 - Eleven paired scenarios spanning normal patterns, seasonal/event demand, persistent/local surges, trend/change point, traffic, sensor failure, reduced capacity and combined stress.
 - Eleven consolidated site markers, four-bin status popups, a marked recycling facility, bounded keyless OpenStreetMap maps, route layers, and mock truck tracking.
@@ -39,7 +39,7 @@ The four-bin change affects the local demonstration and simulator only. It does 
 
 ## Evidence status
 
-Evidence artifacts are accepted by the website only when their recorded configuration hash matches the active four-bin configuration. The current `artifacts/dynamic_v2/` set contains two paired 30-day replications for each of eleven scenarios and supplies the GENERAL-01 and RECYCLING-01 live-tracking replays. The sidebar's **Run 30-day experiment** control opens a compact saved month instead of recomputing the simulation in the web request: choose Day 1–30, then pause, scrub, reset, or change the shared speed while both specialized trucks remain visible. Days without dispatches show each truck idle at its own base. The playback page compares Fixed and Dynamic using the paired average for the declared `normal_patterned` scenario, rather than selecting a favorable stress case. It is integration verification only: the smart policy improved several overflow/selectivity outcomes but increased trips and distance, so it is **not** a performance or production-deployment claim. The older 33-bin studies remain historical references and are no longer presented as current evidence.
+Evidence artifacts are accepted by the website only when their recorded configuration hash matches the active four-bin configuration. The current `artifacts/dynamic_v4/` set contains two paired 30-day replications for each of eleven scenarios and supplies the GENERAL-01 and RECYCLING-01 live-tracking replays. The sidebar's **Run 30-day experiment** control opens a compact saved month instead of recomputing the simulation in the web request: choose Day 1–30, then pause, scrub, reset, or change the shared speed while both specialized trucks remain visible. Days without dispatches show each truck idle at its own base. The playback page compares Fixed and Dynamic using the paired average for the declared `normal_patterned` scenario, rather than selecting a favorable stress case. Its monthly overflow measure is aggregate bin-time at capacity across all 44 bins and the entire 30-day horizon, calculated from the exact capacity/collection event times rather than hourly samples. It is integration verification, not a field-performance or production-deployment claim. The older 33-bin studies remain historical references and are no longer presented as current evidence.
 
 ## Run on Windows
 
@@ -50,7 +50,7 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m binsight.cli prepare
 .\.venv\Scripts\python.exe -m binsight.cli health
-.\.venv\Scripts\python.exe -m binsight.cli run --artifact-set dynamic_v2 --replications 30 --parallel-workers 4
+.\.venv\Scripts\python.exe -m binsight.cli run --artifact-set dynamic_v4 --replications 30 --parallel-workers 4
 .\.venv\Scripts\streamlit.exe run app.py
 ```
 

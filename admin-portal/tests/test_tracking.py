@@ -203,7 +203,7 @@ def test_monthly_fleet_manifest_has_two_trucks_and_idle_days():
     bins = pd.read_csv(ROOT / "artifacts" / "district_bins.csv")
     network = load_cached_service_network(ROOT / "data" / "subang_jaya_osrm_network.json")
     monthly = json.loads(
-        (ROOT / "artifacts" / "dynamic_v2" / "monthly_fleet_events.json").read_text(
+        (ROOT / "artifacts" / "dynamic_v4" / "monthly_fleet_events.json").read_text(
             encoding="utf-8"
         )
     )

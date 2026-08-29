@@ -11,7 +11,7 @@ import simpy
 from .config import Config
 from .demand import DemandContext, DemandScenario
 from .district import BinSpec
-from .dispatch import build_dispatch_plan, validate_snapshot
+from .dispatch import build_dispatch_plan_with_deadline_reserve, validate_snapshot
 from .forecast import ForecastBundle, make_feature_row
 from .fleet import (
     GENERAL_STREAM,
@@ -98,10 +98,18 @@ def _risk_levels(
     return levels
 
 
-def fixed_service_due(hour: int, config: Config) -> bool:
-    first = config.operations.fixed_interval_days * 24 + config.operations.decision_hour
-    interval = config.operations.fixed_interval_days * 24
+def _interval_service_due(hour: int, interval_days: int, decision_hour: int) -> bool:
+    first = interval_days * 24 + decision_hour
+    interval = interval_days * 24
     return hour >= first and (hour - first) % interval == 0
+
+
+def fixed_service_due(hour: int, config: Config) -> bool:
+    return _interval_service_due(
+        hour,
+        config.operations.fixed_interval_days,
+        config.operations.decision_hour,
+    )
 
 
 def _json_number(value: float) -> float | None:
@@ -232,6 +240,11 @@ def run_policy(
         label: {name: 0.0 for name in metric_names}
         for label in ("quiet", "normal", "surge")
     }
+    material_names = tuple(sorted({item.material_type for item in bins}))
+    overflow_bin_hours_by_material = {name: 0.0 for name in material_names}
+    overflow_incidents_by_material = {name: 0.0 for name in material_names}
+    overflow_spilled_kg_by_material = {name: 0.0 for name in material_names}
+    overflow_started_minute = np.full(len(bins), np.nan, dtype=float)
 
     def record(name: str, value: float, at_minute: float | None = None) -> None:
         moment = env.now if at_minute is None else at_minute
@@ -245,6 +258,42 @@ def run_policy(
         regime_totals[regime_label][name] += float(value)
         if moment >= warmup_minute:
             post_warmup[name] += float(value)
+
+    def close_overflow_exposure(
+        bin_index: int,
+        end_minute: float,
+    ) -> None:
+        """Accrue exact bin-time at capacity, split across analysis periods."""
+        start_minute = float(overflow_started_minute[bin_index])
+        if not np.isfinite(start_minute) or end_minute <= start_minute:
+            overflow_started_minute[bin_index] = np.nan
+            return
+
+        material = bins[bin_index].material_type
+        cursor = start_minute
+        while cursor < end_minute - 1e-9:
+            next_hour_boundary = (int(cursor // 60) + 1) * 60.0
+            segment_end = min(float(end_minute), next_hour_boundary)
+            duration_hours = (segment_end - cursor) / 60.0
+            totals["overflow_bin_hours"] += duration_hours
+            overflow_bin_hours_by_material[material] += duration_hours
+
+            regime_hour = min(horizon_hours - 1, max(0, int(cursor // 60)))
+            regime_label = (
+                demand_context.regime_labels[regime_hour]
+                if demand_context is not None
+                else "normal"
+            )
+            regime_totals[regime_label]["overflow_bin_hours"] += duration_hours
+
+            post_start = max(cursor, float(warmup_minute))
+            if segment_end > post_start:
+                post_warmup["overflow_bin_hours"] += (
+                    segment_end - post_start
+                ) / 60.0
+            cursor = segment_end
+
+        overflow_started_minute[bin_index] = np.nan
 
     def timeline_event(event: dict[str, Any], status: str, **details: Any) -> None:
         event["timeline"].append(
@@ -663,6 +712,7 @@ def run_policy(
                     )
                     continue
                 fill_at_completion_pct = 100.0 * actual_mass / capacities[destination]
+                close_overflow_exposure(destination, float(env.now))
                 hidden_mass[destination] = 0.0
                 # A completed collection is stronger evidence than delayed or
                 # missing pre-collection telemetry. Reset the digital service
@@ -773,6 +823,30 @@ def run_policy(
         if policy == "fixed" and not fixed_service_due(hour, config):
             return
         upper_fill, upper_weight, review_reasons = conservative_observations(batch, hour)
+        severe_sensor_failure = np.asarray(batch.missing_flag, dtype=bool) | np.array(
+            [
+                any("outlier" in str(flag).lower() for flag in flags)
+                for flags in batch.quality_flags
+            ],
+            dtype=bool,
+        )
+        degraded_sensor_mode = (
+            policy == "smart"
+            and float(np.mean(severe_sensor_failure))
+            >= config.operations.sensor_degraded_fraction_threshold
+        )
+        degraded_service_due = _interval_service_due(
+            hour,
+            config.operations.sensor_degraded_fixed_interval_days,
+            config.operations.decision_hour,
+        )
+        if degraded_sensor_mode and not degraded_service_due:
+            review_indices = [
+                index for index, reasons in enumerate(review_reasons) if reasons
+            ]
+            record("inspection_events", len(review_indices))
+            record("sensor_uncertainty_decisions", float(bool(review_indices)))
+            return
         route_weights = np.where(
             np.isfinite(upper_weight), np.minimum(upper_weight, capacities), capacities
         )
@@ -784,7 +858,7 @@ def run_policy(
         unserved_required: list[int]
         snapshot_rows: list[dict[str, Any]]
 
-        if policy == "fixed":
+        if policy == "fixed" or degraded_sensor_mode:
             review_indices = [index for index, reasons in enumerate(review_reasons) if reasons]
             record("inspection_events", len(review_indices))
             record("sensor_uncertainty_decisions", float(bool(review_indices)))
@@ -989,7 +1063,7 @@ def run_policy(
                 decision_config,
                 active_destination_matrices,
             )
-            dispatch_plan = build_dispatch_plan(
+            dispatch_plan = build_dispatch_plan_with_deadline_reserve(
                 normalized,
                 bins_table,
                 distance_matrix_m,
@@ -1040,6 +1114,7 @@ def run_policy(
                 or "value_infeasible" in plan.solver_method
             ),
         )
+        uses_smart_plan = policy == "smart" and not degraded_sensor_mode
         route_event = {
             "hour": hour,
             "dispatch_minute": round(float(env.now), 3),
@@ -1078,11 +1153,11 @@ def run_policy(
             "candidate_bin_count": len(
                 set(dispatch_plan.selected_bin_indices)
                 | set(dispatch_plan.deferred_bin_indices or [])
-            ) if policy == "smart" else len(capacity_selected),
+            ) if uses_smart_plan else len(capacity_selected),
             "unserved_required_bins": [bins[index].bin_id for index in unserved_required],
             "snapshot_rows": snapshot_rows,
             "multi_day_plan": (
-                dispatch_plan.multi_day_plan if policy == "smart" else None
+                dispatch_plan.multi_day_plan if uses_smart_plan else None
             ),
             "predicted_growth_mean_pct": {
                 bins[index].bin_id: float(predicted_mean[index]) for index in capacity_selected
@@ -1094,7 +1169,7 @@ def run_policy(
             "completed": False,
             "decision_drivers": {
                 "forecast": bool(
-                    policy == "smart"
+                    uses_smart_plan
                     and any(
                         np.isfinite(time_to_overflow[index])
                         for index in plan.served_bin_indices
@@ -1126,6 +1201,13 @@ def run_policy(
             spilled = np.maximum(unconstrained - capacities, 0)
             record("overflow_incidents", float(crossed.sum()))
             record("overflow_spilled_kg", float(spilled.sum()))
+            for index, item in enumerate(bins):
+                if crossed[index]:
+                    overflow_incidents_by_material[item.material_type] += 1.0
+                if spilled[index] > 0:
+                    overflow_spilled_kg_by_material[item.material_type] += float(
+                        spilled[index]
+                    )
             if active_vehicle_ids and route_events and np.any(spilled > 0):
                 # An event can contain both specialized trucks.  Record the
                 # overflow once on each still-active dispatch event rather than
@@ -1157,7 +1239,8 @@ def run_policy(
                     )
             hidden_mass[:] = np.minimum(unconstrained, capacities)
             overflowing = hidden_mass >= capacities
-            record("overflow_bin_hours", float(np.count_nonzero(overflowing)))
+            newly_overflowing = overflowing & ~np.isfinite(overflow_started_minute)
+            overflow_started_minute[newly_overflowing] = float(env.now)
             yield env.timeout(60)
 
     def observation_process():
@@ -1211,6 +1294,8 @@ def run_policy(
     env.process(waste_process())
     env.process(observation_process())
     env.run(until=horizon_minutes)
+    for index in np.flatnonzero(np.isfinite(overflow_started_minute)):
+        close_overflow_exposure(int(index), float(horizon_minutes))
 
     def assembled(source: dict[str, float], suffix: str = "") -> dict[str, float]:
         stops = source["collection_stops"]
@@ -1270,6 +1355,16 @@ def run_policy(
         "unfinished_trip_count": len(active_vehicle_ids),
         "analysis_warmup_days": config.operations.analysis_warmup_days,
     }
+    for material in material_names:
+        metrics[f"overflow_bin_hours_{material}"] = overflow_bin_hours_by_material[
+            material
+        ]
+        metrics[f"overflow_incidents_{material}"] = overflow_incidents_by_material[
+            material
+        ]
+        metrics[f"overflow_spilled_kg_{material}"] = overflow_spilled_kg_by_material[
+            material
+        ]
     regime_rows = []
     for regime, values in regime_totals.items():
         assembled_values = assembled(values)

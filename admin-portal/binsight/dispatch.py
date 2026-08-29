@@ -19,6 +19,8 @@ from .config import Config
 from .fleet import assign_route_vehicles, vehicle_limit_for_stream
 from .routing import (
     RoutePlan,
+    route_arrival_times_s,
+    route_distance_m,
     select_dual_capacity_feasible,
     solve_routes,
     solve_value_routes,
@@ -42,7 +44,196 @@ FORECAST_STATUSES = (
     "model_error",
     "stable_no_overflow",
 )
-POLICY_VERSION = "dynamic-trip-value-v2"
+POLICY_VERSION = "dynamic-trip-value-v4"
+
+
+def _add_same_site_ready_pickups(
+    plan: RoutePlan,
+    *,
+    bins: pd.DataFrame,
+    candidate_indices: Iterable[int],
+    stream_values: list[str],
+    destination_values: list[str],
+    destination_matrices: dict[str, tuple[np.ndarray, np.ndarray]],
+    conservative_weight_kg: np.ndarray,
+    compacted_volume_m3: np.ndarray,
+    central_fill_pct: np.ndarray,
+    confidence: np.ndarray,
+    stale: np.ndarray,
+    arrival_deadline_s: np.ndarray,
+    skip_penalties: np.ndarray,
+    low_fill_costs: np.ndarray,
+    operations: Any,
+) -> RoutePlan:
+    """Fill an existing stop with safe, ready, zero-detour same-stream work.
+
+    This pass cannot create a route. It inserts only bins at a service site the
+    truck already visits and then rechecks mass, compacted volume, shift time,
+    incremental road distance, and every finite arrival deadline on that route.
+    """
+    if not plan.routes:
+        return plan
+    routes = [list(route) for route in plan.routes]
+    served = {index for route in routes for index in route if index != -1}
+    candidates = set(int(index) for index in candidate_indices)
+    ready = {
+        index
+        for index in candidates - served
+        if confidence[index]
+        and not stale[index]
+        and np.isfinite(central_fill_pct[index])
+        and central_fill_pct[index]
+        >= operations.smart_sibling_include_current_pct
+    }
+    added: list[int] = []
+    service_seconds = operations.service_minutes_per_bin * 60.0
+    max_added_distance = operations.smart_optional_max_increment_km * 1000.0
+
+    for route_position, route in enumerate(routes):
+        route_nodes = [index for index in route if index != -1]
+        if not route_nodes:
+            continue
+        stream = stream_values[route_nodes[0]]
+        destination_id = (
+            plan.route_destinations[route_position]
+            if route_position < len(plan.route_destinations)
+            else destination_values[route_nodes[0]]
+        )
+        matrices = destination_matrices.get(destination_id)
+        if matrices is None:
+            continue
+        distance_matrix, duration_matrix = matrices
+        visited_sites = {
+            int(bins.iloc[index]["service_index"]) for index in route_nodes
+        }
+        route_ready = sorted(
+            (
+                index
+                for index in ready
+                if stream_values[index] == stream
+                and int(bins.iloc[index]["service_index"]) in visited_sites
+            ),
+            key=lambda index: (
+                -float(central_fill_pct[index]),
+                str(bins.iloc[index]["bin_id"]),
+            ),
+        )
+        for candidate in route_ready:
+            candidate_site = int(bins.iloc[candidate]["service_index"])
+            same_site_positions = [
+                position
+                for position, index in enumerate(route)
+                if index != -1
+                and int(bins.iloc[index]["service_index"]) == candidate_site
+            ]
+            if not same_site_positions:
+                continue
+            insertion_position = max(same_site_positions) + 1
+            proposal = route[:insertion_position] + [candidate] + route[insertion_position:]
+            proposal_nodes = [index for index in proposal if index != -1]
+            if sum(conservative_weight_kg[index] for index in proposal_nodes) > (
+                operations.truck_capacity_kg + 1e-9
+            ):
+                continue
+            if sum(compacted_volume_m3[index] for index in proposal_nodes) > (
+                operations.truck_body_volume_m3 + 1e-9
+            ):
+                continue
+            old_distance = route_distance_m(route, distance_matrix)
+            new_distance = route_distance_m(proposal, distance_matrix)
+            if new_distance - old_distance > max_added_distance + 1e-9:
+                continue
+            arrivals = route_arrival_times_s(
+                proposal,
+                duration_matrix,
+                service_seconds,
+            )
+            if any(
+                np.isfinite(arrival_deadline_s[index])
+                and arrivals[index] > arrival_deadline_s[index] + 1e-9
+                for index in proposal_nodes
+            ):
+                continue
+            travel_seconds = sum(
+                float(
+                    duration_matrix[
+                        0 if origin == -1 else origin + 1,
+                        0 if destination == -1 else destination + 1,
+                    ]
+                )
+                for origin, destination in zip(proposal[:-1], proposal[1:])
+            )
+            if travel_seconds + len(proposal_nodes) * service_seconds > (
+                operations.max_route_duration_minutes * 60.0 + 1e-9
+            ):
+                continue
+            route = proposal
+            routes[route_position] = proposal
+            served.add(candidate)
+            ready.remove(candidate)
+            added.append(candidate)
+
+    if not added:
+        return plan
+
+    route_distances: list[int] = []
+    route_durations: list[float] = []
+    route_loads: list[float] = []
+    route_volumes: list[float] = []
+    route_arrivals: list[dict[int, float]] = []
+    operating_cost = 0.0
+    for route_position, route in enumerate(routes):
+        destination_id = (
+            plan.route_destinations[route_position]
+            if route_position < len(plan.route_destinations)
+            else destination_values[next(index for index in route if index != -1)]
+        )
+        distance_matrix, duration_matrix = destination_matrices[destination_id]
+        nodes = [index for index in route if index != -1]
+        distance = route_distance_m(route, distance_matrix)
+        travel_seconds = 0.0
+        route_cost = float(operations.route_fixed_cost_m_equivalent)
+        for origin, destination in zip(route[:-1], route[1:]):
+            origin_location = 0 if origin == -1 else origin + 1
+            destination_location = 0 if destination == -1 else destination + 1
+            leg_distance = float(distance_matrix[origin_location, destination_location])
+            leg_seconds = float(duration_matrix[origin_location, destination_location])
+            travel_seconds += leg_seconds
+            route_cost += leg_distance + (
+                leg_seconds / 60.0 * operations.travel_time_cost_m_per_minute
+            )
+            if origin != -1:
+                route_cost += (
+                    operations.service_minutes_per_bin
+                    * operations.service_cost_m_per_minute
+                    + float(low_fill_costs[origin])
+                )
+        route_distances.append(distance)
+        route_durations.append(travel_seconds + len(nodes) * service_seconds)
+        route_loads.append(float(sum(conservative_weight_kg[index] for index in nodes)))
+        route_volumes.append(float(sum(compacted_volume_m3[index] for index in nodes)))
+        route_arrivals.append(
+            route_arrival_times_s(route, duration_matrix, service_seconds)
+        )
+        operating_cost += route_cost
+    served_in_order = [index for route in routes for index in route if index != -1]
+    avoided_loss = float(sum(skip_penalties[index] for index in served_in_order))
+    dropped = sorted(candidates - set(served_in_order))
+    return replace(
+        plan,
+        routes=routes,
+        distance_m=sum(route_distances),
+        served_bin_indices=served_in_order,
+        solver_method=plan.solver_method + ":same_site_ready",
+        dropped_bin_indices=dropped,
+        route_duration_s=route_durations,
+        route_loads_kg=route_loads,
+        route_volumes_m3=route_volumes,
+        route_arrival_times_s=route_arrivals,
+        operating_cost_m_equivalent=operating_cost,
+        avoided_loss_value_m_equivalent=avoided_loss,
+        net_value_m_equivalent=avoided_loss - operating_cost,
+    )
 PLAN_SCHEMA_VERSION = "2.0"
 COLLECTION_REQUIRED = "COLLECTION_REQUIRED"
 INSPECTION_REQUIRED = "INSPECTION_REQUIRED"
@@ -807,6 +998,13 @@ def build_dispatch_plan(
             index
             for index in range(len(bins))
             if risk[index] == "critical"
+            or (
+                str(bins.iloc[index].get("material_type", "")) == "plastic_cups"
+                and not stale[index]
+                and np.isfinite(fill_pct[index])
+                and fill_pct[index]
+                >= operations.smart_plastic_required_trigger_pct
+            )
             or deadline_already_missed[index]
             or travel_deadline_required[index]
             or (
@@ -1176,6 +1374,23 @@ def build_dispatch_plan(
                 for destination in plan.route_destinations
             ],
         )
+    route_plan = _add_same_site_ready_pickups(
+        route_plan,
+        bins=bins,
+        candidate_indices=candidates,
+        stream_values=stream_values,
+        destination_values=destination_values,
+        destination_matrices=destination_matrices,
+        conservative_weight_kg=conservative_weight,
+        compacted_volume_m3=compacted_volume_m3,
+        central_fill_pct=economic_fill_estimate,
+        confidence=confidence,
+        stale=stale,
+        arrival_deadline_s=arrival_deadline_s,
+        skip_penalties=skip_penalties,
+        low_fill_costs=low_fill_costs,
+        operations=operations,
+    )
     route_plan = assign_route_vehicles(route_plan, operations)
     served_set = set(route_plan.served_bin_indices)
     unserved_required = sorted(set(unserved_required) | (set(mandatory) - served_set))
@@ -1249,6 +1464,28 @@ def build_dispatch_plan(
         reasons = list(review_reasons[index])
         if risk[index] in {"high", "critical"}:
             reasons.append(f"{risk[index]} risk")
+        if (
+            str(bins.iloc[index].get("material_type", "")) == "plastic_cups"
+            and np.isfinite(fill_pct[index])
+            and fill_pct[index]
+            >= operations.smart_plastic_required_trigger_pct
+        ):
+            reasons.append(
+                "plastic observed-volume guard "
+                f"{operations.smart_plastic_required_trigger_pct:g}%"
+            )
+        if (
+            index in review
+            and index in required_set
+            and not stale[index]
+            and np.isfinite(conservative_fill[index])
+            and conservative_fill[index]
+            >= operations.uncertain_service_trigger_pct
+        ):
+            reasons.append(
+                "uncertain-reading safety service threshold "
+                f"{operations.uncertain_service_trigger_pct:g}%"
+            )
         if np.isfinite(effective_tto[index]) and effective_tto[index] <= operations.smart_dispatch_time_to_overflow_hours:
             method = "forecast" if forecast_available[index] else "fallback"
             reasons.append(f"{method} overflow horizon {effective_tto[index]:g}h")
@@ -1345,6 +1582,95 @@ def build_dispatch_plan(
         decision_at=decision_time.isoformat(),
         deferred_bin_indices=deferred,
     )
+
+
+def build_dispatch_plan_with_deadline_reserve(
+    snapshot: pd.DataFrame,
+    bins: pd.DataFrame,
+    distance_matrix_m: np.ndarray,
+    config: Config,
+    last_valid_readings: dict[str, dict[str, Any]] | None = None,
+    duration_matrix_s: np.ndarray | None = None,
+    *,
+    optional_dispatch_allowed: bool = True,
+    destination_matrices: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
+    trip_limits_by_stream: dict[str, int] | None = None,
+    scheduled_bin_indices: Iterable[int] | None = None,
+) -> DispatchPlan:
+    """Use reserve vehicles only to clear mandatory capacity/deadline shortfalls.
+
+    A second truck must not split ordinary optional work into another fuel-consuming
+    route merely because it is parked and available.  The first pass therefore
+    permits one concurrent route per waste stream.  If that leaves mandatory bins
+    unserved, only the affected stream is replanned with its full physical vehicle
+    limit.  This lets simultaneous overflow deadlines activate the reserve while
+    keeping routine work consolidated on the primary truck.
+    """
+    operations = config.operations
+    streams = (
+        bins["waste_stream"].fillna("mixed_general_waste").astype(str).unique().tolist()
+        if "waste_stream" in bins.columns
+        else ["mixed_general_waste"]
+    )
+    requested_limits = dict(trip_limits_by_stream or {})
+    full_limits = {
+        stream: max(
+            0,
+            int(
+                requested_limits.get(
+                    stream,
+                    vehicle_limit_for_stream(stream, operations),
+                )
+            ),
+        )
+        for stream in streams
+    }
+    primary_limits = {
+        stream: min(limit, 1) for stream, limit in full_limits.items()
+    }
+    common_kwargs = {
+        "optional_dispatch_allowed": optional_dispatch_allowed,
+        "destination_matrices": destination_matrices,
+        "scheduled_bin_indices": scheduled_bin_indices,
+    }
+    primary = build_dispatch_plan(
+        snapshot,
+        bins,
+        distance_matrix_m,
+        config,
+        last_valid_readings,
+        duration_matrix_s,
+        trip_limits_by_stream=primary_limits,
+        **common_kwargs,
+    )
+    shortage_streams = {
+        str(bins.iloc[index].get("waste_stream", "mixed_general_waste"))
+        for index in primary.unserved_required_bin_indices
+    }
+    reserve_limits = dict(primary_limits)
+    reserve_activated = False
+    for stream in shortage_streams:
+        if full_limits.get(stream, 0) > primary_limits.get(stream, 0):
+            reserve_limits[stream] = full_limits[stream]
+            reserve_activated = True
+    if not reserve_activated:
+        return primary
+
+    reserve = build_dispatch_plan(
+        snapshot,
+        bins,
+        distance_matrix_m,
+        config,
+        last_valid_readings,
+        duration_matrix_s,
+        trip_limits_by_stream=reserve_limits,
+        **common_kwargs,
+    )
+    if len(reserve.unserved_required_bin_indices) < len(
+        primary.unserved_required_bin_indices
+    ):
+        return reserve
+    return primary
 
 
 def update_last_valid_readings(

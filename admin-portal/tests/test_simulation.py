@@ -46,7 +46,14 @@ def test_time_to_overflow_uses_conservative_growth_rate():
 def test_risk_levels_prioritize_emergency_deadlines_and_fill():
     config = load_config(ROOT / "config.json")
     result = _risk_levels(
-        np.array([91.0, 70.0, 60.0, 40.0]),
+        np.array(
+            [
+                config.operations.smart_emergency_current_trigger_pct,
+                70.0,
+                60.0,
+                40.0,
+            ]
+        ),
         np.array([100.0, 40.0, 60.0, 100.0]),
         config,
     )

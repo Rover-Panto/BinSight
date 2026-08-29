@@ -47,6 +47,8 @@ CONFIG_SHA256 = hashlib.sha256(
 EVIDENCE_ARTIFACTS = ARTIFACTS
 EVIDENCE_PROVENANCE: dict = {}
 for candidate in (
+    ARTIFACTS / "dynamic_v4",
+    ARTIFACTS / "dynamic_v3",
     ARTIFACTS / "dynamic_v2",
     ARTIFACTS / "four-bin-smoke",
     ARTIFACTS,
@@ -822,7 +824,7 @@ with overview_tab:
 
     top = st.columns(5)
     cards = [
-        ("Overflow change", "overflow_incidents"),
+        ("Overflow exposure", "overflow_bin_hours"),
         ("Distance change", "distance_km"),
         ("Fuel change", "fuel_l"),
         ("CO₂ change", "co2_kg"),
@@ -874,7 +876,7 @@ with overview_tab:
         display_metrics = [
             scoped(metric)
             for metric in (
-                "overflow_incidents",
+                "overflow_bin_hours",
                 "overflow_spilled_kg",
                 "distance_km",
                 "travel_time_hours",
@@ -915,7 +917,7 @@ with overview_tab:
     chart_metrics = [
         scoped(metric)
         for metric in (
-            "overflow_incidents",
+            "overflow_bin_hours",
             "overflow_spilled_kg",
             "distance_km",
             "travel_time_hours",

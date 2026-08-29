@@ -74,7 +74,7 @@ def main() -> None:
         "recycling_facility": (recycling_distance, recycling_duration)
     }
     forecaster = joblib.load(
-        ROOT / "artifacts" / "dynamic_v2" / "fill_forecaster.joblib"
+        ROOT / "artifacts" / "dynamic_v4" / "fill_forecaster.joblib"
     )
     declared = {item.name: item for item in experiment_scenarios(base)}
     unknown = sorted(set(args.scenarios) - set(declared))
@@ -183,7 +183,7 @@ def main() -> None:
         "seed_offsets": {"arrival": arrival_offset, "sensor": sensor_offset},
         "seeds": seed_rows,
         "horizon_days": base.operations.horizon_days,
-        "model_path": "artifacts/dynamic_v2/fill_forecaster.joblib",
+        "model_path": "artifacts/dynamic_v4/fill_forecaster.joblib",
         "conceptual_model": {
             "general_base": "waste_depot",
             "recycling_base": base.pilot.recycling_facility_id,
@@ -191,6 +191,8 @@ def main() -> None:
             "recycling_compartments": base.operations.recycling_compartment_count,
             "compartment_partitions": "sealed and movable; total mass/volume constrained",
             "max_daily_trips_is_per_truck": True,
+            "max_daily_trips_per_stream": base.operations.max_daily_trips_per_stream,
+            "reserve_trucks_increase_concurrency_not_the_stream_trip_cap": True,
             "rolling_planning_days": base.operations.multi_day_planning_horizon_days,
         },
         "inference_scope": "bounded matched-seed model contrast; not field causality",

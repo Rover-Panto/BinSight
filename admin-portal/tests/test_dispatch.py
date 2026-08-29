@@ -13,6 +13,7 @@ from binsight.dispatch import (
     COLLECTION_REQUIRED,
     INSPECTION_REQUIRED,
     build_dispatch_plan as _build_dispatch_plan,
+    build_dispatch_plan_with_deadline_reserve as _build_dispatch_plan_with_deadline_reserve,
     load_mock_dispatches,
     make_demo_snapshot,
     make_snapshot_template,
@@ -45,6 +46,26 @@ def build_dispatch_plan(snapshot, bins, matrix, config, *args, **kwargs):
         {"recycling_facility": (recycling_distance, recycling_duration)},
     )
     return _build_dispatch_plan(snapshot, bins, matrix, config, *args, **kwargs)
+
+
+def build_reserve_dispatch_plan(snapshot, bins, matrix, config, *args, **kwargs):
+    """Exercise reserve dispatch with the matching production destination matrix."""
+    district = pd.read_csv(ROOT / "artifacts" / "district_bins.csv")
+    order = {str(value): index + 1 for index, value in enumerate(district["bin_id"])}
+    locations = [0] + [order[str(value)] for value in bins["bin_id"]]
+    recycling_distance = np.load(
+        ROOT / "artifacts" / "recycling_road_distance_matrix_m.npy"
+    )[np.ix_(locations, locations)]
+    recycling_duration = np.load(
+        ROOT / "artifacts" / "recycling_road_duration_matrix_s.npy"
+    )[np.ix_(locations, locations)]
+    kwargs.setdefault(
+        "destination_matrices",
+        {"recycling_facility": (recycling_distance, recycling_duration)},
+    )
+    return _build_dispatch_plan_with_deadline_reserve(
+        snapshot, bins, matrix, config, *args, **kwargs
+    )
 
 
 def _project_inputs():
@@ -481,6 +502,37 @@ def test_uncertain_high_margin_requests_inspection_without_forcing_a_truck():
     assert plan.collection_required is False
 
 
+def test_low_confidence_high_volume_plastic_is_safely_required():
+    config, bins, matrix = _project_inputs()
+    bins = bins.copy()
+    bins.loc[0, ["material_type", "waste_stream", "destination_id"]] = [
+        "plastic_cups",
+        "dry_recycling",
+        "recycling_facility",
+    ]
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    snapshot = _safe_snapshot(bins, now)
+    snapshot.loc[0, ["fill_pct", "weight_kg", "confidence_flag", "risk_level"]] = [
+        98.0,
+        float(bins.iloc[0]["capacity_kg"]) * 0.98,
+        False,
+        "low",
+    ]
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+        now_utc=now,
+    )
+    plan = build_dispatch_plan(normalized, bins, matrix, config)
+
+    assert plan.audit_rows[0]["fill_pct"] >= 95.0
+    assert 0 in plan.review_bin_indices
+    assert 0 in plan.required_bin_indices
+    assert plan.collection_required is True
+    assert "plastic observed-volume guard" in plan.audit_rows[0]["reason"]
+
+
 def test_incompatible_physical_waste_streams_use_separate_trips():
     config, all_bins, full_matrix = _project_inputs()
     bins = all_bins.iloc[:3].reset_index(drop=True).copy()
@@ -542,6 +594,69 @@ def test_stream_trip_limit_reports_mandatory_bin_as_unserved():
         set(plan.selected_bin_indices) | set(plan.unserved_required_bin_indices)
     )
     assert any("Daily truck capacity could not cover" in item for item in plan.warnings)
+
+
+def test_deadline_reserve_activates_second_truck_for_mandatory_shortfall():
+    config, all_bins, full_matrix = _project_inputs()
+    config = replace(
+        config,
+        operations=replace(
+            config.operations,
+            general_waste_truck_count=2,
+            max_daily_trips=1,
+            max_daily_trips_per_stream=2,
+            truck_capacity_kg=600.0,
+        ),
+    )
+    bins = all_bins.iloc[[0, 4]].reset_index(drop=True).copy()
+    matrix = full_matrix[np.ix_([0, 1, 5], [0, 1, 5])]
+    snapshot = _safe_snapshot(bins, datetime.now(timezone.utc).replace(microsecond=0))
+    snapshot["fill_pct"] = 95.0
+    snapshot["weight_kg"] = bins["capacity_kg"].to_numpy(dtype=float) * 0.95
+    snapshot["risk_level"] = "critical"
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+    )
+
+    plan = build_reserve_dispatch_plan(normalized, bins, matrix, config)
+
+    assert len(plan.required_bin_indices) == 2
+    assert len(plan.route_plan.routes) == 2
+    assert plan.unserved_required_bin_indices == []
+    assert plan.route_plan.route_vehicle_ids == ["GENERAL-01", "GENERAL-02"]
+
+
+def test_existing_site_stop_collects_ready_same_stream_bins_without_new_route():
+    config, all_bins, full_matrix = _project_inputs()
+    bins = all_bins.iloc[[1, 2, 3]].reset_index(drop=True).copy()
+    matrix = full_matrix[np.ix_([0, 2, 3, 4], [0, 2, 3, 4])]
+    snapshot = _safe_snapshot(bins, datetime.now(timezone.utc).replace(microsecond=0))
+    snapshot.loc[0, ["fill_pct", "weight_kg", "risk_level"]] = [
+        95.0,
+        float(bins.iloc[0]["capacity_kg"]) * 0.95,
+        "critical",
+    ]
+    snapshot.loc[[1, 2], "fill_pct"] = 55.0
+    snapshot.loc[[1, 2], "weight_kg"] = (
+        bins.loc[[1, 2], "capacity_kg"].to_numpy(dtype=float) * 0.55
+    )
+    snapshot.loc[[1, 2], "risk_level"] = "medium"
+    snapshot["overflow_probability_next_opportunity"] = 0.0
+    snapshot["overflow_probability_48h"] = 0.0
+    normalized = validate_snapshot(
+        snapshot,
+        bins["bin_id"],
+        config.operations.crane_lift_limit_kg,
+    )
+
+    plan = build_reserve_dispatch_plan(normalized, bins, matrix, config)
+
+    assert len(plan.route_plan.routes) == 1
+    assert set(plan.selected_bin_indices) == {0, 1, 2}
+    assert plan.route_plan.solver_method.endswith(":same_site_ready")
+    assert plan.route_plan.route_vehicle_ids == ["RECYCLING-01"]
 
 
 def test_history_read_merge_write_serializes_portal_and_runner_writers(tmp_path):
