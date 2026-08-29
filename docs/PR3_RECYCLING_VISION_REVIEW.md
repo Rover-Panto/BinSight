@@ -1,12 +1,23 @@
 # PR #3 Recycling Vision Review and Main Integration Contract
 
-Initial review: 27 August 2026. Follow-up: 28 August 2026.
+Initial review: 27 August 2026. Follow-ups: 28 and 29 August 2026.
 
 - Pull request: [#3, feat: add YOLO recycling detector](https://github.com/Rover-Panto/BinSight/pull/3)
 - Initial reviewed head: `ed6f8a83dca0869fea69eb40685a328133c93794`
 - Follow-up head: `819ff37b41a78208ba1624ad0060f8bec0358346`
+- Current reviewed head: `dce112fe10e68089caa6e2e661bc031aa3f9a977`
 - Base `main`: `9fca9d47afb805f40034da970bb47d791ba8f0b4`
 - Review decision: **changes required before merge**
+
+## Current Status at dce112f
+
+The strict image-free serializer now has six passing tests and passes the main-owned real-HTTP return preflight. The preflight accepted one eligible item, rejected one ineligible item, deduplicated the accepted retry, stored four inference events and created one RM0.20 credit. Python compilation also passes.
+
+The branch now commits `recycling_vision/artifacts/yolo11n_recycling-8_best.pt` with SHA-256 `6A3B1863CCC9663253D2614CE353626F21C9A95D0C3C6003B3CEE83B0FC4232F`. PR3 correctly labels it as a laptop-only candidate, not a Grove deployment. Before merge, document the dataset/source licence, training revision/tool version, class order, split/count and available held-out results, or remove the binary and retain a reproducible retrieval/checksum record. Update the guide's code/config-only statement so it matches the branch.
+
+The owner reconfirmed that PR3 uses the same physical ESP32 relay as PR2. PR2 owns the gateway shell, Teensy transport, fill queue and common network services. PR3 contributes the Grove/SSCMA recognition module, its bounded queue and station feedback through an explicit interface. Replace the remaining dedicated-C3 wording; do not create a second gateway image.
+
+Grove export, SSCMA/shared-firmware integration and physical testing remain required before the demonstration, but they do not block merging the isolated software scaffold after the focused documentation/provenance fixes and a final test run. The current merge-readiness request is recorded in [PR #3 comment 5460913025](https://github.com/Rover-Panto/BinSight/pull/3#issuecomment-5460913025).
 
 ## Follow-up Status
 
@@ -30,7 +41,7 @@ The owner's server-side decision tree accepts those three material labels after 
 
 ## Does PR #3 Contain the Model?
 
-**No trained model artifact is present at the follow-up head.** The branch contains training and webcam scripts, a class-map YAML, pinned dependencies, metadata tests and an evaluation template under `recycling_vision/`. It contains no trained `.pt`, `.onnx` or `.tflite` file and no image dataset. A configured base-weight path or expected training-output path is not a supplied model. Request a licensed release artifact with checksum, class map, training provenance and held-out metrics; large weights and datasets need not be committed to Git.
+At the current head, **a laptop-only `.pt` artifact is present** and its checksum has been verified. It is not a Grove-compatible deployment artifact and does not by itself establish training provenance, licence, held-out performance or beverage-container eligibility. The earlier `819ff37` follow-up contained no artifact; that statement is retained only as historical review context.
 
 ## Initial Findings at ed6f8a8
 

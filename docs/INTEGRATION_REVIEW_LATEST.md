@@ -1,12 +1,12 @@
 # Latest PR Review and Integration Record
 
-PR4 re-reviewed 29 August 2026 on `codex/integration-test`; the other rows retain their 28 August reviewed heads. A newer contributor push does not inherit approval from these results.
+PR3 and PR4 were re-reviewed 29 August 2026 on `codex/integration-test`. A newer contributor push does not inherit approval from these results.
 
 | PR | Reviewed head | Component tests | Integration status |
 | --- | --- | --- | --- |
 | #1 routing/admin | `8b34c9651b4b2ef4cef7abe6f45bb54c4017a3df` | 111 passed | Changes required; not staged |
 | #2 fill/gateway | `84952d2b59f3636d006cbe7518f895face0774a4` | No host/firmware test suite supplied | Changes required; not staged |
-| #3 vision | `819ff37b41a78208ba1624ad0060f8bec0358346` | 3 passed; PR3 serializer passed real-HTTP server preflight | Changes required; not staged |
+| #3 vision | `dce112fe10e68089caa6e2e661bc031aa3f9a977` | 6 passed; compile passed; PR3 serializer passed real-HTTP server preflight | Focused merge-preparation changes requested; not staged |
 | #4 forecast | `28509cc4e90b2c1e2c3c3c2e026244e5a6e86dee` | 32 passed again after merge; broader checks: 12 passed / 17 failed | Owner merged into main at `3297f43`; included on this branch |
 
 Passing component tests do not establish combined or physical readiness. PR4 is now on main and this branch; PR1, PR2 and PR3 remain separate. The main-owned return API remains simulation-only on this branch. PR2 has a newer unreviewed push; its findings below apply to `84952d2`, not that newer head.
@@ -57,11 +57,11 @@ PR1 also still hard-codes four material bins per simulated service site while de
 
 References: PR1 `admin-portal/binsight/routing.py:33`, `:571`; `config.json` has `route_post_optimization_enabled: false`; probe retained in `integration/probes/review_latest.py`.
 
-### P2: PR3 is a transport skeleton, not the Grove integration
+### P2: PR3 has a laptop artifact, not the Grove integration
 
-PR3's metadata serializer now interoperates with the main-owned simulation API. The branch still contains no trained/exported artifact, held-out evidence, Grove/SSCMA reader, shared-C3 queue, model hash/class map deployment check or removal signal. Its relay header still says dedicated C3. Keep the serializer and tests, update the shared-board wording, and supply a pinned Grove artifact plus a C++ adapter that returns metadata without owning sessions, credits, fill parsing or network policy.
+PR3's strict metadata serializer now interoperates with the main-owned simulation API and its six tests pass. The branch adds a checksum-recorded `.pt` artifact, but labels it laptop-only. Dataset source/licence, training provenance and held-out evidence remain incomplete. The branch still has no Grove-compatible Vela artifact, SSCMA reader, shared-gateway recognition module, deployment class-map check or removal signal. Its relay header still says dedicated C3 even though PR3 will use PR2's physical relay. Keep the serializer and tests, align the wording with the shared gateway, and document or remove the committed artifact before merge.
 
-Broad `plastic`, `metal` and `glass` labels do not prove beverage-container eligibility. Until the dataset/evaluation establishes that narrower meaning, describe the demo as material recognition and accept/reject policy, not verified beverage return.
+Broad `plastic`, `metal` and `glass` labels do not prove beverage-container eligibility. Until the dataset/evaluation establishes that narrower meaning, describe the demo as material recognition and accept/reject policy, not verified beverage return. Grove export, shared-firmware integration and physical tests remain pre-demo gates; they do not block merging a clearly labelled, isolated software scaffold after the focused fixes.
 
 ## Implemented Integration Slice
 
@@ -74,7 +74,7 @@ This is partial G06/G07/G09/G10/G12 evidence. QR/login/browser transport, simula
 ## Next Integration Order
 
 1. PR2 fixes loss semantics and replaces the generic blocking sketch with one compile-tested shared C3 shell. Keep fill UART and recognition I2C in independent bounded tasks/queues.
-2. PR3 supplies the reviewed Grove artifact and SSCMA adapter. Run the main return preflight with recorded metadata, then on the exact combined C3 build.
+2. PR3 resolves the laptop artifact provenance, updates the dedicated-relay wording, and reports its six-test result. The current serializer already passes the main return preflight. Grove export, the SSCMA adapter and the exact combined C3 build remain required before the physical demo.
 3. PR4 staging is complete through main merge `3297f43`. Next add usable-reading guards and timestamp normalization in the PR1 adapter, then run a forecast-to-route smoke test before deleting PR1's duplicate predictor. Defer broad loader hardening and retraining automation.
 4. PR1 keeps the post-optimizer disabled, adds a physical demo registry and consumes the installed PR4 provider with a named non-ML fallback.
 5. Main adds a feature-flagged citizen client/QR handoff and versioned return-data migration, then the report API and PR1 ticket controls.

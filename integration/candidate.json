@@ -32,11 +32,13 @@
       "pr": 3,
       "owner": "Rishhhj05",
       "path": "recycling_vision",
-      "sha": "819ff37b41a78208ba1624ad0060f8bec0358346",
+      "sha": "dce112fe10e68089caa6e2e661bc031aa3f9a977",
       "review": "changes_required",
       "evidence": [
         "docs/INTEGRATION_REVIEW_LATEST.md",
-        "https://github.com/Rover-Panto/BinSight/pull/3#issuecomment-5454655998"
+        "https://github.com/Rover-Panto/BinSight/pull/3#issuecomment-5454655998",
+        "https://github.com/Rover-Panto/BinSight/pull/3#issuecomment-5460913025",
+        "Owner correction 2026-08-29: PR3 uses the same physical ESP32 relay as PR2; PR3 contributes the Grove recognition module and independent queue to the PR2-owned gateway shell"
       ]
     },
     {
