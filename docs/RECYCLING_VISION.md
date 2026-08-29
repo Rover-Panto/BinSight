@@ -40,7 +40,7 @@ Press `Q` or `Esc` while the window is focused to stop. `--camera` selects a web
 
 ## OTHER and confidence policy
 
-The laptop overlay is a debugging aid only. Predictions for `plastic`, `metal`, or `glass` below `--other-threshold` (70% by default) are displayed as `OTHER`; paper and other are rejected by the server policy. Final acceptance must be computed by the main server after its stability gate.
+The development webcam overlay is a debugging aid only. Predictions for `plastic`, `metal`, or `glass` below `--other-threshold` (70% by default) are displayed as `OTHER`; paper and other are rejected by the server policy. Its `--required-consecutive 3` option gives a visible local `CONFIRMING 1/3` to `ACCEPTED` cue and re-arms only after no item is detected. Final station acceptance must still be computed by the main server after its stability gate.
 
 This threshold is a routing policy, not a calibrated probability. It should be evaluated on held-out images and adjusted for the cost of incorrectly sorting an item. An object that YOLO does not detect at all cannot be relabelled after inference, so the training set should include representative `other` examples such as organic waste, textiles, electronics, and contaminated or mixed items.
 
