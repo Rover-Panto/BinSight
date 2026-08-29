@@ -18,6 +18,8 @@ The citizen app currently supports:
 - Automatic public-bin collection wording with no resident timetable
 - Local server stop control and `Start-BinSight.cmd` restart launcher
 
+The mock return value remains RM0.20. [The return-deposit assessment](RETURN_DEPOSIT_POLICY.md) recommends treating it as a simulated refundable container deposit that follows the marked container, not as a tax or unrestricted recycling reward. Citizen wording and the physical eligibility check still need that policy integration.
+
 ## Current routes
 
 | Route | Purpose |
