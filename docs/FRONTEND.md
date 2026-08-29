@@ -68,6 +68,8 @@ Do not write admin fixtures or route simulation output to the citizen key. Follo
 
 The resident starts a session and inserts one container at a time. The station determines the simulated item type and accepted or rejected result. Accepted items add RM0.20. The resident then chooses Bank Transfer or E-Wallet and receives a simulated receipt.
 
+Use [the citizen return experience](CITIZEN_RETURN_EXPERIENCE.md) as the product brief for this workflow. It defines the deposit explanation, station handoff, accept/reject feedback, running refund, payout, confirmation wording and benefit case. Keep reports, disposal guidance and support services available, but do not let them interrupt the reward loop during the return demonstration.
+
 The planned hardware integration receives decision metadata from the laptop server after Grove Vision AI V2 classifies the item, the shared ESP32-C3 relays the result and the server applies the confidence gate. The browser must not access or display the station camera. The server contract is now available for simulation preflight at [RETURN_API_V1.md](RETURN_API_V1.md), but this React flow has not changed. Next, add a return-station transport boundary with separate mock and API modes; API failures must never generate mock acceptance. See [PR3_RECYCLING_VISION_REVIEW.md](PR3_RECYCLING_VISION_REVIEW.md).
 
 The confirmed demo uses one collection bin with one active session/inspection at a time. Plastic, metal and glass remain separate result labels but share the physical collection bin. Do not add compartment selection, sorting destinations or a second live recycling station. This demonstrates acceptance, not automated material separation.

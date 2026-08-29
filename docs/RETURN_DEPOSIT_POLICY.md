@@ -2,6 +2,8 @@
 
 Research date: 29 August 2026. This document assesses a prototype policy. It does not claim that Malaysia has adopted a national RM0.20 beverage-container deposit.
 
+For the citizen-facing sequence and its design rationale, see the [citizen return experience](CITIZEN_RETURN_EXPERIENCE.md).
+
 ## Decision
 
 Keep **RM0.20 per eligible container** for the BinSight prototype and simulation. Describe it as a **refundable container deposit**, not a tax and not a general recycling reward.

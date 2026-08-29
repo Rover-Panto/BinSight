@@ -26,6 +26,7 @@ Integration coordination starts at [the test plan](docs/INTEGRATION_TEST_PLAN.md
 - `docs/`: frontend reference, project state, admin integration, and data-preservation contracts
 - `docs/PR3_RECYCLING_VISION_REVIEW.md`: recycling-model review and Grove-to-website integration contract
 - `docs/RETURN_DEPOSIT_POLICY.md`: evidence and operating rules for the proposed RM0.20 refundable container deposit
+- `docs/CITIZEN_RETURN_EXPERIENCE.md`: focused citizen journey, reward-loop rationale and participant benefits
 - `docs/PR_REVIEW_2026-08-28.md`: current PR changes, defects, duplicated work and integration order
 - `docs/PR1_PR4_FORECAST_INTEGRATION.md`: forecasting/routing ownership, shared interface and duplicate-code cleanup sequence
 - `docs/SHARED_ESP32_GATEWAY.md`: one-board fill/recognition contract and firmware ownership
