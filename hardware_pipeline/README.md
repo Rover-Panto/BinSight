@@ -32,7 +32,7 @@ labeled placeholder where it will plug in.
 ```mermaid
 flowchart LR
     subgraph Teensy41["Teensy 4.1 — Edge (FreeRTOS, 3 prioritized tasks)"]
-        T1["Task 1: Sensing\n(HIGH priority)\nultrasonic x1, button x1 (calibrate)\nconfidence_flag, estimated_density"]
+        T1["Task 1: Sensing\n(HIGH priority)\nultrasonic x1, button x1 (calibrate)\nconfidence_flag"]
         T2["Task 2: Filter & Package\n(MEDIUM priority)\nmoving avg + sanity filter\nJSON schema packaging"]
         T3["Task 3: Secure Transmit\n(LOW priority)\nframed JSON, sent independently\nover USB serial AND ESP32 UART"]
         T1 -- "RawReading\n(queue)" --> T2
@@ -49,19 +49,14 @@ flowchart LR
     ML -.future.-> DASH
 ```
 
-## Why a "pseudo-density" proxy
+## [Removed 2026-08-28] "Pseudo-density" proxy
 
-There is no physical load cell (budget/time constraint). `estimated_density`
-is derived on-device from a fixed baseline plus the ultrasonic fill-rate
-delta (fast fill = nudges the estimate up, modeling compaction/heavy waste
-arriving quickly). **[Changed 2026-08-28]** Earlier revisions picked the
-baseline from a manual waste-type classification (heavy/wet vs.
-dry/recyclable) injected via two push buttons — that's been removed (see
-"Known changes" below); `estimateDensity()` now always starts from the
-single `DENSITY_BASELINE` constant in `config.h`. It is a relative
-engineering proxy, not a calibrated kg/L measurement — this is stated in
-the firmware comments, the API schema docstrings, and the dashboard
-caption so it's never mistaken for a real density sensor reading.
+This bin no longer estimates a density or weight proxy at all —
+`estimated_density` and `estimated_weight_proxy` are both gone from the
+firmware, cloud schema/model, and dashboard. It reports `fill_pct` and
+`confidence_flag` only. See the "Known changes" entry below for the full
+removal and where a real signal could plug back in if this is revisited
+later.
 
 ## Repository layout
 
@@ -92,7 +87,7 @@ so a slow/degraded transport (Task 3) can never stall sensing (Task 1):
 
 | Task | Priority | Period | Responsibility |
 |---|---|---|---|
-| 1. Sensing | High (3) | 200 ms | Poll 1x ultrasonic + 1x calibrate button, compute `confidence_flag` and `estimated_density` |
+| 1. Sensing | High (3) | 200 ms | Poll 1x ultrasonic + 1x calibrate button, compute `confidence_flag` |
 | 2. Filter & Package | Medium (2) | 500 ms | Moving-average + sanity filter, package into the JSON schema with timestamp + `bin_id` |
 | 3. Secure Transmit | Low (1) | 2000 ms | Frame + write JSON over USB serial for `tools/serial_bridge.py` to forward |
 
@@ -139,9 +134,11 @@ streamlit run streamlit_app.py
 Point the sidebar's "Cloud backend URL" at your running FastAPI instance
 (defaults to `http://localhost:8000`). The dashboard auto-refreshes,
 shows fleet-wide metric cards, a per-bin overflow-risk badge (a threshold
-placeholder for the future ML model), fill-level and density time-series
-charts (one fixed color per bin), and a raw telemetry log with
-low-confidence readings flagged by icon + label.
+placeholder for the future ML model), a fill-level time-series chart
+(one fixed color per bin) **(changed 2026-08-28 — was fill-level +
+density + weight-proxy, three charts; the latter two are removed, see
+"Known changes" below)**, and a raw telemetry log with low-confidence
+readings flagged by icon + label.
 
 ## 4. Serial Bridge (`tools/`)
 
@@ -188,8 +185,8 @@ on it.
 
 ## Data flow summary
 
-1. Task 1 samples sensors every 200 ms, computing `confidence_flag` and
-   `estimated_density` on-device.
+1. Task 1 samples sensors every 200 ms, computing `confidence_flag`
+   on-device.
 2. Task 2 drains the raw queue, smooths + sanity-checks the values, and
    packages a JSON payload matching the exact ingestion schema.
 3. Task 3 drains the packet queue and writes each one as a framed line to
@@ -221,8 +218,34 @@ on it.
   was unreachable (Wi-Fi/HTTP failure). Failed sends are now queued to
   `pending_readings.jsonl` and retried automatically once the backend is
   reachable again.
+- **2026-08-28 — Task 2 ("Filter") stack overflow on real hardware.**
+  Serial Monitor showed `stack overflow: Filter` partway through a run.
+  `TASK_FILTER_STACK_WORDS` in `config.h` (384 words) had gotten tight as
+  fields were added to the JSON payload over several changes the same
+  day, combined with several `String(float, n)` temporaries in
+  `tasks.cpp` — Arduino's `String` class pulls in a heap-allocating
+  float-formatting path that's both slower and less stack-predictable
+  than a fixed buffer, which matters inside an RTOS task with a small,
+  fixed stack budget. Fixed two ways: (1) bumped
+  `TASK_FILTER_STACK_WORDS` to 512 for real headroom (see `config.h`'s
+  comment there), and (2) replaced the remaining `String(...)` call in
+  Task 2 with a fixed `char` buffer + `snprintf("%.1f", ...)`, which
+  produces byte-identical output with no heap allocation. Removing
+  `estimated_density`/`estimated_weight_proxy` in the same round of
+  changes (see "Known changes" below) also shrank the payload
+  significantly, independently reducing the pressure that caused this.
 
 ## Known changes in this branch
+
+- **2026-08-29 — recalibrated `BIN_EMPTY_DISTANCE_CM` to the demo bin's
+  measured reading.** The 30.0f empty-distance figure below was an
+  estimate from the 2026-08-28 rescale; the actual demo bin (26cm tall,
+  HC-SR04 flush-mounted 1cm below the inner lid surface) reads 25.7cm
+  with no trash present. With the stale 30.0f baseline, an empty bin was
+  computing `(30.0 - 25.7) / (30.0 - 4.0) * 100 ~= 16.4%` instead of 0%.
+  `config.h`'s `BIN_EMPTY_DISTANCE_CM` is now `25.7f`; `BIN_FULL_DISTANCE_CM`
+  (4.0f) is unchanged. `sensors.cpp`'s `distanceToFillPct()` needed no
+  changes — same generic linear map, just a constants update.
 
 - **2026-08-28 — single ultrasonic sensor per bin.** Previously each bin
   used 2x HC-SR04 sensors, cross-checked against each other to derive
@@ -286,3 +309,26 @@ on it.
   signal is wanted again later (e.g. from a vision-model classifier),
   `estimateDensity()` and `config.h`'s baseline constants are the place to
   wire it back in.
+
+- **2026-08-28, same day — removed `estimated_density` and
+  `estimated_weight_proxy` entirely.** Supersedes the two entries directly
+  above and the `estimated_weight_proxy` entry further up this list: this
+  bin no longer estimates a density or weight proxy at all, not just the
+  button classification that used to feed it. Removed `estimateDensity()`
+  and `estimateWeightProxy()` (`sensors.h`/`.cpp`), the `DENSITY_BASELINE`/
+  `DENSITY_FILL_RATE_GAIN`/`BIN_DIAMETER_CM` constants (`config.h`), the
+  `estimated_density` field on `RawReading` (`types.h`), the density
+  `MovingAverageFilter` instance and both JSON fields in Task 2
+  (`tasks.cpp`), and the corresponding field/column/validation-bound on
+  the cloud side (`schemas.py`, `models.py`, `crud.py`, `config.py`) and
+  dashboard (both time-series charts removed, back to a single
+  full-width fill_pct chart; raw-log columns and sidebar captions
+  updated). No SQLite migration needed for this direction — removing a
+  column from the model is safe with `Base.metadata.create_all()` (it
+  only ever adds tables, never alters or drops columns), unlike adding
+  one; see `models.py`'s docstring. The bin now reports `fill_pct` and
+  `confidence_flag` only. If a density/weight signal is wanted again
+  later, `sensors.h`/`.cpp` and `config.h`'s (now-removed) PSEUDO-DENSITY
+  MODEL section are the place to rebuild it — ideally backed by an actual
+  signal (load cell, vision-model classification) rather than an
+  unbacked engineering proxy.

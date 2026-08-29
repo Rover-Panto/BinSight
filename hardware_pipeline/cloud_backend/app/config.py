@@ -25,8 +25,13 @@ class Settings:
     # Validation bounds
     FILL_PCT_MIN: float = 0.0
     FILL_PCT_MAX: float = 100.0
-    DENSITY_MIN: float = 0.0
-    DENSITY_MAX: float = 50.0  # generous upper bound for the pseudo-density proxy
+
+    # [Removed 2026-08-28] DENSITY_MIN/MAX and WEIGHT_PROXY_MIN/MAX — the
+    # firmware no longer sends estimated_density or estimated_weight_proxy
+    # at all (not just the manual button classification that used to feed
+    # the density baseline). See hardware_pipeline/README.md's "Known
+    # changes" entry for 2026-08-28 for the full removal across firmware,
+    # schema, model, and dashboard.
 
     # CORS — permissive for the local Streamlit dashboard during the
     # competition demo. Tighten to explicit origins for a real deployment.

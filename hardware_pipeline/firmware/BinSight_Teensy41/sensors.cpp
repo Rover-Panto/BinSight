@@ -51,9 +51,9 @@ float readUltrasonicCm(uint8_t trigPin, uint8_t echoPin) {
 
 // [Removed 2026-08-28] pollWasteClassification() — polled the two
 // heavy-wet/dry-recyclable buttons and tracked how long their
-// classification stayed active. See config.h's PSEUDO-DENSITY MODEL
-// section and estimateDensity() below for the single-baseline model that
-// replaced it.
+// classification stayed active. estimateDensity() and estimateWeightProxy()
+// (which used to live below this point) are gone too — see config.h's
+// PSEUDO-DENSITY MODEL removal note.
 
 bool pollCalibrationRequest() {
   btnCalibrate.update();
@@ -89,54 +89,12 @@ float distanceToFillPct(float distanceCm) {
   return pct;
 }
 
-// [Changed 2026-08-28] No longer takes a WasteTypeHint / switches on a
-// button-selected baseline — always starts from the single
-// DENSITY_BASELINE (config.h). See that file's PSEUDO-DENSITY MODEL
-// section for why the two-button classification was removed and where a
-// future real signal (e.g. a vision-model wet/dry classification) would
-// plug back in here.
-float estimateDensity(float fillRateDeltaPctPerSec) {
-  // A fast positive fill-rate delta (waste arriving quickly) nudges the
-  // estimate upward, modeling compaction/settling behavior. This is an
-  // engineering proxy, not a calibrated physical measurement — documented
-  // as such in the payload/dashboard.
-  float adjustment = DENSITY_FILL_RATE_GAIN * fmaxf(fillRateDeltaPctPerSec, 0.0f);
-  float estimate = DENSITY_BASELINE + adjustment;
-
-  return estimate < 0.0f ? 0.0f : estimate;
-}
-
-// [Added 2026-08-28] weight = density x volume, volume = cross-section
-// area x fill height.
-//
-// ⚠️ THIS IS NOT A CALIBRATED PHYSICAL WEIGHT. densityProxy is an
-// arbitrary relative unit, not kg/L (see config.h's PSEUDO-DENSITY MODEL
-// section) — there's no load cell on this hardware. Multiplying an
-// arbitrary-unit density by a real volume (cm^3) produces a number with
-// no meaningful physical unit either. Treat this strictly as a
-// relative/comparative signal — "this bin's estimated mass is trending
-// up," or "bin A > bin B right now" — never report it to a user as an
-// absolute kg figure. Named estimated_weight_proxy everywhere downstream
-// (JSON payload, cloud schema, dashboard) specifically to avoid implying
-// a real unit.
-float estimateWeightProxy(float fillPct, float densityProxy) {
-  if (fillPct < 0.0f) return -1.0f;  // propagate "invalid" upstream, same convention as distanceToFillPct()
-
-  // Fill height uses the SAME calibrated span fill_pct itself is derived
-  // from (BIN_EMPTY_DISTANCE_CM - BIN_FULL_DISTANCE_CM), not the bin's
-  // raw physical height (config.h) — keeps "100% full" meaning the same
-  // usable volume here as it already does for fill_pct.
-  float fillHeightCm = (fillPct / 100.0f) * (BIN_EMPTY_DISTANCE_CM - BIN_FULL_DISTANCE_CM);
-
-  // Assumes a round bin. For a rectangular bin, replace this with
-  // BIN_WIDTH_CM * BIN_DEPTH_CM instead (see config.h's comment on
-  // BIN_DIAMETER_CM).
-  float radiusCm = BIN_DIAMETER_CM / 2.0f;
-  float crossSectionAreaCm2 = PI * radiusCm * radiusCm;
-
-  float volumeCm3 = crossSectionAreaCm2 * fillHeightCm;
-  return densityProxy * volumeCm3;
-}
+// [Removed 2026-08-28] estimateDensity() and estimateWeightProxy() —
+// this bin no longer estimates a density or weight proxy at all (not
+// just the button classification that used to feed the density
+// baseline). See config.h's PSEUDO-DENSITY MODEL removal note for the
+// full picture and where to plug a real signal back in if this is
+// revisited later (e.g. a load cell, or a vision-model classification).
 
 // [Changed 2026-08-28] Single-sensor version — see the header comment on
 // this function's declaration in sensors.h for what's lost by no longer

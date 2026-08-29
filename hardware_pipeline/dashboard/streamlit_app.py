@@ -45,8 +45,10 @@ with st.sidebar:
     api_base = st.text_input("Cloud backend URL", value="http://localhost:8000")
     refresh_seconds = st.slider("Auto-refresh interval (s)", min_value=5, max_value=60, value=10)
     history_limit = st.slider("History window (readings per bin)", min_value=20, max_value=1000, value=200)
-    st.caption("estimated_density is a pseudo-density proxy (no physical load cell) — "
-               "treat it as relative, not an absolute kg/L measurement.")
+    # [Removed 2026-08-28] estimated_density and estimated_weight_proxy
+    # captions — both fields are gone from the payload/schema; the
+    # firmware no longer estimates either. See README.md's "Known
+    # changes" entry for 2026-08-28 for the full removal.
 
 st_autorefresh(interval=refresh_seconds * 1000, key="binsight_autorefresh")
 
@@ -142,51 +144,30 @@ for b, df in histories.items():
     if not df.empty:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
 
-col_left, col_right = st.columns(2)
-
-with col_left:
-    st.markdown("**Fill level over time**")
-    fig = go.Figure()
-    for i, b in enumerate(selected_bins):
-        df = histories[b]
-        if df.empty:
-            continue
-        color = CATEGORICAL[i % len(CATEGORICAL)]
-        fig.add_trace(go.Scatter(
-            x=df["timestamp"], y=df["fill_pct"], mode="lines", name=b,
-            line=dict(color=color, width=2),
-        ))
-    fig.update_layout(
-        yaxis_title="Fill %", yaxis_range=[0, 100],
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
-        margin=dict(l=10, r=10, t=30, b=10),
-        xaxis=dict(gridcolor=GRIDLINE, color=INK_MUTED),
-        yaxis=dict(gridcolor=GRIDLINE, color=INK_MUTED),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-with col_right:
-    st.markdown("**Estimated density (pseudo-proxy) over time**")
-    fig2 = go.Figure()
-    for i, b in enumerate(selected_bins):
-        df = histories[b]
-        if df.empty:
-            continue
-        color = CATEGORICAL[i % len(CATEGORICAL)]
-        fig2.add_trace(go.Scatter(
-            x=df["timestamp"], y=df["estimated_density"], mode="lines", name=b,
-            line=dict(color=color, width=2),
-        ))
-    fig2.update_layout(
-        yaxis_title="Estimated density (relative units)",
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
-        margin=dict(l=10, r=10, t=30, b=10),
-        xaxis=dict(gridcolor=GRIDLINE, color=INK_MUTED),
-        yaxis=dict(gridcolor=GRIDLINE, color=INK_MUTED),
-    )
-    st.plotly_chart(fig2, use_container_width=True)
+# [Changed 2026-08-28] Reverted to a single fill_pct chart, full width —
+# the estimated-density and estimated-weight-proxy charts (and the
+# 3-column layout added to fit them) are removed along with those fields.
+# See README.md's "Known changes" entry for 2026-08-28.
+st.markdown("**Fill level over time**")
+fig = go.Figure()
+for i, b in enumerate(selected_bins):
+    df = histories[b]
+    if df.empty:
+        continue
+    color = CATEGORICAL[i % len(CATEGORICAL)]
+    fig.add_trace(go.Scatter(
+        x=df["timestamp"], y=df["fill_pct"], mode="lines", name=b,
+        line=dict(color=color, width=2),
+    ))
+fig.update_layout(
+    yaxis_title="Fill %", yaxis_range=[0, 100],
+    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    margin=dict(l=10, r=10, t=30, b=10),
+    xaxis=dict(gridcolor=GRIDLINE, color=INK_MUTED),
+    yaxis=dict(gridcolor=GRIDLINE, color=INK_MUTED),
+)
+st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
@@ -199,11 +180,13 @@ raw = pd.DataFrame(fetch_history(api_base, log_bin, history_limit))
 if not raw.empty:
     raw = raw.sort_values("timestamp", ascending=False).reset_index(drop=True)
     raw["Confidence"] = raw["confidence_flag"].map({1: "✅ Good", 0: "⚠️ Low"})
-    display_cols = ["timestamp", "bin_id", "fill_pct", "estimated_density", "Confidence", "ingested_at"]
+    # [Removed 2026-08-28] estimated_density / estimated_weight_proxy
+    # columns — both fields are gone from the payload/schema.
+    display_cols = ["timestamp", "bin_id", "fill_pct", "Confidence", "ingested_at"]
     st.dataframe(
         raw[display_cols].rename(columns={
             "timestamp": "Sensor timestamp", "bin_id": "Bin",
-            "fill_pct": "Fill %", "estimated_density": "Est. density", "ingested_at": "Ingested at",
+            "fill_pct": "Fill %", "ingested_at": "Ingested at",
         }),
         use_container_width=True, height=400,
     )

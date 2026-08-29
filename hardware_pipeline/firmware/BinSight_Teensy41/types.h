@@ -13,9 +13,10 @@
 
 // [Removed 2026-08-28] WasteTypeHint enum (WASTE_UNCLASSIFIED / WASTE_HEAVY_WET /
 // WASTE_DRY_RECYCLABLE) — was the manual button-injected classification
-// used to pick a density baseline; see config.h's PSEUDO-DENSITY MODEL
-// section and sensors.cpp's estimateDensity() for the single-baseline
-// model that replaced it.
+// used to pick a density baseline. [Also removed 2026-08-28] the density
+// estimate itself, and the weight-proxy computed from it — this bin no
+// longer reports either. See config.h's PSEUDO-DENSITY MODEL removal
+// note for the full picture.
 
 // Output of Task 1 (Sensing). One per acquisition cycle.
 //
@@ -29,11 +30,15 @@
 //
 // [Removed 2026-08-28] waste_hint field — carried the button-injected
 // WasteTypeHint above; removed along with it.
+//
+// [Removed 2026-08-28] estimated_density field — the pseudo-density proxy
+// (and estimated_weight_proxy, computed from it) is removed entirely, not
+// just the button classification that used to feed it. See config.h's
+// PSEUDO-DENSITY MODEL removal note for the full picture.
 struct RawReading {
   uint32_t     millis_timestamp;   // millis() at capture, converted to epoch later
   float        us1_distance_cm;    // -1.0f if timed out / invalid
   float        fill_pct_raw;       // derived from us1, before filtering
-  float        estimated_density;  // pseudo-density proxy, before filtering
   uint8_t      confidence_flag;    // 1 = valid in-range reading, 0 = timed out / out of range
 };
 

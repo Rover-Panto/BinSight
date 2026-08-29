@@ -126,11 +126,16 @@ close, but don't run the script yet.
 > you can leave them wired (harmless, just unused) or remove them.
 
 > **[Changed 2026-08-28]** The two manual waste-type buttons (Heavy/Wet,
-> Dry/Recyclable) are gone too — the firmware no longer reads pins 6/7 or
-> uses them to bias the density estimate (see `config.h`'s PSEUDO-DENSITY
-> MODEL comment). Only the Calibrate/Reset button (pin 8) remains. If
-> you already wired the two removed buttons, they're just unused now —
-> safe to leave in place or remove.
+> Dry/Recyclable) are gone too — the firmware no longer reads pins 6/7.
+> Only the Calibrate/Reset button (pin 8) remains. If you already wired
+> the two removed buttons, they're just unused now — safe to leave in
+> place or remove.
+
+> **[Changed 2026-08-28, same day]** The density and weight-proxy
+> estimates are gone entirely now too, not just the button classification
+> that used to bias them — this bin reports `fill_pct` and
+> `confidence_flag` only. See `README.md`'s "Known changes" section for
+> the full removal.
 
 From your kit: Teensy 4.1, 1x HC-SR04 ultrasonic sensor, 1x push button
 (Calibrate/Reset), breadboard, jumper wires (mostly male-male).
@@ -223,14 +228,15 @@ Bin ID: bin_01
 Initializing serial-bridge transport...
 Serial-bridge transport ready — run tools/serial_bridge.py on the host.
 Starting scheduler — control now passes to RTOS tasks.
-[Task1] US1=45.2cm fill=48.4% density=1.20 conf=1
-[Task1] US1=45.1cm fill=48.6% density=1.20 conf=1
+[Task1] US1=45.2cm fill=48.4% conf=1
+[Task1] US1=45.1cm fill=48.6% conf=1
 ...
 ```
 
-> [Changed 2026-08-28] The debug line no longer prints a `hint=` field —
-> see the button removal note above. If you're comparing against an older
-> firmware build's output, that's the only line-format difference.
+> [Changed 2026-08-28] The debug line no longer prints `hint=` or
+> `density=` fields — see the button removal note and the density/
+> weight-proxy removal note above. If you're comparing against an older
+> firmware build's output, that's the line-format difference.
 
 Work through this checklist:
 
@@ -269,7 +275,7 @@ from Part A. Add two more steps:
    ```
    You should see `[teensy]` boot messages followed by `[frame] {...}` lines and `-> stored bin=bin_01 fill=...` acknowledgments.
 
-4. **Check the dashboard** (already open at http://localhost:8501) — it should now show `bin_01` with a live fill % metric, an overflow-risk badge, and the fill/density charts updating on each refresh.
+4. **Check the dashboard** (already open at http://localhost:8501) — it should now show `bin_01` with a live fill % metric, an overflow-risk badge, and the fill chart updating on each refresh. **[Changed 2026-08-28]** The density chart is gone — see `README.md`'s "Known changes" section.
 
 If a step doesn't work, the fix is almost always in this order: is the
 backend terminal (#1) still running and showing no errors → is the bridge

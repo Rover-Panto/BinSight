@@ -2,8 +2,13 @@
 /*
  * filters.h — local sanity/moving-average filtering used by Task 2.
  *
- * Two independent filter stages, applied to fill_pct and estimated_density
- * separately:
+ * [Changed 2026-08-28] Previously applied to both fill_pct and
+ * estimated_density (two separate instances). estimated_density is
+ * removed (see config.h's PSEUDO-DENSITY MODEL removal note), so only the
+ * fill_pct instance remains — the class itself is unchanged and generic,
+ * usable for any single float stream.
+ *
+ * Two filter stages, applied to fill_pct:
  *   1. Sanity clamp — rejects a single-sample jump bigger than physically
  *      plausible (e.g. an ultrasonic multi-path glitch), substituting the
  *      previous accepted value instead of forwarding a spike. A jump that

@@ -25,8 +25,9 @@ def create_reading(db: Session, payload: schemas.IngestionPayload) -> tuple[mode
         timestamp=payload.timestamp,
         bin_id=payload.bin_id,
         fill_pct=payload.fill_pct,
-        estimated_density=payload.estimated_density,
         confidence_flag=payload.confidence_flag,
+        # [Removed 2026-08-28] estimated_density / estimated_weight_proxy
+        # — both fields are gone from the payload and the model.
     )
     db.add(row)
     db.commit()

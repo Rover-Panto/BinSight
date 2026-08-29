@@ -33,11 +33,11 @@
 
 // Push button — bin re-calibration only.
 // [Removed 2026-08-28] The two manual waste-type buttons (heavy/wet on
-// pin 6, dry/recyclable on pin 7) and the density baseline they drove are
-// gone — see the PSEUDO-DENSITY MODEL section below for why, and
-// sensors.cpp/estimateDensity() for the resulting single-baseline model.
-// Pins 6 and 7 are now free for other use (e.g. a future vision-model
-// wet/dry signal, if that's how that gets wired in).
+// pin 6, dry/recyclable on pin 7) are gone. [Also removed 2026-08-28,
+// same day] the density/weight-proxy estimate they used to bias is gone
+// entirely too, not just their button input — see the PSEUDO-DENSITY
+// MODEL section below. Pins 6 and 7 are now free for other use (e.g. a
+// future vision-model wet/dry signal, if that's how that gets wired in).
 #define BTN_CALIBRATE_RESET_PIN   8   // long-press: re-zero "empty bin" baseline
 
 // Status LED (onboard or external) — reflects overall system health.
@@ -58,44 +58,35 @@
 // re-tuning bin geometry is always just a constants change here.
 // Re-measure and update both values for any different physical bin;
 // don't assume they transfer.
-#define BIN_EMPTY_DISTANCE_CM     30.0f   // ultrasonic distance reading when bin is empty
+//
+// [Recalibrated 2026-08-29] The 30.0f empty-distance figure above was an
+// estimate; the real demo bin (26cm tall, sensor flush-mounted 1cm below
+// the inner lid surface) actually reads 25.7cm with no trash present.
+// With the stale 30.0f baseline, an empty bin was computing to a false
+// (30.0 - 25.7) / (30.0 - 4.0) * 100 ~= 16.4% instead of 0%. Updated to
+// the measured value so an empty bin now reports 0% as expected.
+#define BIN_EMPTY_DISTANCE_CM     25.7f   // ultrasonic distance reading when bin is empty (measured, 2026-08-29)
 #define BIN_FULL_DISTANCE_CM      4.0f    // ultrasonic distance reading when bin is full to the brim
 #define US_VALID_MIN_CM           2.0f    // HC-SR04 datasheet minimum
 #define US_VALID_MAX_CM           400.0f  // HC-SR04 datasheet maximum
 
-// [Added 2026-08-28] Bin cross-section, used only by estimateWeightProxy()
-// in sensors.cpp to convert the sensed fill height into a volume for the
-// weight-proxy estimate. Measured bin: round, 22cm diameter, ~35cm total
-// physical height. Assumes a ROUND bin (area = pi * r^2) — if your bin is
-// rectangular, change the area formula in estimateWeightProxy() to
-// width * depth instead, and swap this for BIN_WIDTH_CM/BIN_DEPTH_CM.
-//
-// Note the 35cm total physical height is intentionally NOT used for the
-// fill-height-to-volume conversion — that reuses BIN_EMPTY_DISTANCE_CM /
-// BIN_FULL_DISTANCE_CM above (the sensor's own calibrated span, currently
-// 30cm/4cm -> 26cm of usable range) so "100% full" means the same thing
-// for the weight estimate as it already does for fill_pct, rather than
-// introducing a second height reference that could quietly disagree with
-// the first.
-#define BIN_DIAMETER_CM           22.0f
+// [Removed 2026-08-28] BIN_DIAMETER_CM — existed only to convert fill
+// height into a volume for estimateWeightProxy(). Removed along with the
+// entire PSEUDO-DENSITY MODEL section below; see the README's "Known
+// changes" entry for 2026-08-28 (density + weight-proxy removal).
 
 // ============================================================
-// PSEUDO-DENSITY MODEL
+// [Removed 2026-08-28] PSEUDO-DENSITY MODEL
 // ============================================================
-// Baseline "density" units are an arbitrary relative scale (NOT kg/L —
-// clearly labeled as an estimate/proxy throughout, since there is no load
-// cell). Fast fill-rate deltas nudge the baseline upward, simulating
-// compaction / heavy waste arriving quickly.
-//
-// [Removed 2026-08-28] The manual heavy-wet / dry-recyclable button
-// classification (and its two separate baselines) is gone — estimateDensity()
-// now always starts from the single DENSITY_BASELINE below rather than
-// picking a baseline by button-injected waste type. If/when a real signal
-// (e.g. a vision-model wet/dry classification) replaces this, wire its
-// output back into estimateDensity() the same way the button hint used to
-// feed it, rather than re-adding buttons.
-#define DENSITY_BASELINE                1.2f
-#define DENSITY_FILL_RATE_GAIN          0.08f   // scales %/s fill-rate delta into the estimate
+// This entire section (DENSITY_BASELINE, DENSITY_FILL_RATE_GAIN) is gone —
+// estimated_density and the estimated_weight_proxy computed from it have
+// been removed from the firmware, cloud schema/model, and dashboard. The
+// bin now reports fill_pct and confidence_flag only. See README.md's
+// "Known changes" section for the full removal (and sensors.h/.cpp,
+// tasks.cpp, and cloud_backend/app/{schemas,models,crud,config}.py for
+// where the code used to live) if this needs to be reintroduced later —
+// e.g. once a real signal (load cell, vision-model classification) exists
+// to back it, rather than an unbacked engineering proxy.
 
 // ============================================================
 // RTOS TASK PRIORITIES  (higher number == higher priority)
@@ -106,7 +97,20 @@
 
 // Stack sizes (words, not bytes, per FreeRTOS convention)
 #define TASK_SENSE_STACK_WORDS   256
-#define TASK_FILTER_STACK_WORDS  384   // ArduinoJson serialization needs headroom
+// [Fixed 2026-08-28] Bumped from 384 -> 512. The Filter task was hitting a
+// genuine stack overflow on real hardware (Serial Monitor: "stack
+// overflow: Filter"), most likely from ArduinoJson's StaticJsonDocument
+// plus the full 256-byte PackagedReading::json buffer plus several
+// Arduino String temporaries all live on this task's stack at once — a
+// margin that got tighter each time a field was added to the payload
+// (most recently estimated_weight_proxy). Since estimated_density and
+// estimated_weight_proxy are removed as of this same change (see the
+// PSEUDO-DENSITY MODEL removal above), the payload is smaller again and
+// the String temporaries in Task2 have been replaced with fixed char
+// buffers + snprintf (see tasks.cpp) — 512 is deliberately generous
+// headroom on top of that, not a minimum. Teensy 4.1 has 1MB of RAM, so
+// this costs nothing meaningful.
+#define TASK_FILTER_STACK_WORDS  512
 #define TASK_COMM_STACK_WORDS    768   // TLS/HTTP client needs the most headroom
 
 // Task periods
@@ -121,7 +125,10 @@
 // ============================================================
 // FILTERING
 // ============================================================
-#define MOVING_AVERAGE_WINDOW      5    // samples, applied to fill_pct and density
+// [Changed 2026-08-28] "and density" removed from this comment — the
+// density filter/field is gone, see the PSEUDO-DENSITY MODEL removal note
+// above. MOVING_AVERAGE_WINDOW now applies to fill_pct only.
+#define MOVING_AVERAGE_WINDOW      5    // samples, applied to fill_pct
 #define MAX_FILL_PCT_JUMP_PER_SAMPLE 25.0f // sanity clamp: reject implausible single-sample jumps
 
 // ============================================================

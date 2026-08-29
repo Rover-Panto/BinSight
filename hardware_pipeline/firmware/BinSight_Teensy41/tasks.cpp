@@ -43,8 +43,10 @@ void Task1_Sensing(void *pvParameters) {
   (void)pvParameters;
   TickType_t lastWake = xTaskGetTickCount();
 
-  float lastFillPct = -1.0f;
-  uint32_t lastSampleMs = millis();
+  // [Removed 2026-08-28] lastFillPct / lastSampleMs — these only existed
+  // to compute a fill-rate delta for estimateDensity(), which is gone
+  // (see config.h's PSEUDO-DENSITY MODEL removal note). Nothing else in
+  // Task 1 needs them.
 
   for (;;) {
     // [Changed 2026-08-28] Single ultrasonic sensor per bin now — the
@@ -57,32 +59,24 @@ void Task1_Sensing(void *pvParameters) {
 
     uint8_t confidence = Sensors::computeConfidenceFlag(us1);
     float fillPct = Sensors::distanceToFillPct(us1);
-
     uint32_t now = millis();
-    float elapsedSec = (now - lastSampleMs) / 1000.0f;
-    float fillRateDelta = 0.0f;
-    if (lastFillPct >= 0.0f && fillPct >= 0.0f && elapsedSec > 0.0f) {
-      fillRateDelta = (fillPct - lastFillPct) / elapsedSec;
-    }
 
     // [Removed 2026-08-28] WasteTypeHint hint = Sensors::pollWasteClassification()
-    // — the two manual waste-type buttons are gone; estimateDensity() now
-    // takes just the fill-rate delta. See config.h's PSEUDO-DENSITY MODEL
-    // section.
-    float density = Sensors::estimateDensity(fillRateDelta);
+    // and float density = Sensors::estimateDensity(...) — this bin no
+    // longer estimates a density (or weight) proxy at all. See config.h's
+    // PSEUDO-DENSITY MODEL removal note.
 
 #if DEBUG_SERIAL_PRINTS
     // Verbose per-sample bring-up/testing output. Written through the
     // shared serial mutex so it never interleaves with Task 3's framed
     // BINSIGHT: lines. Safe to leave on for the demo (set to 0 in
     // config.h to silence it once wiring is validated).
+    // [Removed 2026-08-28] "density=" and "hint=" fields — both gone,
+    // see above.
     if (xSemaphoreTake(g_serialMutex, 0) == pdTRUE) {
       Serial.print("[Task1] US1=");  Serial.print(us1, 1);
       Serial.print("cm fill=");        Serial.print(fillPct, 1);
-      Serial.print("% density=");       Serial.print(density, 2);
-      // [Removed 2026-08-28] " hint=" field — no more button-injected
-      // waste-type classification to print.
-      Serial.print(" conf=");            Serial.println(confidence);
+      Serial.print("% conf=");           Serial.println(confidence);
       xSemaphoreGive(g_serialMutex);
     }
 #endif
@@ -100,10 +94,9 @@ void Task1_Sensing(void *pvParameters) {
     // [Removed 2026-08-28] reading.us2_distance_cm — field no longer
     // exists on RawReading (types.h), single-sensor now.
     reading.fill_pct_raw      = fillPct;
-    reading.estimated_density = density;
     reading.confidence_flag   = confidence;
-    // [Removed 2026-08-28] reading.waste_hint — field no longer exists on
-    // RawReading (types.h), button classification removed.
+    // [Removed 2026-08-28] reading.waste_hint and reading.estimated_density
+    // — neither field exists on RawReading (types.h) any more.
 
     // Non-blocking send: if Task 2 has fallen behind and the queue is
     // full, drop the oldest raw sample rather than ever blocking Task 1.
@@ -114,9 +107,6 @@ void Task1_Sensing(void *pvParameters) {
     }
 
     digitalWrite(STATUS_LED_PIN, confidence ? arduino::HIGH : arduino::LOW);
-
-    if (fillPct >= 0.0f) lastFillPct = fillPct;
-    lastSampleMs = now;
 
     vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(TASK_SENSE_PERIOD_MS));
   }
@@ -135,7 +125,9 @@ void Task2_FilterAndPackage(void *pvParameters) {
   TickType_t lastWake = xTaskGetTickCount();
 
   MovingAverageFilter fillFilter;
-  MovingAverageFilter densityFilter;
+  // [Removed 2026-08-28] MovingAverageFilter densityFilter — no more
+  // estimated_density to filter. See config.h's PSEUDO-DENSITY MODEL
+  // removal note.
   uint32_t sequenceId = 0;
 
   for (;;) {
@@ -154,15 +146,9 @@ void Task2_FilterAndPackage(void *pvParameters) {
       float smoothedFill = (raw.fill_pct_raw >= 0.0f)
           ? fillFilter.process(raw.fill_pct_raw, MAX_FILL_PCT_JUMP_PER_SAMPLE)
           : fillFilter.lastOutput();  // hold last good value (no fabricated sample)
-      float smoothedDensity = densityFilter.process(raw.estimated_density, 5.0f);
-
-      // [Added 2026-08-28] Weight PROXY from the smoothed fill % and
-      // density proxy — computed from the already-filtered values above
-      // (not raw.*) so it benefits from the same jump-rejection/holding
-      // behavior as fill_pct and estimated_density. See the loud
-      // disclaimer on estimateWeightProxy() in sensors.cpp: this is a
-      // relative signal, NOT a calibrated kg figure.
-      float weightProxy = Sensors::estimateWeightProxy(smoothedFill, smoothedDensity);
+      // [Removed 2026-08-28] smoothedDensity / weightProxy — estimated_density
+      // and estimated_weight_proxy are both gone. See config.h's
+      // PSEUDO-DENSITY MODEL removal note for the full picture.
 
       // Wall-clock timestamp: TimeLib's now() must be synced at boot
       // (e.g. via NTP once the network is up, or a battery-backed RTC —
@@ -172,17 +158,29 @@ void Task2_FilterAndPackage(void *pvParameters) {
       snprintf(timestampBuf, sizeof(timestampBuf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
                year(), month(), day(), hour(), minute(), second());
 
-      // [Changed 2026-08-28] Added estimated_weight_proxy. Still well
-      // within StaticJsonDocument<256>/PackagedReading::json[256] — a
-      // fully-populated line with all 6 fields is ~165 bytes. Re-check
-      // this budget if more fields get added later.
+      // [Removed 2026-08-28] estimated_density / estimated_weight_proxy
+      // fields — both gone from the payload. See config.h's
+      // PSEUDO-DENSITY MODEL removal note.
+      //
+      // [Fixed 2026-08-28] fill_pct now goes through a fixed char buffer +
+      // snprintf instead of Arduino's String class. This was one of the
+      // contributors to Task 2 ("Filter") overflowing its stack on real
+      // hardware — each String(...) temporary pulls in String's
+      // heap-allocating float-formatting path, which is both slower and
+      // less deterministic than a fixed buffer inside an RTOS task, and
+      // adds meaningfully to peak stack usage when several are live at
+      // once (this payload used to build three of them). snprintf's
+      // "%.1f" output is byte-identical to String(float, 1), so this is a
+      // behavior-preserving swap. See config.h's TASK_FILTER_STACK_WORDS
+      // comment for the rest of the stack-overflow fix.
+      char fillPctBuf[12];
+      snprintf(fillPctBuf, sizeof(fillPctBuf), "%.1f", smoothedFill);
+
       StaticJsonDocument<256> doc;
-      doc["timestamp"]              = timestampBuf;
-      doc["bin_id"]                  = BIN_ID;
-      doc["fill_pct"]                = serialized(String(smoothedFill, 1));
-      doc["estimated_density"]       = serialized(String(smoothedDensity, 2));
-      doc["confidence_flag"]         = raw.confidence_flag;
-      doc["estimated_weight_proxy"]  = serialized(String(weightProxy, 2));
+      doc["timestamp"]        = timestampBuf;
+      doc["bin_id"]            = BIN_ID;
+      doc["fill_pct"]          = serialized(fillPctBuf);
+      doc["confidence_flag"]   = raw.confidence_flag;
 
       PackagedReading packet{};
       packet.length = serializeJson(doc, packet.json, sizeof(packet.json));

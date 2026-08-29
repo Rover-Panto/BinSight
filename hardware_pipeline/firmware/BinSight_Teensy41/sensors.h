@@ -1,10 +1,9 @@
 #pragma once
 /*
  * sensors.h — low-level acquisition for the ultrasonic sensor and the
- * calibration push button, plus the pseudo-density estimator. Called
- * exclusively from Task 1 (Sensing), which owns this hardware — no other
- * task should touch these pins, so no mutex is needed around the reads
- * themselves.
+ * calibration push button. Called exclusively from Task 1 (Sensing),
+ * which owns this hardware — no other task should touch these pins, so
+ * no mutex is needed around the reads themselves.
  *
  * [Changed 2026-08-28] Previously 2x ultrasonic sensors, cross-checked
  * against each other to derive confidence_flag. Now a single sensor per
@@ -12,9 +11,14 @@
  * without a second sensor to compare against.
  *
  * [Removed 2026-08-28] The 2 manual waste-type classification buttons
- * (heavy/wet, dry/recyclable) and pollWasteClassification() are gone —
- * estimateDensity() below no longer takes a classification hint, only the
- * calibrate/reset button remains.
+ * (heavy/wet, dry/recyclable) and pollWasteClassification() are gone.
+ *
+ * [Removed 2026-08-28] estimateDensity() and estimateWeightProxy() are
+ * gone too — not just their button input. This bin no longer reports a
+ * density or weight estimate at all; fill_pct and confidence_flag are the
+ * only sensed values now. See config.h's PSEUDO-DENSITY MODEL removal
+ * note for the full picture, including where to plug a real signal back
+ * in if this is revisited later.
  */
 
 #include <Arduino.h>
@@ -36,23 +40,6 @@ bool pollCalibrationRequest();
 // Converts a raw distance reading into a fill percentage using the
 // configured empty/full calibration distances. Clamped to [0, 100].
 float distanceToFillPct(float distanceCm);
-
-// Computes the pseudo-density proxy from the fill-rate delta (%/s), starting
-// from a single fixed baseline (config.h's DENSITY_BASELINE). This is the
-// documented workaround for not having a physical load cell.
-// [Changed 2026-08-28] No longer takes a WasteTypeHint — the manual
-// button classification it used to switch on is gone (see config.h's
-// PSEUDO-DENSITY MODEL section).
-float estimateDensity(float fillRateDeltaPctPerSec);
-
-// [Added 2026-08-28] Estimates a relative WEIGHT PROXY from the current
-// fill percentage and the pseudo-density proxy (weight = density x
-// volume, volume derived from fill height x bin cross-section). This is
-// NOT a calibrated physical weight — see the loud disclaimer on the
-// definition in sensors.cpp before using this for anything beyond a
-// relative/comparative signal (e.g. "trending up", "bin A > bin B").
-// Returns -1.0f if fillPct is itself invalid (propagated from upstream).
-float estimateWeightProxy(float fillPct, float densityProxy);
 
 // [Changed 2026-08-28] Was a two-sensor cross-check (computeConfidenceFlag
 // (us1, us2)); with a single sensor there's nothing left to cross-check
