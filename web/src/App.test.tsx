@@ -39,8 +39,8 @@ describe('BinSight frontend', () => {
     const user = userEvent.setup()
     renderApp('/return/BS-TEST')
     await user.click(screen.getAllByRole('button', { name: /^add item$/i })[0])
-    expect(await screen.findByRole('heading', { name: /barcode could not be read/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /add another item/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /please remove this item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /insert another item/i })).toBeInTheDocument()
     expect(screen.getAllByText('RM0.00').length).toBeGreaterThan(0)
   })
 

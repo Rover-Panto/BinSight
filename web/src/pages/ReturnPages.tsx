@@ -141,8 +141,8 @@ export function ReturnSessionPage() {
       {!inspecting && latest?.result === 'rejected' && (
         <section className="result-panel rejected" aria-live="assertive">
           <span className="result-icon"><X /></span>
-          <div><span className="eyebrow">Item not accepted</span><h2>{latest.reason}</h2><p>No item or payout value was added. Remove the container before continuing.</p></div>
-          <div className="result-actions"><button className="button primary" type="button" onClick={inspectItem}><Plus /> Add another item</button>{recoverable && <button className="button secondary" type="button" onClick={() => retryItem(session.id, latest.type)}><Redo2 /> Try this item again</button>}{acceptedEvents.length > 0 && <button className="text-button" type="button" onClick={finish}>Finish return</button>}</div>
+          <div><span className="eyebrow">Item not accepted</span><h2>Please remove this item</h2><p>Insert a different eligible can or bottle to continue. This item did not add any value to your payout.</p></div>
+          <div className="result-actions"><button className="button primary" type="button" onClick={inspectItem}><Plus /> Insert another item</button>{recoverable && <button className="button secondary" type="button" onClick={() => retryItem(session.id, latest.type)}><Redo2 /> Check this item again</button>}{acceptedEvents.length > 0 && <button className="text-button" type="button" onClick={finish}>Finish return</button>}</div>
         </section>
       )}
 

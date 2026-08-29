@@ -53,7 +53,7 @@ The citizen places one empty container into the station. The screen shows that i
 
 ### 4. See an immediate result
 
-An accepted container adds **RM0.20** to the session total. A rejected container adds **RM0.00**, gives a short reason and asks the citizen to remove it. In both cases, **Add another item** remains available. A recoverable read problem may offer one retry.
+An accepted container adds **RM0.20** to the session total. For a rejected container, the portal shows **Item not accepted**, asks the citizen to remove it and invites them to **Insert another item**. The technical rejection reason remains in the session record for diagnostics rather than being used as the main citizen-facing message. A recoverable read problem may offer one retry.
 
 **Why:** immediate item-level feedback makes the balance understandable, avoids silently rejecting a container and lets the citizen continue after a mistake.
 

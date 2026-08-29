@@ -66,7 +66,7 @@ Do not write admin fixtures or route simulation output to the citizen key. Follo
 
 ### Return
 
-The resident starts a session and inserts one container at a time. The station determines the simulated item type and accepted or rejected result. Accepted items add RM0.20. The resident then chooses Bank Transfer or E-Wallet and receives a simulated receipt.
+The resident starts a session and inserts one container at a time. The station determines the simulated item type and accepted or rejected result. Accepted items add RM0.20. A rejection asks the resident to remove the item and insert a different eligible can or bottle, while the technical reason stays in the session record. The resident then chooses Bank Transfer or E-Wallet and receives a simulated receipt.
 
 Use [the citizen return experience](CITIZEN_RETURN_EXPERIENCE.md) as the product brief for this workflow. It defines the deposit explanation, station handoff, accept/reject feedback, running refund, payout, confirmation wording and benefit case. Keep reports, disposal guidance and support services available, but do not let them interrupt the reward loop during the return demonstration.
 
